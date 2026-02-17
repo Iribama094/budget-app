@@ -87,6 +87,9 @@ export async function createTransaction(input: {
   category: string;
   description: string;
   occurredAt: string;
+  budgetId?: string | number | null;
+  budgetCategory?: string | null;
+  miniBudget?: string | null;
 }): Promise<ApiTransaction> {
   const data = await apiFetch('/v1/transactions', { method: 'POST', body: JSON.stringify(input) });
   return (data as any).transaction as ApiTransaction;
@@ -143,6 +146,16 @@ export type ApiBudget = {
   updatedAt: string;
 };
 
+export type ApiMiniBudget = {
+  id: string;
+  budgetId: string;
+  name: string;
+  amount: number;
+  category?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export async function listBudgets(params?: { start?: string; end?: string }): Promise<{ items: ApiBudget[] }> {
   const qs = new URLSearchParams();
   if (params?.start) qs.set('start', params.start);
@@ -150,6 +163,16 @@ export async function listBudgets(params?: { start?: string; end?: string }): Pr
   const suffix = qs.toString() ? `?${qs.toString()}` : '';
   const data = await apiFetch(`/v1/budgets${suffix}`, { method: 'GET' });
   return data as any;
+}
+
+export async function listMiniBudgets(budgetId: string): Promise<{ items: ApiMiniBudget[] }> {
+  const data = await apiFetch(`/v1/budgets/${encodeURIComponent(budgetId)}/mini-budgets`, { method: 'GET' });
+  return data as any;
+}
+
+export async function createMiniBudget(budgetId: string, input: { name: string; amount: number; category?: string }): Promise<ApiMiniBudget> {
+  const data = await apiFetch(`/v1/budgets/${encodeURIComponent(budgetId)}/mini-budgets`, { method: 'POST', body: JSON.stringify(input) });
+  return (data as any).miniBudget as ApiMiniBudget;
 }
 
 export async function createBudget(input: {
@@ -160,6 +183,11 @@ export async function createBudget(input: {
   categories: Record<string, { budgeted: number }>;
 }): Promise<ApiBudget> {
   const data = await apiFetch('/v1/budgets', { method: 'POST', body: JSON.stringify(input) });
+  return (data as any).budget as ApiBudget;
+}
+
+export async function patchBudget(id: string, patch: Partial<{ name: string; totalBudget: number; period: 'monthly' | 'weekly'; startDate: string; categories: Record<string, { budgeted: number }>; endDate?: string }>): Promise<ApiBudget> {
+  const data = await apiFetch(`/v1/budgets/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) });
   return (data as any).budget as ApiBudget;
 }
 
@@ -175,4 +203,46 @@ export async function getAnalyticsSummary(start: string, end: string): Promise<A
   const qs = new URLSearchParams({ start, end });
   const data = await apiFetch(`/v1/analytics/summary?${qs.toString()}`, { method: 'GET' });
   return data as AnalyticsSummary;
+}
+
+export interface AssistantChatResponse {
+  reply: string;
+}
+
+export async function assistantChat(message: string, context?: any): Promise<AssistantChatResponse> {
+  const data = await apiFetch('/v1/assistant/chat', {
+    method: 'POST',
+    body: JSON.stringify({ message, context })
+  });
+  return (data as AssistantChatResponse) || { reply: 'Sorry, no reply available.' };
+}
+
+export type ApiBankAccount = {
+  id: string;
+  bankLinkId: string;
+  name: string;
+  mask: string;
+  type: string;
+  currency: string;
+};
+
+export type ApiBankLink = {
+  id: string;
+  provider: string;
+  bankName: string;
+  createdAt: string;
+  accounts: ApiBankAccount[];
+};
+
+export async function listBankLinks(): Promise<{ items: ApiBankLink[] }> {
+  const data = await apiFetch('/v1/bank-links', { method: 'GET' });
+  return data as any;
+}
+
+export async function createBankLink(input: { provider: string; bankName?: string; userName?: string; email?: string; phone?: string }): Promise<ApiBankLink> {
+  const data = await apiFetch('/v1/bank-links', {
+    method: 'POST',
+    body: JSON.stringify(input)
+  });
+  return (data as any).link as ApiBankLink;
 }

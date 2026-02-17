@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { PlusIcon } from 'lucide-react';
 import { BudgetRing } from './BudgetRing';
@@ -11,15 +11,16 @@ import { Goals } from './Goals';
 import { ProfileSettings } from './ProfileSettings';
 import { BottomNavigation } from '../Navigation/BottomNavigation';
 import { TransactionHistory } from './TransactionHistory';
-import { getAnalyticsSummary, listGoals, listTransactions } from '../../utils/api/endpoints';
+import { getAnalyticsSummary, listBudgets, listGoals, listTransactions } from '../../utils/api/endpoints';
 import { useAuth } from '../../contexts/AuthContext';
 
 
 
 export const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [currentScreen, setCurrentScreen] = useState<'dashboard' | 'budget' | 'analytics' | 'goals' | 'profile' | 'transactions'>('dashboard');
+  const [budgets, setBudgets] = useState<Array<{ id: string; name: string }>>([]);
   const [financialData, setFinancialData] = useState({
     totalBalance: 0,
     monthlyIncome: 0,
@@ -36,6 +37,18 @@ export const Dashboard = () => {
   const [userGoals, setUserGoals] = useState<
     Array<{ id: string; name: string; targetAmount: number; currentAmount: number; targetDate: string; emoji: string; color: string; category: string }>
   >([]);
+
+  const ONBOARDING_SEEN_KEY = 'bf_onboarding_seen_v1';
+
+  const handleRestartIntro = () => {
+    try {
+      localStorage.removeItem(ONBOARDING_SEEN_KEY);
+    } catch {
+      // ignore
+    }
+    logout();
+    window.location.reload();
+  };
 
   // Get time-aware greeting
   const getTimeBasedGreeting = () => {
@@ -109,6 +122,9 @@ export const Dashboard = () => {
           category: g.category ?? 'Other'
         }))
     );
+    // load budgets separately
+    const b = await listBudgets();
+    setBudgets((b.items || []).map((bb: any) => ({ id: bb.id, name: bb.name })));
   };
 
   useEffect(() => {
@@ -236,6 +252,7 @@ export const Dashboard = () => {
                 Ready to manage your budget?
               </motion.p>
             </div>
+            {/* Profile icon and (optional) test-only restart intro */}
             <motion.div
               className="w-12 h-12 bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-2xl flex items-center justify-center cursor-pointer shadow-soft border border-white/20"
               whileTap={{ scale: 0.95 }}
@@ -249,6 +266,13 @@ export const Dashboard = () => {
                 {(user?.name || user?.email || 'U').slice(0, 1).toUpperCase()}
               </span>
             </motion.div>
+            <button
+              type="button"
+              onClick={handleRestartIntro}
+              className="ml-3 px-3 py-1 text-xs font-semibold rounded-full bg-white/80 text-gray-700 shadow-sm border border-white/60 hover:bg-white"
+            >
+              Restart intro
+            </button>
           </div>
 
           {/* Weekly Challenge & Streak */}
@@ -316,6 +340,36 @@ export const Dashboard = () => {
               total={financialData.monthlyBudget}
               currency="₦"
             />
+          </div>
+
+          {/* Your Budgets Section */}
+          <div className="mt-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm border border-white/20 dark:border-gray-700/20">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Your Budgets</h3>
+              <button
+                className="flex items-center gap-2 text-primary-600 hover:text-primary-700"
+                onClick={() => setCurrentScreen('budget')}
+              >
+                <PlusIcon className="w-4 h-4" />
+                New
+              </button>
+            </div>
+
+            {budgets.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p className="text-sm">No budgets yet</p>
+                <p className="text-xs mt-1">Tap the + button to create your first budget.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {budgets.map((b) => (
+                  <div key={b.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="font-medium text-gray-800">{b.name}</div>
+                    <button className="text-primary-600" onClick={() => setCurrentScreen('budget')}>Edit</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Financial Health Score */}

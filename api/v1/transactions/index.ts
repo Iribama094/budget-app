@@ -10,8 +10,14 @@ const CreateSchema = z.object({
   type: z.enum(['income', 'expense']),
   amount: z.number().finite().positive(),
   category: z.string().min(1).max(60),
-  description: z.string().min(1).max(120),
-  occurredAt: z.string().datetime()
+  // Mobile UI treats description as optional.
+  description: z.string().max(120).optional().default(''),
+  occurredAt: z.string().datetime(),
+  budgetId: z.string().min(1).max(120).optional(),
+  budgetCategory: z.string().min(1).max(60).optional(),
+  miniBudgetId: z.string().min(1).max(120).optional(),
+  miniBudget: z.string().min(1).max(120).optional(),
+  spaceId: z.enum(['personal', 'business']).optional()
 });
 
 function encodeCursor(doc: { occurredAt: Date; id: string }): string {
@@ -31,11 +37,11 @@ function decodeCursor(raw: string): { t: Date; id: string } | null {
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'GET' && req.method !== 'POST') return methodNotAllowed(res, ['GET', 'POST']);
 
-  // AUTH BYPASSED FOR TESTING
-  const userId = 'test-user';
+  const userId = await requireUserId(req, res);
+  if (!userId) return;
 
   const db = await getDb();
-  const { transactions } = collections(db);
+  const { transactions, budgets } = collections(db);
 
   if (req.method === 'POST') {
     try {
@@ -46,25 +52,55 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       const id = crypto.randomUUID();
       const occurredAt = new Date(input.occurredAt);
 
+      const miniBudgetId = input.miniBudgetId ?? input.miniBudget ?? null;
+      const spaceId = input.spaceId ?? 'personal';
+
       await transactions.insertOne({
         _id: id,
         userId,
+        spaceId,
         type: input.type,
         amount: input.amount,
         category: input.category,
         description: input.description,
+        budgetId: input.budgetId ?? null,
+        budgetCategory: input.budgetCategory ?? null,
+        miniBudgetId,
         occurredAt,
         createdAt: now,
         updatedAt: now
       });
 
+      // If the user chooses to apply income to a budget, treat it as increasing
+      // the budget total AND the selected budget category allocation so totals
+      // and percentages stay consistent across the app.
+      if (input.type === 'income' && input.budgetId) {
+        const budgetFilter: any = { _id: String(input.budgetId), userId };
+        if (spaceId === 'business') {
+          budgetFilter.spaceId = 'business';
+        } else if (spaceId === 'personal') {
+          budgetFilter.$or = [{ spaceId: 'personal' }, { spaceId: { $exists: false } }, { spaceId: null }];
+        }
+
+        const inc: Record<string, number> = { totalBudget: input.amount };
+        if (input.budgetCategory) {
+          inc[`categories.${input.budgetCategory}.budgeted`] = input.amount;
+        }
+
+        await budgets.updateOne(budgetFilter, { $inc: inc, $set: { updatedAt: now } });
+      }
+
       return sendJson(res, 201, {
         transaction: {
           id,
+          spaceId,
           type: input.type,
           amount: input.amount,
           category: input.category,
           description: input.description,
+          budgetId: input.budgetId ?? null,
+          budgetCategory: input.budgetCategory ?? null,
+          miniBudgetId,
           occurredAt: occurredAt.toISOString(),
           createdAt: now.toISOString(),
           updatedAt: now.toISOString()
@@ -78,30 +114,50 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     }
   }
 
-  const { start, end, limit, cursor, type, category } = req.query ?? {};
+  const { start, end, limit, cursor, type, category, spaceId, budgetId } = req.query ?? {};
   const parsedLimit = Math.max(1, Math.min(200, Number(limit ?? 50) || 50));
 
   const filter: any = { userId };
+  const and: any[] = [];
   if (type) filter.type = type;
   if (category) filter.category = category;
+  if (budgetId) filter.budgetId = String(budgetId);
+
+  // Space-aware filtering (treat legacy docs without spaceId as personal).
+  if (spaceId === 'business') {
+    filter.spaceId = 'business';
+  } else if (spaceId === 'personal') {
+    and.push({ $or: [{ spaceId: 'personal' }, { spaceId: { $exists: false } }, { spaceId: null }] });
+  }
+
+  const parseQueryDate = (raw: string, mode: 'start' | 'end'): Date => {
+    // If the client passes date-only, interpret it as a UTC day boundary.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      const [y, m, d] = raw.split('-').map((x) => Number(x));
+      return mode === 'start'
+        ? new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0))
+        : new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
+    }
+    return new Date(raw);
+  };
 
   if (start || end) {
     filter.occurredAt = {};
-    if (start) filter.occurredAt.$gte = new Date(String(start));
-    if (end) {
-      const endDate = new Date(String(end));
-      endDate.setHours(23, 59, 59, 999);
-      filter.occurredAt.$lte = endDate;
-    }
+    if (start) filter.occurredAt.$gte = parseQueryDate(String(start), 'start');
+    if (end) filter.occurredAt.$lte = parseQueryDate(String(end), 'end');
   }
 
   const decoded = cursor ? decodeCursor(String(cursor)) : null;
   if (decoded) {
-    filter.$or = [
-      { occurredAt: { ...(filter.occurredAt ?? {}), $lt: decoded.t } },
-      { occurredAt: decoded.t, _id: { $lt: decoded.id } }
-    ];
+    and.push({
+      $or: [
+        { occurredAt: { ...(filter.occurredAt ?? {}), $lt: decoded.t } },
+        { occurredAt: decoded.t, _id: { $lt: decoded.id } }
+      ]
+    });
   }
+
+  if (and.length > 0) filter.$and = and;
 
   const items = await transactions
     .find(filter)
@@ -119,10 +175,14 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   return sendJson(res, 200, {
     items: page.map((t) => ({
       id: t._id,
+      spaceId: t.spaceId ?? 'personal',
       type: t.type,
       amount: t.amount,
       category: t.category,
       description: t.description,
+      budgetId: t.budgetId ?? null,
+      budgetCategory: t.budgetCategory ?? null,
+      miniBudgetId: t.miniBudgetId ?? null,
       occurredAt: t.occurredAt.toISOString(),
       createdAt: t.createdAt.toISOString(),
       updatedAt: t.updatedAt.toISOString()

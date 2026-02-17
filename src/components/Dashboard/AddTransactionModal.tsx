@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X as XIcon, Calendar as CalendarIcon, FileText as FileTextIcon, Camera as CameraIcon, CheckCircle as CheckCircleIcon, Coffee as CoffeeIcon, ShoppingBag as ShoppingBagIcon, Car as CarIcon, Zap as ZapIcon, Briefcase as BriefcaseIcon, DollarSign as DollarSignIcon, Gift as GiftIcon, TrendingUp as TrendingUpIcon, Clock as ClockIcon, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { validateAmount, validateDescription, validateCategory } from '../../utils/dataManager';
-import { createTransaction } from '../../utils/api/endpoints';
+import { createTransaction, listBudgets, listMiniBudgets, createMiniBudget, patchBudget } from '../../utils/api/endpoints';
 interface AddTransactionModalProps {
   onClose: () => void;
 }
@@ -25,6 +25,13 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [slideProgress, setSlideProgress] = useState(0);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [budgets, setBudgets] = useState<any[]>([]);
+  const [selectedBudgetId, setSelectedBudgetId] = useState<string | number | null>(null);
+  const [budgetCategories, setBudgetCategories] = useState<string[]>([]);
+  const [selectedBudgetCategory, setSelectedBudgetCategory] = useState<string | null>(null);
+  const [miniBudgets, setMiniBudgets] = useState<any[]>([]);
+  const [selectedMiniBudget, setSelectedMiniBudget] = useState<string | null>(null);
+  const [miniBudgetText, setMiniBudgetText] = useState('');
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Define category options with new theme
@@ -85,6 +92,24 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         setShowSuggestion(true);
       }, 1000);
     }
+  }, []);
+
+  useEffect(() => {
+    // load budgets for selection
+    (async () => {
+      try {
+        const res = await listBudgets();
+        const items = res.items ?? [];
+        setBudgets(items);
+        // populate categories from the first budget as defaults
+        if (items.length > 0) {
+          const first = items[0];
+          setBudgetCategories(Object.keys(first.categories || {}));
+        }
+      } catch (err) {
+        // ignore
+      }
+    })();
   }, []);
   // Handle number pad input
   const handleNumberInput = (value: string) => {
@@ -170,13 +195,47 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       const categoryOption = activeCategories.find((c) => c.id === selectedCategory);
       const categoryName = categoryOption?.name ?? selectedCategory;
 
+      // Budget is required
+      if (!selectedBudgetId) {
+        setErrors({ ...newErrors, budget: 'Please select a budget' });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // If the user typed a new mini-budget name and selected a parent budget, create it first
+      if (!selectedMiniBudget && miniBudgetText && selectedBudgetId) {
+        try {
+          const created = await createMiniBudget(String(selectedBudgetId), { name: miniBudgetText, amount: 0, category: selectedBudgetCategory ?? undefined });
+          setSelectedMiniBudget(created.id);
+        } catch (err) {
+          // if creation fails, continue and pass the text as a fallback
+          console.warn('Failed to create mini-budget:', err);
+        }
+      }
+
       await createTransaction({
         type: transactionType,
         amount: parseFloat(amount),
         category: categoryName,
         description: notes || 'Transaction',
-        occurredAt: date.toISOString()
+        occurredAt: date.toISOString(),
+        budgetId: selectedBudgetId ?? undefined,
+        budgetCategory: selectedBudgetCategory ?? undefined,
+        miniBudget: selectedMiniBudget ?? (miniBudgetText ? miniBudgetText : undefined)
       });
+
+      // If this is an income and it's tied to a budget, add the amount to that budget's totalBudget
+      if (transactionType === 'income' && selectedBudgetId) {
+        try {
+          const chosen = budgets.find(b => String(b.id) === String(selectedBudgetId));
+          if (chosen) {
+            const newTotal = (typeof chosen.totalBudget === 'number' ? chosen.totalBudget : 0) + parseFloat(amount);
+            await patchBudget(String(chosen.id), { totalBudget: newTotal });
+          }
+        } catch (err) {
+          console.warn('Failed to update budget total after income transaction', err);
+        }
+      }
 
       setShowSuccess(true);
 
@@ -405,6 +464,40 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             }}>
                     {/* Date Picker */}
                     <div>
+                      {/* Budget selection */}
+                      <label className="block text-xs text-gray-600 mb-1">Budget <span className="text-red-500">*</span></label>
+                      <div className="flex items-center border border-gray-200 rounded-xl p-2 bg-gray-50/50 mb-3">
+                        <select className="flex-1 outline-none text-xs bg-transparent" value={selectedBudgetId ?? ''} onChange={e => {
+                          const v = e.target.value;
+                          setSelectedBudgetId(v || null);
+                          const chosen = budgets.find(b => String(b.id) === v);
+                          if (chosen) {
+                            setBudgetCategories(Object.keys(chosen.categories || {}));
+                            setSelectedBudgetCategory(null);
+                            // fetch mini budgets for this budget
+                            (async () => {
+                              try {
+                                const res = await listMiniBudgets(chosen.id);
+                                setMiniBudgets(res.items ?? []);
+                              } catch (err) {
+                                setMiniBudgets([]);
+                              }
+                            })();
+                          } else {
+                            setBudgetCategories([]);
+                            setMiniBudgets([]);
+                          }
+                        }}>
+                          <option value="">-- Select budget (required) --</option>
+                          {budgets.map(b => <option key={b.id} value={b.id}>{b.name} — {new Date(b.startDate).toLocaleDateString()}</option>)}
+                        </select>
+                      </div>
+                      {errors.budget && (
+                        <motion.div className="mt-1" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}>
+                          <span className="text-xs text-red-500 font-medium">{errors.budget}</span>
+                        </motion.div>
+                      )}
+
                       <label className="block text-xs text-gray-600 mb-1">
                         Date & Time
                       </label>
@@ -446,6 +539,42 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                         </motion.div>
                       )}
                     </div>
+
+                    {/* Budget category selection */}
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Budget Category</label>
+                      <div className="flex items-center border border-gray-200 rounded-xl p-2 bg-gray-50/50 mb-3">
+                        <select className="flex-1 outline-none text-xs bg-transparent" value={selectedBudgetCategory ?? ''} onChange={e => {
+                          const v = e.target.value || null;
+                          setSelectedBudgetCategory(v);
+                          // if essential category chosen, show mini budget input/dropdown
+                        }}>
+                          <option value="">-- Select category (optional) --</option>
+                          {budgetCategories.length > 0 ? budgetCategories.map(c => <option key={c} value={c}>{c}</option>) : (
+                            ['Essential', 'Savings', 'Free Spending', 'Investments', 'Miscellaneous'].map(c => <option key={c} value={c}>{c}</option>)
+                          )}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Mini budget (conditional) */}
+                    {selectedBudgetCategory && String(selectedBudgetCategory).toLowerCase().includes('essential') ? (
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Mini Budget (optional)</label>
+                        {miniBudgets.length > 0 ? (
+                          <div className="flex items-center border border-gray-200 rounded-xl p-2 bg-gray-50/50 mb-3">
+                            <select className="flex-1 outline-none text-xs bg-transparent" value={selectedMiniBudget ?? ''} onChange={e => setSelectedMiniBudget(e.target.value || null)}>
+                              <option value="">-- Select mini budget --</option>
+                              {miniBudgets.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                            </select>
+                          </div>
+                        ) : (
+                          <div className="flex items-center border border-gray-200 rounded-xl p-2 bg-gray-50/50 mb-3">
+                            <input className="flex-1 outline-none text-xs bg-transparent" placeholder="Mini budget name (optional)" value={miniBudgetText} onChange={e => setMiniBudgetText(e.target.value)} />
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
 
                     {/* Receipt Upload */}
                     <div>

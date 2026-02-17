@@ -23,3 +23,19 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Env files (keep examples committed)
+.env
+.env.*
+!.env.example
+
+# Mobile env files
+mobile/.env
+mobile/.env.*
+!mobile/.env.example
+
+# Expo local state
+.expo/
+
+# OS / tooling
+Thumbs.db

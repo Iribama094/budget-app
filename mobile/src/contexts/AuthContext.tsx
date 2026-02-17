@@ -29,7 +29,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       return;
     }
-
     try {
       const me = await getMe();
       setUser(me);
@@ -49,15 +48,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const result = await apiLogin(email, password, 'expo');
-    await setTokens({ accessToken: result.accessToken, refreshToken: result.refreshToken });
-    setUser(result.user);
+    const res = await apiLogin(email, password);
+    await setTokens({ accessToken: res.accessToken, refreshToken: res.refreshToken });
+    setUser(res.user);
   };
 
   const register = async (email: string, password: string, name?: string) => {
-    const result = await apiRegister(email, password, name);
-    await setTokens({ accessToken: result.accessToken, refreshToken: result.refreshToken });
-    setUser(result.user);
+    const res = await apiRegister(email, password, name);
+    await setTokens({ accessToken: res.accessToken, refreshToken: res.refreshToken });
+    setUser(res.user);
   };
 
   const logout = async () => {
@@ -66,10 +65,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         await apiLogout(tokens.refreshToken);
       } catch {
-        // ignore backend logout errors; tokens will be cleared locally
+        // ignore
       }
     }
-
     await clearTokens();
     setUser(null);
   };

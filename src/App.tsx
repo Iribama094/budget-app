@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { OnboardingContainer } from './components/Onboarding/OnboardingContainer';
 import { Dashboard } from './components/Dashboard/Dashboard';
 import { LoginPage } from './components/Auth/LoginPage';
@@ -8,6 +8,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { useAuth } from './contexts/AuthContext';
 
 const ONBOARDING_SEEN_KEY = 'bf_onboarding_seen_v1';
+const ALWAYS_SHOW_ONBOARDING = import.meta.env.VITE_ALWAYS_SHOW_ONBOARDING === 'true';
 
 export function App() {
   const { user } = useAuth();
@@ -19,7 +20,7 @@ export function App() {
   }, [currentScreen, user]);
 
   const handleSplashComplete = () => {
-    const hasSeenOnboarding = localStorage.getItem(ONBOARDING_SEEN_KEY) === 'true';
+    const hasSeenOnboarding = !ALWAYS_SHOW_ONBOARDING && localStorage.getItem(ONBOARDING_SEEN_KEY) === 'true';
     if (!hasSeenOnboarding) {
       setCurrentScreen('onboarding');
       return;
@@ -28,7 +29,9 @@ export function App() {
   };
 
   const handleOnboardingComplete = () => {
-    localStorage.setItem(ONBOARDING_SEEN_KEY, 'true');
+    if (!ALWAYS_SHOW_ONBOARDING) {
+      localStorage.setItem(ONBOARDING_SEEN_KEY, 'true');
+    }
     setCurrentScreen('login');
   };
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeftIcon, SparklesIcon, CheckCircleIcon } from 'lucide-react';
-import { createBudget, getMe, listBudgets, patchMe } from '../../utils/api/endpoints';
+import { createBudget, getMe, listBudgets, patchMe, patchBudget } from '../../utils/api/endpoints';
 interface BudgetSetupProps {
   onBack: () => void;
 }
@@ -12,6 +12,8 @@ export const BudgetSetup: React.FC<BudgetSetupProps> = ({
   const [essentialSpend, setEssentialSpend] = useState(60000);
   const [savingsGoal, setSavingsGoal] = useState(30000);
   const [freeSpend, setFreeSpend] = useState(60000);
+  const [investmentsSpend, setInvestmentsSpend] = useState(0);
+  const [miscSpend, setMiscSpend] = useState(0);
   const [isBalanced, setIsBalanced] = useState(false);
   const [showSmartBalance, setShowSmartBalance] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -23,6 +25,7 @@ export const BudgetSetup: React.FC<BudgetSetupProps> = ({
   ];
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [existingBudgetId, setExistingBudgetId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -35,14 +38,19 @@ export const BudgetSetup: React.FC<BudgetSetupProps> = ({
       const latest = budgets.items?.[0];
       if (!latest) return;
 
+      setExistingBudgetId(latest.id ?? null);
       setIncome(latest.totalBudget);
       const essential = latest.categories?.Essential?.budgeted;
       const savings = latest.categories?.Savings?.budgeted;
       const free = latest.categories?.['Free Spending']?.budgeted;
+      const investments = latest.categories?.Investments?.budgeted;
+      const misc = latest.categories?.Miscellaneous?.budgeted;
 
       if (typeof essential === 'number') setEssentialSpend(essential);
       if (typeof savings === 'number') setSavingsGoal(savings);
       if (typeof free === 'number') setFreeSpend(free);
+      if (typeof investments === 'number') setInvestmentsSpend(investments);
+      if (typeof misc === 'number') setMiscSpend(misc);
     })().catch((err) => {
       console.error('Failed to load budget:', err);
     });
@@ -51,7 +59,21 @@ export const BudgetSetup: React.FC<BudgetSetupProps> = ({
   const essentialPercent = Math.round(essentialSpend / income * 100) || 0;
   const savingsPercent = Math.round(savingsGoal / income * 100) || 0;
   const freeSpendPercent = Math.round(freeSpend / income * 100) || 0;
-  const totalAllocated = essentialSpend + savingsGoal + freeSpend;
+  const investmentsPercent = Math.round(investmentsSpend / income * 100) || 0;
+  const miscPercent = Math.round(miscSpend / income * 100) || 0;
+  const totalAllocated = essentialSpend + savingsGoal + freeSpend + investmentsSpend + miscSpend;
+  const guardrailWarnings: string[] = [];
+  if (income > 0) {
+    if (essentialPercent < 40) {
+      guardrailWarnings.push('Essentials are under 40% of income. Make sure your rent, food and transport are safely covered.');
+    }
+    if (savingsPercent + investmentsPercent < 10) {
+      guardrailWarnings.push('Less than 10% is going into Savings + Investments. Consider nudging this up for long‑term goals.');
+    }
+    if (freeSpendPercent + miscPercent > 35) {
+      guardrailWarnings.push('Free Spend + Miscellaneous is above 35%. You\'re giving a lot of room to lifestyle and one‑offs.');
+    }
+  }
   const remainingAmount = income - totalAllocated;
   // Check if budget is balanced
   useEffect(() => {
@@ -71,10 +93,14 @@ export const BudgetSetup: React.FC<BudgetSetupProps> = ({
   const applySmartBalance = () => {
     const smartEssential = Math.round(income * 0.5);
     const smartSavings = Math.round(income * 0.2);
-    const smartFree = income - smartEssential - smartSavings;
+    const smartInvestments = Math.round(income * 0.15);
+    const smartFree = Math.round(income * 0.1);
+    const smartMisc = income - smartEssential - smartSavings - smartInvestments - smartFree;
     setEssentialSpend(smartEssential);
     setSavingsGoal(smartSavings);
+    setInvestmentsSpend(smartInvestments);
     setFreeSpend(smartFree);
+    setMiscSpend(smartMisc);
   };
 
   // Save budget plan
@@ -84,17 +110,36 @@ export const BudgetSetup: React.FC<BudgetSetupProps> = ({
     setIsSaving(true);
 
     try {
-      await createBudget({
-        name: 'Monthly Budget',
-        totalBudget: income,
-        period: 'monthly',
-        startDate: new Date().toISOString().split('T')[0],
-        categories: {
-          Essential: { budgeted: essentialSpend },
-          Savings: { budgeted: savingsGoal },
-          'Free Spending': { budgeted: freeSpend }
-        }
-      });
+      if (existingBudgetId) {
+        await patchBudget(existingBudgetId, {
+          name: 'Monthly Budget',
+          totalBudget: income,
+          period: 'monthly',
+          startDate: new Date().toISOString().split('T')[0],
+          categories: {
+            Essential: { budgeted: essentialSpend },
+            Savings: { budgeted: savingsGoal },
+            'Free Spending': { budgeted: freeSpend },
+            Investments: { budgeted: investmentsSpend },
+            Miscellaneous: { budgeted: miscSpend }
+          }
+        });
+      } else {
+        const created = await createBudget({
+          name: 'Monthly Budget',
+          totalBudget: income,
+          period: 'monthly',
+          startDate: new Date().toISOString().split('T')[0],
+          categories: {
+            Essential: { budgeted: essentialSpend },
+            Savings: { budgeted: savingsGoal },
+            'Free Spending': { budgeted: freeSpend },
+            Investments: { budgeted: investmentsSpend },
+            Miscellaneous: { budgeted: miscSpend }
+          }
+        });
+        setExistingBudgetId(created.id ?? null);
+      }
 
       await patchMe({ monthlyIncome: income });
 
@@ -178,6 +223,16 @@ export const BudgetSetup: React.FC<BudgetSetupProps> = ({
           }} transition={{
             duration: 0.5
           }} />
+            <motion.div className="bg-teal-500 h-full" animate={{
+            width: `${investmentsPercent}%`
+          }} transition={{
+            duration: 0.5
+          }} />
+            <motion.div className="bg-amber-500 h-full" animate={{
+            width: `${miscPercent}%`
+          }} transition={{
+            duration: 0.5
+          }} />
           </div>
           <div className="flex text-xs justify-between">
             <div className="flex items-center">
@@ -191,6 +246,14 @@ export const BudgetSetup: React.FC<BudgetSetupProps> = ({
             <div className="flex items-center">
               <div className="w-3 h-3 bg-green-500 rounded-full mr-1"></div>
               <span>Free Spend</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-3 h-3 bg-teal-500 rounded-full mr-1"></div>
+              <span>Investments</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-3 h-3 bg-amber-500 rounded-full mr-1"></div>
+              <span>Miscellaneous</span>
             </div>
           </div>
         </div>
@@ -206,6 +269,63 @@ export const BudgetSetup: React.FC<BudgetSetupProps> = ({
         </div>
         {/* Budget Category Cards */}
         <div className="space-y-4">
+          {/* Goal presets */}
+          <div className="flex flex-wrap gap-2 mb-2">
+            <button
+              className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+              onClick={() => {
+                const total = income;
+                const e = Math.round(total * 0.5);
+                const s = Math.round(total * 0.15);
+                const i = Math.round(total * 0.15);
+                const f = Math.round(total * 0.15);
+                const m = total - e - s - i - f;
+                setEssentialSpend(e);
+                setSavingsGoal(s);
+                setInvestmentsSpend(i);
+                setFreeSpend(f);
+                setMiscSpend(m);
+              }}
+            >
+              Balanced
+            </button>
+            <button
+              className="px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+              onClick={() => {
+                const total = income;
+                const e = Math.round(total * 0.6);
+                const s = Math.round(total * 0.2);
+                const i = Math.round(total * 0.1);
+                const f = Math.round(total * 0.05);
+                const m = total - e - s - i - f;
+                setEssentialSpend(e);
+                setSavingsGoal(s);
+                setInvestmentsSpend(i);
+                setFreeSpend(f);
+                setMiscSpend(m);
+              }}
+            >
+              Safety first
+            </button>
+            <button
+              className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+              onClick={() => {
+                const total = income;
+                const e = Math.round(total * 0.45);
+                const s = Math.round(total * 0.15);
+                const i = Math.round(total * 0.25);
+                const f = Math.round(total * 0.1);
+                const m = total - e - s - i - f;
+                setEssentialSpend(e);
+                setSavingsGoal(s);
+                setInvestmentsSpend(i);
+                setFreeSpend(f);
+                setMiscSpend(m);
+              }}
+            >
+              Future focused
+            </button>
+          </div>
           {/* Essential Spending */}
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-4 shadow-sm border-l-4 border-blue-500 border border-white/20 dark:border-gray-700/20">
             <div className="flex justify-between items-center mb-2">
@@ -278,6 +398,70 @@ export const BudgetSetup: React.FC<BudgetSetupProps> = ({
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>0%</span>
               <span>30%</span>
+              <span>100%</span>
+            </div>
+          </div>
+          {/* Investments */}
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-4 shadow-sm border-l-4 border-teal-500 border border-white/20 dark:border-gray-700/20">
+            <div className="flex justify-between items-center mb-2">
+              <div>
+                <h3 className="font-medium text-gray-800 dark:text-gray-200">Investments</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Long-term wealth building
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                  ₦{investmentsSpend.toLocaleString()}
+                </div>
+                <div className="text-xs text-teal-600">
+                  {investmentsPercent}% of income
+                </div>
+              </div>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max={income}
+              value={investmentsSpend}
+              onChange={e => setInvestmentsSpend(parseInt(e.target.value))}
+              className="w-full h-2 bg-teal-100 rounded-lg appearance-none cursor-pointer"
+            />
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>0%</span>
+              <span>15%</span>
+              <span>100%</span>
+            </div>
+          </div>
+          {/* Miscellaneous */}
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-4 shadow-sm border-l-4 border-amber-500 border border-white/20 dark:border-gray-700/20">
+            <div className="flex justify-between items-center mb-2">
+              <div>
+                <h3 className="font-medium text-gray-800 dark:text-gray-200">Miscellaneous</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  One-off or unexpected costs
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                  ₦{miscSpend.toLocaleString()}
+                </div>
+                <div className="text-xs text-amber-600">
+                  {miscPercent}% of income
+                </div>
+              </div>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max={income}
+              value={miscSpend}
+              onChange={e => setMiscSpend(parseInt(e.target.value))}
+              className="w-full h-2 bg-amber-100 rounded-lg appearance-none cursor-pointer"
+            />
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>0%</span>
+              <span>5%</span>
               <span>100%</span>
             </div>
           </div>
@@ -385,8 +569,16 @@ export const BudgetSetup: React.FC<BudgetSetupProps> = ({
               Budget Saved!
             </div>
           ) : (
-            'Save Budget Plan'
+            existingBudgetId ? 'Save Budget' : 'Create Budget'
           )}
+        </motion.button>
+
+        <motion.button
+          className="w-full py-3 rounded-2xl mt-3 font-semibold text-gray-700 bg-white/80 border border-gray-200 hover:bg-gray-50 transition-colors"
+          whileTap={{ scale: 0.98 }}
+          onClick={onBack}
+        >
+          Cancel
         </motion.button>
 
         {/* Success Message */}

@@ -231,48 +231,48 @@ export const Analytics: React.FC<AnalyticsProps> = ({
     }
     return null;
   };
-  return <div className="w-full min-h-screen py-6 pb-24 relative">
-      <div className="max-w-md mx-auto px-4">
+    return <div className="w-full min-h-screen py-4 pb-20 relative">
+      <div className="max-w-md mx-auto px-3">
         {/* Header */}
-        <div className="flex items-center mb-6">
+        <div className="flex items-center mb-4">
           <motion.button
-            className="w-12 h-12 rounded-2xl bg-white/80 backdrop-blur-sm shadow-soft flex items-center justify-center mr-4 border border-white/20"
+            className="w-10 h-10 rounded-xl bg-white/80 backdrop-blur-sm shadow-soft flex items-center justify-center mr-3 border border-white/20"
             onClick={onBack}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
             <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
           </motion.button>
-          <h1 className="text-2xl font-bold font-display bg-gradient-to-r from-gray-800 to-gray-600 dark:from-gray-200 dark:to-gray-400 bg-clip-text text-transparent">
+          <h1 className="text-xl font-bold font-display bg-gradient-to-r from-gray-800 to-gray-600 dark:from-gray-200 dark:to-gray-400 bg-clip-text text-transparent">
             Spending Insights 📊
           </h1>
         </div>
         {/* Timeframe Toggle */}
-        <div className="flex bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-1 mb-6 shadow-soft border border-white/20 dark:border-gray-700/20">
-          <button className={`flex-1 py-3 text-sm font-semibold rounded-xl transition-all duration-300 ${timeframe === 'daily' ? 'bg-primary-100 text-primary-700 shadow-soft' : 'text-gray-600 hover:text-primary-600'}`} onClick={() => setTimeframe('daily')}>
+        <div className="flex bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg p-1 mb-4 shadow-soft border border-white/20 dark:border-gray-700/20">
+          <button className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-300 ${timeframe === 'daily' ? 'bg-primary-100 text-primary-700 shadow-soft' : 'text-gray-600 hover:text-primary-600'}`} onClick={() => setTimeframe('daily')}>
             Daily
           </button>
-          <button className={`flex-1 py-3 text-sm font-semibold rounded-xl transition-all duration-300 ${timeframe === 'weekly' ? 'bg-primary-100 text-primary-700 shadow-soft' : 'text-gray-600 hover:text-primary-600'}`} onClick={() => setTimeframe('weekly')}>
+          <button className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-300 ${timeframe === 'weekly' ? 'bg-primary-100 text-primary-700 shadow-soft' : 'text-gray-600 hover:text-primary-600'}`} onClick={() => setTimeframe('weekly')}>
             Weekly
           </button>
-          <button className={`flex-1 py-3 text-sm font-semibold rounded-xl transition-all duration-300 ${timeframe === 'monthly' ? 'bg-primary-100 text-primary-700 shadow-soft' : 'text-gray-600 hover:text-primary-600'}`} onClick={() => setTimeframe('monthly')}>
+          <button className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-300 ${timeframe === 'monthly' ? 'bg-primary-100 text-primary-700 shadow-soft' : 'text-gray-600 hover:text-primary-600'}`} onClick={() => setTimeframe('monthly')}>
             Monthly
           </button>
         </div>
         {/* Total Spending */}
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-4 mb-6 shadow-sm border border-white/20 dark:border-gray-700/20">
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg p-3 mb-4 shadow-sm border border-white/20 dark:border-gray-700/20">
           <h3 className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Spending</h3>
-          <div className="text-3xl font-bold text-gray-800 dark:text-gray-200">
+          <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
             ₦{totalSpending.toLocaleString()}
           </div>
         </div>
         {/* Category Breakdown */}
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-4 mb-6 shadow-sm border border-white/20 dark:border-gray-700/20">
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg p-3 mb-4 shadow-sm border border-white/20 dark:border-gray-700/20">
           <h3 className="font-medium text-gray-800 dark:text-gray-200 mb-4">Category Breakdown</h3>
           <div className="flex">
             {/* Pie Chart */}
             <div className="w-1/2">
-              <ResponsiveContainer width="100%" height={180}>
+              <ResponsiveContainer width="100%" height={150}>
                 <PieChart>
                   <Pie data={categoryData} cx="50%" cy="50%" innerRadius={45} outerRadius={activeIndex !== null ? 70 : 60} paddingAngle={2} dataKey="value" onMouseEnter={onPieEnter} onMouseLeave={onPieLeave} animationBegin={0} animationDuration={1000}>
                     {categoryData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} stroke="none" style={{
@@ -303,11 +303,11 @@ export const Analytics: React.FC<AnalyticsProps> = ({
           </div>
         </div>
         {/* Timeline Chart */}
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-4 mb-6 shadow-sm border border-white/20 dark:border-gray-700/20">
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg p-3 mb-4 shadow-sm border border-white/20 dark:border-gray-700/20">
           <h3 className="font-medium text-gray-800 dark:text-gray-200 mb-4">
             {timeframe === 'daily' ? 'Daily Trend' : timeframe === 'monthly' ? 'Monthly Trend' : 'Weekly Trend'}
           </h3>
-          <ResponsiveContainer width="100%" height={200}>
+          <ResponsiveContainer width="100%" height={160}>
             <BarChart data={currentData} margin={{
             top: 10,
             right: 0,
@@ -326,9 +326,9 @@ export const Analytics: React.FC<AnalyticsProps> = ({
           </ResponsiveContainer>
         </div>
         {/* Spending Insights */}
-        <div className="space-y-4 mb-6">
+        <div className="space-y-3 mb-4">
           <h3 className="font-medium text-gray-800 dark:text-gray-200">Spending Insights</h3>
-          {insights.map((insight, index) => <motion.div key={index} className={`p-4 rounded-xl border ${insight.color}`} initial={{
+          {insights.map((insight, index) => <motion.div key={index} className={`p-3 rounded-lg border ${insight.color}`} initial={{
           opacity: 0,
           y: 20
         }} animate={{

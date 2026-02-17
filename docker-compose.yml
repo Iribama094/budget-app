@@ -1,0 +1,29 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: budgetfriendly-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: budgetfriendly-api
+    depends_on:
+      - mongo
+    environment:
+      PORT: "3002"
+      MONGODB_URI: "mongodb://mongo:27017"
+      MONGODB_DB: "budgetfriendly_dev"
+      JWT_ACCESS_SECRET: "dev-access-secret-change-me"
+      JWT_REFRESH_SECRET: "dev-refresh-secret-change-me"
+      JWT_ACCESS_TTL_MIN: "60"
+      JWT_REFRESH_TTL_DAYS: "30"
+    ports:
+      - "3002:3002"
+
+volumes:
+  mongo_data:

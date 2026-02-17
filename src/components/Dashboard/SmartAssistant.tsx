@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeftIcon, SendIcon, MicIcon, PlusIcon, ArrowRightIcon, TrendingUpIcon, AlertCircleIcon, CalendarIcon, DollarSignIcon } from 'lucide-react';
+import { assistantChat } from '../../utils/api/endpoints';
 interface SmartAssistantProps {
   onBack: () => void;
 }
@@ -21,28 +22,29 @@ export const SmartAssistant: React.FC<SmartAssistantProps> = ({
   const [messages, setMessages] = useState<Message[]>([{
     id: '1',
     type: 'assistant',
-    content: '👋 Hello! I\'m your Budget Buddy Assistant. How can I help you manage your finances today?',
+    content: '👋 Hi, I\'m your low-cost Budget Assistant. Ask me about your spending, savings, or what-if scenarios.',
     timestamp: new Date(Date.now() - 60000)
   }, {
     id: '2',
     type: 'suggestion',
-    content: 'Move ₦5,000 to savings today?',
+    content: 'See a quick spending summary for this week?',
     timestamp: new Date(),
     suggestion: {
-      type: 'transfer',
-      action: 'Transfer now'
+      type: 'analysis',
+      action: 'Show summary'
     }
   }, {
     id: '3',
     type: 'suggestion',
-    content: "Want to analyze this month's spending?",
+    content: 'What if my income drops by 20%?',
     timestamp: new Date(),
     suggestion: {
-      type: 'analysis',
-      action: 'View analysis'
+      type: 'info',
+      action: 'Run what-if'
     }
   }]);
   const [isRecording, setIsRecording] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Component mount effect
@@ -65,13 +67,12 @@ export const SmartAssistant: React.FC<SmartAssistantProps> = ({
     });
   };
   // Handle send message
-  const handleSendMessage = () => {
-    if (!message.trim()) return;
+  const handleSendMessage = async () => {
+    if (!message.trim() || isSending) return;
 
     const currentMessage = message;
     setMessage('');
 
-    // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
@@ -80,32 +81,28 @@ export const SmartAssistant: React.FC<SmartAssistantProps> = ({
     };
 
     setMessages(prev => [...prev, userMessage]);
+    setIsSending(true);
 
-    // Simulate assistant response
-    setTimeout(() => {
-      let responseContent = '';
-      let suggestionType: Message['suggestion'] | undefined = undefined;
-
-      if (currentMessage.toLowerCase().includes('spent') || currentMessage.toLowerCase().includes('spending')) {
-        responseContent = "You've spent ₦32,500 this week. Your biggest expense was Food & Drinks at ₦12,800.";
-        suggestionType = { type: 'info' };
-      } else if (currentMessage.toLowerCase().includes('remind') || currentMessage.toLowerCase().includes('reminder')) {
-        responseContent = "I've set a reminder for you to pay rent on Friday, July 28th.";
-        suggestionType = { type: 'reminder' };
-      } else {
-        responseContent = "I'm here to help with your finances! You can ask about your spending, set reminders, or get insights on your budget.";
-      }
-
+    try {
+      const res = await assistantChat(currentMessage);
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: responseContent,
-        timestamp: new Date(),
-        suggestion: suggestionType
+        content: res.reply,
+        timestamp: new Date()
       };
-
       setMessages(prev => [...prev, assistantMessage]);
-    }, 1000);
+    } catch (error) {
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        content: 'Assistant is currently unavailable. Please try again later.',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+    } finally {
+      setIsSending(false);
+    }
   };
   // Handle voice recording
   const handleVoiceRecording = () => {
@@ -139,24 +136,13 @@ export const SmartAssistant: React.FC<SmartAssistantProps> = ({
   };
   // Handle suggestion action
   const handleSuggestionAction = (suggestionType: string) => {
-    let responseContent = '';
-
-    if (suggestionType === 'transfer') {
-      responseContent = "Great! I've transferred ₦5,000 to your savings account.";
-    } else if (suggestionType === 'analysis') {
-      responseContent = "Here's your spending analysis: You spent 20% less than last month. Well done!";
-    } else {
-      responseContent = "Action completed successfully!";
+    if (suggestionType === 'analysis') {
+      setMessage('How much have I spent this week?');
+    } else if (suggestionType === 'transfer') {
+      setMessage('Help me move a little more into savings.');
+    } else if (suggestionType === 'info') {
+      setMessage('What if my income drops by 20%?');
     }
-
-    const assistantMessage: Message = {
-      id: Date.now().toString(),
-      type: 'assistant',
-      content: responseContent,
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, assistantMessage]);
   };
   // Get icon for suggestion type
   const getSuggestionIcon = (type: string) => {
@@ -186,21 +172,31 @@ export const SmartAssistant: React.FC<SmartAssistantProps> = ({
     }
   };
   try {
-    return <div className="w-full min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col">
+    return <div className="w-full min-h-screen bg-gradient-to-br from-blue-50 via-slate-50 to-purple-50 flex flex-col">
       {/* Header */}
-      <div className="bg-white p-4 flex items-center shadow-sm">
-        <button className="w-10 h-10 rounded-full flex items-center justify-center mr-4 hover:bg-gray-100" onClick={onBack}>
+      <div className="bg-white/90 backdrop-blur-sm px-4 py-3 flex items-center justify-between shadow-sm border-b border-purple-50">
+        <div className="flex items-center">
+          <button className="w-9 h-9 rounded-full flex items-center justify-center mr-3 hover:bg-gray-100" onClick={onBack}>
           <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
-        </button>
-        <div>
-          <h1 className="text-lg font-bold text-gray-800">Budget Buddy Assistant</h1>
-          <p className="text-xs text-gray-500">
-            Your AI financial companion - Ask me anything!
-          </p>
+          </button>
+          <div>
+            <h1 className="text-base font-bold text-gray-800">Budget Assistant</h1>
+            <p className="text-[11px] text-gray-500">
+              Cost-optimized AI for quick, practical money advice
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-100">
+            ● Low cost mode
+          </span>
+          <span className="inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-medium text-purple-700 border border-purple-100">
+            Streak: 7 days
+          </span>
         </div>
       </div>
       {/* Messages Container */}
-      <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
+      <div className="flex-1 p-4 overflow-y-auto bg-gray-50/80">
         <div className="max-w-md mx-auto space-y-4">
           {messages.length === 0 && (
             <div className="text-center text-gray-500 mt-8">
@@ -268,7 +264,7 @@ export const SmartAssistant: React.FC<SmartAssistantProps> = ({
         </div>
       </div>
       {/* Input Area */}
-      <div className="bg-white p-4 border-t shadow-lg">
+      <div className="bg-white/95 backdrop-blur-sm p-4 border-t shadow-lg">
         <div className="max-w-md mx-auto">
           {/* Quick Actions */}
           <div className="flex gap-2 mb-3">
@@ -290,6 +286,12 @@ export const SmartAssistant: React.FC<SmartAssistantProps> = ({
             >
               Budget Analysis
             </button>
+            <button
+              className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium hover:bg-amber-200 transition-colors"
+              onClick={() => setMessage("What if my income drops by 20%?")}
+            >
+              What-if Scenario
+            </button>
           </div>
 
           {/* Input Row */}
@@ -304,7 +306,12 @@ export const SmartAssistant: React.FC<SmartAssistantProps> = ({
                 placeholder="Ask me about your finances..."
                 value={message}
                 onChange={e => setMessage(e.target.value)}
-                onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
               />
               <AnimatePresence>
                 {isRecording && (
@@ -329,14 +336,18 @@ export const SmartAssistant: React.FC<SmartAssistantProps> = ({
             </div>
             <button
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                message.trim()
+                message.trim() && !isSending
                   ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-md'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
               onClick={handleSendMessage}
-              disabled={!message.trim()}
+              disabled={!message.trim() || isSending}
             >
-              <SendIcon className="w-5 h-5" />
+              {isSending ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <SendIcon className="w-5 h-5" />
+              )}
             </button>
           </div>
         </div>

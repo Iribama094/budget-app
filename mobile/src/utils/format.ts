@@ -1,7 +1,13 @@
 import { tokens } from '../theme/tokens';
 
 export function toIsoDate(d: Date) {
-  return d.toISOString().slice(0, 10);
+  // Date-only values in this app represent a local calendar date (YYYY-MM-DD),
+  // not a UTC timestamp. Using toISOString() can shift the day/month depending
+  // on timezone, which breaks budget ranges and overlap validation.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 export function toIsoDateTime(d: Date) {
@@ -31,6 +37,31 @@ export function formatMoney(amount: number, currency?: string | null) {
   const n = Math.abs(amount);
   const formatted = n.toLocaleString?.() ?? String(n);
   return `${amount < 0 ? '-' : ''}${symbol}${formatted}`;
+}
+
+// Formats a numeric input string with thousands separators, preserving an optional decimal part.
+// Examples: "1000" -> "1,000", "20000.5" -> "20,000.5"
+export function formatNumberInput(raw: string) {
+  const cleaned = String(raw ?? '').replace(/[^0-9.,]/g, '');
+  if (!cleaned) return '';
+
+  // Normalize: treat ',' as grouping, '.' as decimal.
+  const withoutGrouping = cleaned.replace(/,/g, '');
+  const firstDot = withoutGrouping.indexOf('.');
+
+  const intPart = firstDot === -1 ? withoutGrouping : withoutGrouping.slice(0, firstDot);
+  const fracPart = firstDot === -1 ? '' : withoutGrouping.slice(firstDot + 1).replace(/\./g, '');
+
+  const intDigits = intPart.replace(/^0+(?=\d)/, '');
+  const groupedInt = intDigits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+  if (firstDot === -1) return groupedInt;
+  return `${groupedInt}.${fracPart}`;
+}
+
+export function parseNumberInput(raw: string) {
+  const n = Number(String(raw ?? '').replace(/,/g, ''));
+  return Number.isFinite(n) ? n : NaN;
 }
 
 export function categoryDotColor(category: string): string {

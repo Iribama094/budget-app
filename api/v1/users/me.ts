@@ -10,6 +10,8 @@ const TaxProfileSchema = z
     country: z.string().min(2).max(8).optional(),
     withheldByEmployer: z.boolean().optional(),
     netMonthlyIncome: z.number().finite().nonnegative().optional(),
+    grossMonthlyIncome: z.number().finite().nonnegative().optional(),
+    incomeType: z.enum(['gross', 'net']).optional(),
     residentType: z.string().max(50).optional(),
     dependents: z.number().int().nonnegative().optional(),
     pensionContribution: z.number().finite().nonnegative().optional(),
@@ -45,31 +47,15 @@ function toApiUser(user: any) {
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET' && req.method !== 'PATCH') return methodNotAllowed(res, ['GET', 'PATCH']);
 
-  // AUTH BYPASSED FOR TESTING
-  const userId = 'test-user';
+  const userId = await requireUserId(req, res);
+  if (!userId) return;
 
   const db = await getDb();
   const { users } = collections(db);
 
   if (req.method === 'GET') {
-    let user = await users.findOne({ _id: userId });
-    if (!user) {
-      // create a minimal test user for local/dev flows
-      const now = new Date();
-      const newUser = {
-        _id: userId,
-        email: `test+${userId}@example.com`,
-        name: 'Test User',
-        currency: 'USD',
-        locale: 'en-US',
-        monthlyIncome: null,
-        taxProfile: null,
-        createdAt: now,
-        updatedAt: now
-      };
-      await users.insertOne(newUser);
-      user = newUser;
-    }
+    const user = await users.findOne({ _id: userId });
+    if (!user) return sendError(res, 401, 'UNAUTHORIZED', 'User no longer exists');
     return sendJson(res, 200, { user: toApiUser(user) });
   }
 
@@ -90,6 +76,7 @@ export default async function handler(req: any, res: any) {
         locale: patch.locale ?? 'en-US',
         monthlyIncome: patch.monthlyIncome ?? null,
         taxProfile: patch.taxProfile ?? null,
+        passwordHash: '',
         createdAt: now,
         updatedAt: now
       };

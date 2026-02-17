@@ -10,7 +10,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       onComplete();
-    }, 2500); // Show splash for 2.5 seconds
+    }, 6000); // Show splash for ~6 seconds
 
     return () => clearTimeout(timer);
   }, [onComplete]);
@@ -82,29 +82,6 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
           </p>
         </motion.div>
 
-        {/* Loading indicator */}
-        <motion.div
-          className="mt-8 flex space-x-1"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1 }}
-        >
-          {[0, 1, 2].map((i) => (
-            <motion.div
-              key={i}
-              className="w-2 h-2 bg-primary-500 rounded-full"
-              animate={{
-                scale: [1, 1.5, 1],
-                opacity: [0.5, 1, 0.5]
-              }}
-              transition={{
-                duration: 1,
-                repeat: Infinity,
-                delay: i * 0.2
-              }}
-            />
-          ))}
-        </motion.div>
       </div>
     </div>
   );

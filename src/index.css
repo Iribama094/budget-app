@@ -3,3 +3,23 @@
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 /* DO NOT DELETE THESE TAILWIND IMPORTS, OTHERWISE THE STYLING WILL NOT RENDER AT ALL */
+
+/* Hide visible scrollbars across the web app while keeping scrolling functional */
+html, body, #root, #app {
+	-ms-overflow-style: none; /* IE and Edge */
+	scrollbar-width: none; /* Firefox */
+}
+
+/* Hide scrollbars for all elements in WebKit browsers (Chrome, Safari, Edge) */
+*::-webkit-scrollbar {
+	width: 0px;
+	height: 0px;
+	background: transparent;
+}
+
+/* Utility class in case we need to target specific containers */
+.no-scrollbar {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar { display: none; }

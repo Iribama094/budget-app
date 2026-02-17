@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeftIcon, PlusIcon, CheckCircleIcon, TrendingUpIcon, CalendarIcon, TargetIcon, ShieldIcon, PlaneIcon, LaptopIcon } from 'lucide-react';
 import { createGoal as apiCreateGoal, listGoals, patchGoal } from '../../utils/api/endpoints';
@@ -131,12 +131,13 @@ export const Goals: React.FC<GoalsProps> = ({
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center">
             <motion.button
-              className="w-12 h-12 rounded-2xl bg-white/80 backdrop-blur-sm shadow-soft flex items-center justify-center mr-4 border border-white/20"
+              className="w-10 h-10 rounded-2xl bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-white/20 dark:border-gray-700/20 shadow-soft flex items-center justify-center mr-3"
               onClick={onBack}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              aria-label="Back"
             >
-              <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
+              <ArrowLeftIcon className="w-5 h-5 text-gray-700 dark:text-gray-200" />
             </motion.button>
             <h1 className="text-2xl font-bold font-display bg-gradient-to-r from-gray-800 to-gray-600 dark:from-gray-200 dark:to-gray-400 bg-clip-text text-transparent">
               Your Goals

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { OnboardingScreen } from './OnboardingScreen';
 import { PageIndicator } from './PageIndicator';
 import { ChevronRightIcon } from 'lucide-react';
@@ -40,10 +40,7 @@ export const OnboardingContainer: React.FC<OnboardingContainerProps> = ({
     }
   };
   // Handle swipe gestures
-  const handleDragEnd = (e, {
-    offset,
-    velocity
-  }) => {
+  const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, { offset, velocity }: PanInfo) => {
     const swipe = offset.x < -50 || offset.x < 0 && velocity.x < -0.3;
     if (swipe) {
       nextScreen();
@@ -52,7 +49,7 @@ export const OnboardingContainer: React.FC<OnboardingContainerProps> = ({
     }
   };
   const variants = {
-    enter: direction => ({
+    enter: (direction: number) => ({
       x: direction > 0 ? 1000 : -1000,
       opacity: 0
     }),
@@ -60,7 +57,7 @@ export const OnboardingContainer: React.FC<OnboardingContainerProps> = ({
       x: 0,
       opacity: 1
     },
-    exit: direction => ({
+    exit: (direction: number) => ({
       x: direction < 0 ? 1000 : -1000,
       opacity: 0
     })

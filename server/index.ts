@@ -13,6 +13,7 @@ import taxRulesMod from '../api/v1/tax/rules';
 
 import budgetsIndexMod from '../api/v1/budgets/index';
 import budgetsIdMod from '../api/v1/budgets/[id]';
+import budgetsMiniBudgetsMod from '../api/v1/budgets/[id]/mini-budgets';
 
 import transactionsIndexMod from '../api/v1/transactions/index';
 import transactionsIdMod from '../api/v1/transactions/[id]';
@@ -22,6 +23,11 @@ import goalsIdMod from '../api/v1/goals/[id]';
 
 import analyticsSummaryMod from '../api/v1/analytics/summary';
 
+import bankLinksIndexMod from '../api/v1/bank-links/index';
+
+import importedTransactionsIndexMod from '../api/v1/imported-transactions/index';
+import importedTransactionsIdMod from '../api/v1/imported-transactions/[id]';
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -29,12 +35,28 @@ app.use(express.json());
 function wrap(mod: any) {
   const handler = mod && (mod.default || mod);
   if (!handler) throw new Error('Invalid handler module');
-  return (req: any, res: any) => Promise.resolve(handler(req, res)).catch((err) => {
+  return (req: any, res: any) => {
+    // The handlers under `api/` were originally written for Vercel functions,
+    // where dynamic route params are exposed via `req.query`.
+    // Under Express they live on `req.params`, and `req.query` may be read-only.
+    // Create a lightweight shim request that merges params into query.
+    const baseQuery = req?.query && typeof req.query === 'object' ? req.query : {};
+    const baseParams = req?.params && typeof req.params === 'object' ? req.params : {};
+    const adaptedReq = Object.create(req);
+    Object.defineProperty(adaptedReq, 'query', {
+      value: { ...baseQuery, ...baseParams },
+      enumerable: true,
+      configurable: true,
+      writable: true
+    });
+
+    return Promise.resolve(handler(adaptedReq, res)).catch((err) => {
     console.error('Handler error', err);
     res.statusCode = 500;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ error: 'SERVER_ERROR', details: String(err?.message ?? err) }));
-  });
+    });
+  };
 }
 
 // Auth
@@ -54,6 +76,7 @@ app.all('/v1/tax/rules', wrap(taxRulesMod));
 // Budgets
 app.all('/v1/budgets', wrap(budgetsIndexMod));
 app.all('/v1/budgets/:id', wrap(budgetsIdMod));
+app.all('/v1/budgets/:id/mini-budgets', wrap(budgetsMiniBudgetsMod));
 
 // Transactions
 app.all('/v1/transactions', wrap(transactionsIndexMod));
@@ -65,6 +88,14 @@ app.all('/v1/goals/:id', wrap(goalsIdMod));
 
 // Analytics
 app.all('/v1/analytics/summary', wrap(analyticsSummaryMod));
+
+// Bank links
+app.all('/v1/bank-links', wrap(bankLinksIndexMod));
+
+// Imported transactions
+app.all('/v1/imported-transactions', wrap(importedTransactionsIndexMod));
+app.all('/v1/imported-transactions/:id', wrap(importedTransactionsIdMod));
+app.all('/v1/imported-transactions/:id/:action', wrap(importedTransactionsIdMod));
 
 // Fallback for unknown routes
 app.use((req, res) => {

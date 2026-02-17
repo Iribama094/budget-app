@@ -4,7 +4,7 @@ import { ArrowLeftIcon, BellIcon, ClockIcon, TagIcon, MoonIcon, FileTextIcon, Ma
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getTokens } from '../../utils/api/storage';
-import { getAnalyticsSummary, logout as apiLogout } from '../../utils/api/endpoints';
+import { getAnalyticsSummary, logout as apiLogout, listBankLinks, createBankLink, type ApiBankLink } from '../../utils/api/endpoints';
 interface ProfileSettingsProps {
   onBack: () => void;
 }
@@ -21,6 +21,8 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
   const [weeklySummaries, setWeeklySummaries] = useState(true);
   const [overspendAlerts, setOverspendAlerts] = useState(true);
   const [netWorth, setNetWorth] = useState(0);
+  const [bankLinks, setBankLinks] = useState<ApiBankLink[]>([]);
+  const [isConnectingBank, setIsConnectingBank] = useState(false);
 
   const displayName = useMemo(() => {
     if (auth.user?.name?.trim()) return auth.user.name.trim();
@@ -46,6 +48,17 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
       console.error('Failed to load net worth:', err);
       setNetWorth(0);
     });
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await listBankLinks();
+        setBankLinks(res.items || []);
+      } catch (err) {
+        console.warn('Failed to load bank links', err);
+      }
+    })();
   }, []);
   // Toggle function
   const handleToggle = (setting: string, value: boolean) => {
@@ -103,9 +116,9 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
             </div>
           </div>
           <div className="mt-5 pt-5 border-t border-gray-100 dark:border-gray-700">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
               <p className="text-gray-600 dark:text-gray-400">Net Worth</p>
-              <p className="text-xl font-bold text-gray-800 dark:text-gray-200">
+              <p className="text-xl font-bold text-gray-800 dark:text-gray-200 break-words max-w-full">
                 {currency}
                 {netWorth.toLocaleString()}
               </p>
@@ -235,14 +248,42 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
           <h3 className="text-lg font-medium text-gray-800 dark:text-gray-200 p-5 border-b border-gray-100 dark:border-gray-700">
             Data Options
           </h3>
+          {bankLinks.length > 0 && (
+            <div className="px-5 pt-3 pb-1 text-xs text-gray-500 dark:text-gray-400 space-y-1">
+              <p>
+                {bankLinks.length} connected bank{bankLinks.length === 1 ? '' : 's'}  b7{' '}
+                {bankLinks.reduce((sum, l) => sum + (l.accounts?.length || 0), 0)} account
+                {bankLinks.reduce((sum, l) => sum + (l.accounts?.length || 0), 0) === 1 ? '' : 's'}
+              </p>
+              <p className="truncate">
+                {bankLinks.map((l) => l.bankName).join(', ')}
+              </p>
+            </div>
+          )}
           <div className="divide-y divide-gray-100 dark:divide-gray-700">
             {/* Connect Bank */}
-            <button className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <button
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              onClick={async () => {
+                if (isConnectingBank) return;
+                try {
+                  setIsConnectingBank(true);
+                  const link = await createBankLink({ provider: 'demo-provider', bankName: 'Demo Bank' });
+                  setBankLinks((prev) => [...prev, link]);
+                } catch (err) {
+                  console.error('Failed to create demo bank link', err);
+                } finally {
+                  setIsConnectingBank(false);
+                }
+              }}
+            >
               <div className="flex items-center">
                 <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mr-3">
                   <div className="w-5 h-5 text-green-600" />
                 </div>
-                <span className="text-gray-800 dark:text-gray-200">Connect Bank Account</span>
+                <span className="text-gray-800 dark:text-gray-200">
+                  {isConnectingBank ? 'Connecting bank a0 b7 a0Demo' : 'Connect Bank Account'}
+                </span>
               </div>
               <ChevronRightIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
             </button>

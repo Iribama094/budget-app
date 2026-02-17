@@ -19,8 +19,8 @@ function toApiUser(user: any) {
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') return methodNotAllowed(res, ['GET']);
 
-  // AUTH BYPASSED FOR TESTING
-  const userId = 'test-user';
+  const userId = await requireUserId(req, res);
+  if (!userId) return;
 
   const db = await getDb();
   const { users } = collections(db);

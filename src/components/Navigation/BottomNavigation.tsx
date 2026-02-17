@@ -20,7 +20,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
     },
     {
       id: 'budget' as const,
-      label: 'Budget',
+      label: 'Your Budgets',
       icon: Wallet,
       color: 'secondary'
     },
@@ -42,7 +42,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
     <div className="fixed bottom-0 left-0 right-0 z-50">
       {/* Modern floating navigation */}
       <div className="mx-auto w-full max-w-md px-4 pb-[calc(env(safe-area-inset-bottom)+8px)]">
-        <div className="bg-white/90 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-large border border-white/30 dark:border-gray-700/30 px-2 py-2">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-large border border-white/30 dark:border-gray-700/30 px-2 py-2">
           <div className="flex items-center space-x-2">
             {navItems.map((item) => {
               const isActive = currentScreen === item.id;
@@ -51,11 +51,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
               return (
                 <motion.button
                   key={item.id}
-                  className={`relative flex flex-col items-center justify-center p-3 rounded-2xl min-w-[64px] transition-all duration-300 ${
-                    isActive
-                      ? 'bg-gradient-to-br from-primary-500 to-primary-600 shadow-glow'
-                      : 'hover:bg-gray-50'
-                  }`}
+                  className={`relative flex flex-col items-center justify-center p-3 rounded-2xl min-w-[64px] transition-all duration-300 hover:bg-gray-50`}
                   onClick={() => onScreenChange(item.id)}
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
@@ -67,38 +63,21 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
                   >
                     <Icon
                       className={`w-6 h-6 transition-colors duration-300 ${
-                        isActive ? 'text-white' : 'text-gray-500'
+                        isActive ? 'text-primary-600' : 'text-gray-500'
                       }`}
                     />
                   </motion.div>
 
                   <motion.span
                     className={`text-xs font-semibold mt-1 transition-colors duration-300 ${
-                      isActive ? 'text-white' : 'text-gray-500'
+                      isActive ? 'text-primary-600' : 'text-gray-500'
                     }`}
                     animate={isActive ? { opacity: 1 } : { opacity: 0.8 }}
                   >
                     {item.label}
                   </motion.span>
 
-                  {/* Floating active indicator */}
-                  {isActive && (
-                    <motion.div
-                      className="absolute -top-1 w-2 h-2 bg-accent-400 rounded-full shadow-glow-gold"
-                      layoutId="activeIndicator"
-                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                    />
-                  )}
-
-                  {/* Ripple effect */}
-                  {isActive && (
-                    <motion.div
-                      className="absolute inset-0 bg-white/20 rounded-2xl"
-                      initial={{ scale: 0, opacity: 0.5 }}
-                      animate={{ scale: 1, opacity: 0 }}
-                      transition={{ duration: 0.6 }}
-                    />
-                  )}
+                  {/* no circular background — only icon + label change color when active */}
                 </motion.button>
               );
             })}

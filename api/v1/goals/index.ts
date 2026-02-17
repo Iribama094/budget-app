@@ -13,14 +13,15 @@ const CreateSchema = z.object({
   targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   emoji: z.string().max(8).optional(),
   color: z.string().max(80).optional(),
-  category: z.string().max(40).optional()
+  category: z.string().max(40).optional(),
+  spaceId: z.enum(['personal', 'business']).optional()
 });
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET' && req.method !== 'POST') return methodNotAllowed(res, ['GET', 'POST']);
 
-  // AUTH BYPASSED FOR TESTING
-  const userId = 'test-user';
+  const userId = await requireUserId(req, res);
+  if (!userId) return;
 
   const db = await getDb();
   const { goals } = collections(db);
@@ -32,10 +33,12 @@ export default async function handler(req: any, res: any) {
 
       const now = new Date();
       const id = crypto.randomUUID();
+      const spaceId = input.spaceId ?? 'personal';
 
       await goals.insertOne({
         _id: id,
         userId,
+        spaceId,
         name: input.name,
         targetAmount: input.targetAmount,
         currentAmount: input.currentAmount ?? 0,
@@ -51,6 +54,7 @@ export default async function handler(req: any, res: any) {
       return sendJson(res, 201, {
         goal: {
           id: g!._id,
+          spaceId: g!.spaceId ?? 'personal',
           name: g!.name,
           targetAmount: g!.targetAmount,
           currentAmount: g!.currentAmount,
@@ -70,10 +74,21 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  const items = await goals.find({ userId }).sort({ createdAt: -1, _id: -1 }).toArray();
+  const { spaceId } = req.query ?? {};
+  const filter: any = { userId };
+
+  // Space-aware filtering (treat legacy docs without spaceId as personal).
+  if (spaceId === 'business') {
+    filter.spaceId = 'business';
+  } else if (spaceId === 'personal') {
+    filter.$or = [{ spaceId: 'personal' }, { spaceId: { $exists: false } }, { spaceId: null }];
+  }
+
+  const items = await goals.find(filter).sort({ createdAt: -1, _id: -1 }).toArray();
   return sendJson(res, 200, {
     items: items.map((g) => ({
       id: g._id,
+      spaceId: g.spaceId ?? 'personal',
       name: g.name,
       targetAmount: g.targetAmount,
       currentAmount: g.currentAmount,

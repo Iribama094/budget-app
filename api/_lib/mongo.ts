@@ -17,7 +17,11 @@ export async function getMongoClient(): Promise<MongoClient> {
   }
 
   if (!global.__bfMongoClientPromise) {
-    const client = new MongoClient(uri);
+    // Fail fast in dev when Mongo isn't running; avoids hanging requests.
+    const client = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000
+    });
     global.__bfMongoClientPromise = client.connect().catch((err) => {
       global.__bfMongoClientPromise = undefined;
       throw err;

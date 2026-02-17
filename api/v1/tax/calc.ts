@@ -30,6 +30,8 @@ export default async function handler(req: any, res: any) {
       netAnnual: computed.netAnnual,
       netMonthly: computed.netMonthly,
       ruleVersion: computed.ruleVersion,
+      minimumTaxApplied: computed.minimumTaxApplied,
+      minimumTaxAnnual: computed.minimumTaxAnnual,
       bands: (computed.taxByBracket || []).map((b: any) => ({
         from: b.from,
         to: b.to,

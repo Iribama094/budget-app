@@ -27,3 +27,24 @@ Then open the URL Vercel prints. The app will call `/v1/*` which is rewritten to
 ### Using a deployed backend
 
 If your backend is hosted elsewhere, set `VITE_API_BASE_URL` (e.g. `https://your-deployment.vercel.app`) and run `npm run dev`.
+
+## Mobile (Expo) + Docker backend (local)
+
+This repo includes a Dockerized Express API in `server/` that serves `/v1/*` and uses MongoDB.
+
+1. Start the backend (API + MongoDB):
+
+	- `docker compose up --build -d`
+
+	API listens on `http://localhost:3002`.
+
+2. Point the Expo app at your machine:
+
+	- Set `EXPO_PUBLIC_API_BASE_URL` in `mobile/.env` to `http://<YOUR_LAN_IP>:3002`
+	- (Android emulator only) use `http://10.0.2.2:3002`
+
+3. Start Expo:
+
+	- `cd mobile`
+	- `npm install`
+	- `npm run start`

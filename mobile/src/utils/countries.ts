@@ -1,0 +1,22 @@
+export const COUNTRIES: { code: string; name: string }[] = [
+  { code: 'NG', name: 'Nigeria' },
+  { code: 'US', name: 'United States' },
+  { code: 'GB', name: 'United Kingdom' },
+  { code: 'CA', name: 'Canada' },
+  { code: 'IN', name: 'India' },
+  { code: 'AU', name: 'Australia' },
+  { code: 'ZA', name: 'South Africa' },
+  { code: 'KE', name: 'Kenya' },
+  { code: 'GH', name: 'Ghana' },
+  { code: 'EG', name: 'Egypt' },
+  { code: 'FR', name: 'France' },
+  { code: 'DE', name: 'Germany' },
+  { code: 'ES', name: 'Spain' },
+  { code: 'IT', name: 'Italy' },
+  { code: 'NL', name: 'Netherlands' },
+  { code: 'SE', name: 'Sweden' },
+  { code: 'BR', name: 'Brazil' },
+  { code: 'MX', name: 'Mexico' },
+  { code: 'JP', name: 'Japan' },
+  { code: 'CN', name: 'China' }
+];

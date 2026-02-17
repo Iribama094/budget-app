@@ -22,21 +22,33 @@ export default async function handler(req: any, res: any) {
     return methodNotAllowed(res, ['GET', 'PATCH', 'DELETE']);
   }
 
-  // AUTH BYPASSED FOR TESTING
-  const userId = 'test-user';
+  const userId = await requireUserId(req, res);
+  if (!userId) return;
 
   const id = String(req.query?.id ?? '');
   if (!id) return sendError(res, 400, 'VALIDATION_ERROR', 'Missing id');
 
+  const spaceIdRaw = req.query?.spaceId;
+  const spaceId = spaceIdRaw === 'personal' || spaceIdRaw === 'business' ? spaceIdRaw : undefined;
+
   const db = await getDb();
   const { goals } = collections(db);
 
+  const filter: any = { _id: id, userId };
+  // Optional strict demarcation when spaceId is provided.
+  if (spaceId === 'business') {
+    filter.spaceId = 'business';
+  } else if (spaceId === 'personal') {
+    filter.$or = [{ spaceId: 'personal' }, { spaceId: { $exists: false } }, { spaceId: null }];
+  }
+
   if (req.method === 'GET') {
-    const g = await goals.findOne({ _id: id, userId });
+    const g = await goals.findOne(filter);
     if (!g) return sendError(res, 404, 'NOT_FOUND', 'Goal not found');
     return sendJson(res, 200, {
       goal: {
         id: g._id,
+        spaceId: g.spaceId ?? 'personal',
         name: g.name,
         targetAmount: g.targetAmount,
         currentAmount: g.currentAmount,
@@ -51,7 +63,7 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method === 'DELETE') {
-    const result = await goals.deleteOne({ _id: id, userId });
+    const result = await goals.deleteOne(filter);
     if (!result.deletedCount) return sendError(res, 404, 'NOT_FOUND', 'Goal not found');
     return sendNoContent(res);
   }
@@ -61,13 +73,14 @@ export default async function handler(req: any, res: any) {
     const patch = parseWith(PatchSchema, body);
 
     const now = new Date();
-    const result = await goals.updateOne({ _id: id, userId }, { $set: { ...patch, updatedAt: now } });
+    const result = await goals.updateOne(filter, { $set: { ...patch, updatedAt: now } });
     if (!result.matchedCount) return sendError(res, 404, 'NOT_FOUND', 'Goal not found');
 
-    const g = await goals.findOne({ _id: id, userId });
+    const g = await goals.findOne(filter);
     return sendJson(res, 200, {
       goal: {
         id: g!._id,
+        spaceId: g!.spaceId ?? 'personal',
         name: g!.name,
         targetAmount: g!.targetAmount,
         currentAmount: g!.currentAmount,

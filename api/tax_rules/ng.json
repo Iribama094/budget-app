@@ -1,21 +1,31 @@
 {
   "country": "NG",
-  "version": "2026-01-01-v1",
-  "effectiveDate": "2026-01-01",
+  "version": "2025-09-29-v1",
+  "effectiveDate": "2024-05-01",
   "currency": "NGN",
-  "notes": "Scaffold for Nigeria tax rules. Replace placeholder values with authoritative numbers and confirm with legal sources.",
+  "notes": "Nigeria PAYE (PIT) estimate rules (annual). Includes Consolidated Relief Allowance (CRA) and minimum tax. Gross income definition and exemptions can vary by taxpayer and state interpretation; this is an estimator.",
+  "lastReviewed": "2025-09-29",
+  "sources": [
+    "https://taxsummaries.pwc.com/nigeria/individual/taxes-on-personal-income",
+    "https://taxsummaries.pwc.com/nigeria/individual/deductions"
+  ],
+  "noTaxIfGrossMonthlyAtOrBelow": 70000,
+  "minimumTaxRate": 0.01,
   "allowances": {
-    "personalRelief": 200000
+    "consolidatedReliefAllowance": {
+      "type": "cra",
+      "fixed": 200000,
+      "minRate": 0.01,
+      "rate": 0.2
+    }
   },
-  "deductions": {
-    "pension": { "cap": 200000 }
-  },
+  "deductions": {},
   "brackets": [
     { "from": 0, "to": 300000, "rate": 0.07 },
-    { "from": 300001, "to": 600000, "rate": 0.11 },
-    { "from": 600001, "to": 1100000, "rate": 0.15 },
-    { "from": 1100001, "to": 1600000, "rate": 0.19 },
-    { "from": 1600001, "to": 3200000, "rate": 0.21 },
-    { "from": 3200001, "to": null, "rate": 0.24 }
+    { "from": 300000, "to": 600000, "rate": 0.11 },
+    { "from": 600000, "to": 1100000, "rate": 0.15 },
+    { "from": 1100000, "to": 1600000, "rate": 0.19 },
+    { "from": 1600000, "to": 3200000, "rate": 0.21 },
+    { "from": 3200000, "to": null, "rate": 0.24 }
   ]
 }

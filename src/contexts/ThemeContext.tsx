@@ -28,9 +28,19 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     if (savedTheme === 'dark') {
       setIsDarkMode(true);
       document.documentElement.classList.add('dark');
-    } else {
+    } else if (savedTheme === 'light') {
       setIsDarkMode(false);
       document.documentElement.classList.remove('dark');
+    } else {
+      // No saved preference: follow system/OS theme
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (prefersDark) {
+        setIsDarkMode(true);
+        document.documentElement.classList.add('dark');
+      } else {
+        setIsDarkMode(false);
+        document.documentElement.classList.remove('dark');
+      }
     }
   }, []);
 

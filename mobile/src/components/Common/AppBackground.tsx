@@ -26,7 +26,7 @@ export function AppBackground() {
             width: 160,
             height: 160,
             borderRadius: 999,
-            backgroundColor: hexToRgba(tokens.colors.primary[500], theme.mode === 'dark' ? 0.2 : 0.18)
+            backgroundColor: hexToRgba(tokens.colors.primary[500], theme.mode === 'dark' ? 0.14 : 0.12)
           }
         ]}
       />
@@ -40,7 +40,7 @@ export function AppBackground() {
             width: 120,
             height: 120,
             borderRadius: 999,
-            backgroundColor: hexToRgba(tokens.colors.secondary[500], theme.mode === 'dark' ? 0.18 : 0.16)
+            backgroundColor: hexToRgba(tokens.colors.secondary[500], theme.mode === 'dark' ? 0.12 : 0.1)
           }
         ]}
       />
@@ -54,10 +54,51 @@ export function AppBackground() {
             width: 220,
             height: 220,
             borderRadius: 999,
-            backgroundColor: hexToRgba(tokens.colors.accent[500], theme.mode === 'dark' ? 0.16 : 0.14)
+            backgroundColor: hexToRgba(tokens.colors.accent[500], theme.mode === 'dark' ? 0.1 : 0.08)
           }
         ]}
       />
+
+      {/* additional subtle shapes for a professional textured background */}
+      <View
+        style={[
+          styles.ribbon,
+          {
+            top: 28,
+            right: -28,
+            width: 260,
+            height: 140,
+            transform: [{ rotate: '-18deg' }]
+          }
+        ]}
+      >
+        <LinearGradient
+          colors={[hexToRgba(tokens.colors.primary[400], theme.mode === 'dark' ? 0.05 : 0.05), 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
+
+      <View
+        style={[
+          styles.ribbon,
+          {
+            bottom: -18,
+            left: -40,
+            width: 220,
+            height: 110,
+            transform: [{ rotate: '12deg' }]
+          }
+        ]}
+      >
+        <LinearGradient
+          colors={[hexToRgba(tokens.colors.secondary[400], theme.mode === 'dark' ? 0.04 : 0.04), 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
     </View>
   );
 }
@@ -65,5 +106,11 @@ export function AppBackground() {
 const styles = StyleSheet.create({
   blob: {
     position: 'absolute'
+  }
+  ,
+  ribbon: {
+    position: 'absolute',
+    borderRadius: 40,
+    overflow: 'hidden'
   }
 });

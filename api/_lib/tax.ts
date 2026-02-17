@@ -13,8 +13,29 @@ export type TaxRule = {
   effectiveDate: string;
   currency?: string;
   brackets: TaxBracket[];
-  allowances?: { [key: string]: number };
+  allowances?: {
+    [key: string]:
+      | number
+      | {
+          type: 'percentOfGross';
+          rate: number;
+        }
+      | {
+          type: 'maxOfFixedOrPercentOfGross';
+          fixed: number;
+          rate: number;
+        }
+      | {
+          // Nigeria: (20% of gross) + max(₦200,000, 1% of gross)
+          type: 'cra';
+          fixed: number;
+          minRate: number;
+          rate: number;
+        };
+  };
   deductions?: { [key: string]: { cap?: number } };
+  minimumTaxRate?: number; // e.g., 0.01 => 1% of total income
+  noTaxIfGrossMonthlyAtOrBelow?: number; // e.g., national minimum wage threshold
   notes?: string;
 };
 
@@ -40,15 +61,57 @@ export type TaxResult = {
   netAnnual: number;
   netMonthly: number;
   ruleVersion?: string;
+  minimumTaxApplied?: boolean;
+  minimumTaxAnnual?: number;
 };
+
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
+}
 
 export function computeTax(rule: TaxRule, input: TaxInput): TaxResult {
   const gross = Math.max(0, input.grossAnnual ?? 0);
 
+  if (
+    typeof rule.noTaxIfGrossMonthlyAtOrBelow === 'number' &&
+    rule.noTaxIfGrossMonthlyAtOrBelow >= 0 &&
+    gross / 12 <= rule.noTaxIfGrossMonthlyAtOrBelow
+  ) {
+    return {
+      grossAnnual: gross,
+      taxableIncome: gross,
+      taxByBracket: [],
+      totalTaxAnnual: 0,
+      netAnnual: gross,
+      netMonthly: round2(gross / 12),
+      ruleVersion: rule.version
+    };
+  }
+
   // Sum allowances from rule + input allowances
   let totalAllowances = 0;
   if (rule.allowances) {
-    for (const k of Object.keys(rule.allowances)) totalAllowances += rule.allowances[k];
+    for (const k of Object.keys(rule.allowances)) {
+      const val = (rule.allowances as any)[k];
+      if (typeof val === 'number') {
+        totalAllowances += val;
+        continue;
+      }
+      if (!val || typeof val !== 'object') continue;
+
+      if (val.type === 'percentOfGross') {
+        totalAllowances += gross * Number(val.rate ?? 0);
+      } else if (val.type === 'maxOfFixedOrPercentOfGross') {
+        const fixed = Math.max(0, Number(val.fixed ?? 0));
+        const rate = Math.max(0, Number(val.rate ?? 0));
+        totalAllowances += Math.max(fixed, gross * rate);
+      } else if (val.type === 'cra') {
+        const fixed = Math.max(0, Number(val.fixed ?? 0));
+        const minRate = Math.max(0, Number(val.minRate ?? 0));
+        const rate = Math.max(0, Number(val.rate ?? 0));
+        totalAllowances += gross * rate + Math.max(fixed, gross * minRate);
+      }
+    }
   }
   if (input.allowances) for (const k of Object.keys(input.allowances)) totalAllowances += input.allowances[k];
 
@@ -81,15 +144,28 @@ export function computeTax(rule: TaxRule, input: TaxInput): TaxResult {
     }
   }
 
+  let minimumTaxApplied = false;
+  let minimumTaxAnnual: number | undefined = undefined;
+  if (typeof rule.minimumTaxRate === 'number' && rule.minimumTaxRate > 0 && gross > 0) {
+    const minTax = gross * rule.minimumTaxRate;
+    if (totalTax < minTax) {
+      minimumTaxApplied = true;
+      minimumTaxAnnual = round2(minTax);
+      totalTax = minTax;
+    }
+  }
+
   const netAnnual = gross - totalTax;
   return {
     grossAnnual: gross,
     taxableIncome: taxable,
     taxByBracket: byBracket,
-    totalTaxAnnual: Math.round(totalTax * 100) / 100,
-    netAnnual: Math.round(netAnnual * 100) / 100,
-    netMonthly: Math.round((netAnnual / 12) * 100) / 100,
-    ruleVersion: rule.version
+    totalTaxAnnual: round2(totalTax),
+    netAnnual: round2(netAnnual),
+    netMonthly: round2(netAnnual / 12),
+    ruleVersion: rule.version,
+    minimumTaxApplied: minimumTaxApplied || undefined,
+    minimumTaxAnnual
   };
 }
 

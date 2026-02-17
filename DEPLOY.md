@@ -58,17 +58,36 @@ After deployment
 
 Vercel (recommended for full API)
 
+Free-tier setup (Atlas + Vercel)
+
+This repo’s real backend (MongoDB + JWT auth) lives under `api/` as Vercel Serverless Functions.
+For a no-paid-infra path, use:
+- MongoDB Atlas M0 (free) for the database
+- Vercel Hobby (free) for the API + web
+
+Step 1 — Create MongoDB Atlas (free)
+
+1. Create an Atlas account and create a **FREE M0 cluster**.
+2. Create a Database User (Database Access → Add New Database User).
+3. Network Access:
+   - For easiest setup, allow `0.0.0.0/0` temporarily.
+   - Use a strong password. You can tighten this later.
+4. Click **Connect** → **Drivers** and copy the connection string:
+   - `mongodb+srv://<username>:<password>@<cluster>/<db>?retryWrites=true&w=majority`
+   - Replace `<username>`, `<password>`, and set `<db>` to `budgetfriendly` (or any name you prefer).
+
+Step 2 — Deploy to Vercel (free)
+
 1. Connect your GitHub repository to Vercel: https://vercel.com/new
 2. Select the project (Budget-Friendly-app) and confirm settings; Vercel will detect the `api/` serverless functions automatically.
 3. Add environment variables in the Vercel dashboard (Project Settings → Environment Variables):
 	- `MONGODB_URI` (Secret)
-	- `MONGODB_DB` (optional)
+	- `MONGODB_DB` (optional; default is `budgetfriendly`)
 	- `JWT_ACCESS_SECRET` (Secret)
 	- `JWT_REFRESH_SECRET` (Secret)
 	- `JWT_ACCESS_TTL_MIN` (e.g., `15`)
 	- `JWT_REFRESH_TTL_DAYS` (e.g., `30`)
 	- `NODE_ENV` = `production`
-	- `EXPO_PUBLIC_API_BASE_URL` = `https://<your-vercel-url>`
 4. Optionally add `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` as GitHub repository secrets so the GitHub Action `/.github/workflows/vercel-deploy.yml` can deploy automatically on pushes to `main`.
 	- Create a Personal Token in Vercel (Account → Tokens) and copy the token to `VERCEL_TOKEN` in GitHub Secrets.
 	- Get `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` from the Vercel project settings and add them to GitHub Secrets.
@@ -86,4 +105,22 @@ After Vercel deploy
   - `POST https://<your-vercel-url>/v1/auth/register`
   - `POST https://<your-vercel-url>/v1/auth/login`
   - `POST https://<your-vercel-url>/v1/tax/calc`
+
+Step 3 — Point the Expo mobile app at the deployed API
+
+In the Expo app, set the API base to your deployed Vercel URL (HTTPS):
+
+- Edit `mobile/.env`:
+	- `EXPO_PUBLIC_API_BASE_URL=https://<your-vercel-url>`
+
+Important:
+- Do not include `/api` or `/v1` in the base URL.
+- The app calls `/v1/*` and Vercel rewrites `/v1/* → /api/v1/*` via `vercel.json`.
+
+Step 4 — TestFlight prerequisite (iOS)
+
+TestFlight requires the paid Apple Developer Program ($99/year). If you’re not paid yet, you can still:
+- Test in Expo Go (dev)
+- Build/run on an iOS Simulator (Mac required)
+- Use Android internal testing without Apple membership
 
