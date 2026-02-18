@@ -171,7 +171,7 @@ export function computeTax(rule: TaxRule, input: TaxInput): TaxResult {
 
 export function loadRuleForCountry(country: string): TaxRule | null {
   try {
-    const file = path.resolve(process.cwd(), 'api', 'tax_rules', `${country.toLowerCase()}.json`);
+    const file = path.resolve(process.cwd(), 'backend', 'tax_rules', `${country.toLowerCase()}.json`);
     const raw = fs.readFileSync(file, 'utf8');
     return JSON.parse(raw) as TaxRule;
   } catch (err) {

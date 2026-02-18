@@ -1,32 +1,32 @@
 import express from 'express';
 import cors from 'cors';
 
-import registerMod from '../api/v1/auth/register';
-import loginMod from '../api/v1/auth/login';
-import logoutMod from '../api/v1/auth/logout';
-import refreshMod from '../api/v1/auth/refresh';
-import authMeMod from '../api/v1/auth/me';
-import usersMeMod from '../api/v1/users/me';
+import registerMod from '../backend/v1/auth/register';
+import loginMod from '../backend/v1/auth/login';
+import logoutMod from '../backend/v1/auth/logout';
+import refreshMod from '../backend/v1/auth/refresh';
+import authMeMod from '../backend/v1/auth/me';
+import usersMeMod from '../backend/v1/users/me';
 
-import taxCalcMod from '../api/v1/tax/calc';
-import taxRulesMod from '../api/v1/tax/rules';
+import taxCalcMod from '../backend/v1/tax/calc';
+import taxRulesMod from '../backend/v1/tax/rules';
 
-import budgetsIndexMod from '../api/v1/budgets/index';
-import budgetsIdMod from '../api/v1/budgets/[id]';
-import budgetsMiniBudgetsMod from '../api/v1/budgets/[id]/mini-budgets';
+import budgetsIndexMod from '../backend/v1/budgets/index';
+import budgetsIdMod from '../backend/v1/budgets/[id]';
+import budgetsMiniBudgetsMod from '../backend/v1/budgets/[id]/mini-budgets';
 
-import transactionsIndexMod from '../api/v1/transactions/index';
-import transactionsIdMod from '../api/v1/transactions/[id]';
+import transactionsIndexMod from '../backend/v1/transactions/index';
+import transactionsIdMod from '../backend/v1/transactions/[id]';
 
-import goalsIndexMod from '../api/v1/goals/index';
-import goalsIdMod from '../api/v1/goals/[id]';
+import goalsIndexMod from '../backend/v1/goals/index';
+import goalsIdMod from '../backend/v1/goals/[id]';
 
-import analyticsSummaryMod from '../api/v1/analytics/summary';
+import analyticsSummaryMod from '../backend/v1/analytics/summary';
 
-import bankLinksIndexMod from '../api/v1/bank-links/index';
+import bankLinksIndexMod from '../backend/v1/bank-links/index';
 
-import importedTransactionsIndexMod from '../api/v1/imported-transactions/index';
-import importedTransactionsIdMod from '../api/v1/imported-transactions/[id]';
+import importedTransactionsIndexMod from '../backend/v1/imported-transactions/index';
+import importedTransactionsIdMod from '../backend/v1/imported-transactions/[id]';
 
 const app = express();
 app.use(cors());
