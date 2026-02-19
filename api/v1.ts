@@ -1,34 +1,34 @@
-import type { ApiRequest, ApiResponse, Handler } from '../../backend/_lib/http.js';
-import { sendError } from '../../backend/_lib/http.js';
+import type { ApiRequest, ApiResponse, Handler } from '../backend/_lib/http.js';
+import { sendError } from '../backend/_lib/http.js';
 
-import registerMod from '../../backend/v1/auth/register.js';
-import loginMod from '../../backend/v1/auth/login.js';
-import logoutMod from '../../backend/v1/auth/logout.js';
-import refreshMod from '../../backend/v1/auth/refresh.js';
-import authMeMod from '../../backend/v1/auth/me.js';
+import registerMod from '../backend/v1/auth/register.js';
+import loginMod from '../backend/v1/auth/login.js';
+import logoutMod from '../backend/v1/auth/logout.js';
+import refreshMod from '../backend/v1/auth/refresh.js';
+import authMeMod from '../backend/v1/auth/me.js';
 
-import usersMeMod from '../../backend/v1/users/me.js';
+import usersMeMod from '../backend/v1/users/me.js';
 
-import taxCalcMod from '../../backend/v1/tax/calc.js';
-import taxRulesMod from '../../backend/v1/tax/rules.js';
+import taxCalcMod from '../backend/v1/tax/calc.js';
+import taxRulesMod from '../backend/v1/tax/rules.js';
 
-import budgetsIndexMod from '../../backend/v1/budgets/index.js';
-import budgetsIdMod from '../../backend/v1/budgets/[id].js';
-import budgetsMiniBudgetsMod from '../../backend/v1/budgets/[id]/mini-budgets.js';
+import budgetsIndexMod from '../backend/v1/budgets/index.js';
+import budgetsIdMod from '../backend/v1/budgets/[id].js';
+import budgetsMiniBudgetsMod from '../backend/v1/budgets/[id]/mini-budgets.js';
 
-import transactionsIndexMod from '../../backend/v1/transactions/index.js';
-import transactionsIdMod from '../../backend/v1/transactions/[id].js';
+import transactionsIndexMod from '../backend/v1/transactions/index.js';
+import transactionsIdMod from '../backend/v1/transactions/[id].js';
 
-import goalsIndexMod from '../../backend/v1/goals/index.js';
-import goalsIdMod from '../../backend/v1/goals/[id].js';
+import goalsIndexMod from '../backend/v1/goals/index.js';
+import goalsIdMod from '../backend/v1/goals/[id].js';
 
-import analyticsSummaryMod from '../../backend/v1/analytics/summary.js';
+import analyticsSummaryMod from '../backend/v1/analytics/summary.js';
 
-import bankLinksIndexMod from '../../backend/v1/bank-links/index.js';
-import bankLinksIdMod from '../../backend/v1/bank-links/[id].js';
+import bankLinksIndexMod from '../backend/v1/bank-links/index.js';
+import bankLinksIdMod from '../backend/v1/bank-links/[id].js';
 
-import importedTransactionsIndexMod from '../../backend/v1/imported-transactions/index.js';
-import importedTransactionsIdMod from '../../backend/v1/imported-transactions/[id].js';
+import importedTransactionsIndexMod from '../backend/v1/imported-transactions/index.js';
+import importedTransactionsIdMod from '../backend/v1/imported-transactions/[id].js';
 
 function unwrap(mod: any): Handler {
   const handler = mod && (mod.default || mod);
@@ -50,7 +50,7 @@ function wrapReq(req: ApiRequest, extraQuery: Record<string, any> = {}): ApiRequ
 
 function getPathParts(req: ApiRequest): string[] {
   const raw = (req.query as any)?.path;
-  if (Array.isArray(raw)) return raw.map((p) => String(p));
+  if (Array.isArray(raw)) return raw.flatMap((p) => String(p).split('/')).map((p) => p.trim()).filter(Boolean);
   if (typeof raw === 'string' && raw.length) {
     return raw
       .split('/')
