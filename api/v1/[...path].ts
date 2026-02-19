@@ -51,7 +51,12 @@ function wrapReq(req: ApiRequest, extraQuery: Record<string, any> = {}): ApiRequ
 function getPathParts(req: ApiRequest): string[] {
   const raw = (req.query as any)?.path;
   if (Array.isArray(raw)) return raw.map((p) => String(p));
-  if (typeof raw === 'string' && raw.length) return [raw];
+  if (typeof raw === 'string' && raw.length) {
+    return raw
+      .split('/')
+      .map((p) => p.trim())
+      .filter(Boolean);
+  }
   return [];
 }
 
