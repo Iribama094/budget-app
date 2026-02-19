@@ -1,14 +1,7 @@
-import crypto from 'crypto';
-import { z } from 'zod';
 import { getDb } from '../../_lib/mongo.js';
 import { collections, type ImportedTransactionStatus } from '../../_lib/collections.js';
-import { methodNotAllowed, readJson, sendError, sendJson, type ApiRequest, type ApiResponse } from '../../_lib/http.js';
+import { methodNotAllowed, sendJson, type ApiRequest, type ApiResponse } from '../../_lib/http.js';
 import { requireUserId } from '../../_lib/user.js';
-
-const ReconcileSchema = z.object({
-  type: z.enum(['income', 'expense']).optional(),
-  category: z.string().min(1).max(60).optional()
-});
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method === 'GET') {
