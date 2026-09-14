@@ -1,4 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { BUCKETS } from '../theme/buckets';
+import { useCategories } from '../contexts/CategoriesContext';
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,9 +33,6 @@ import { getRememberedPushToken, scheduleLocalBillReminders } from '../lib/notif
 import { currencySymbol, formatNumberInput, formatShortDate, parseNumberInput, toIsoDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 
-const EXPENSE_CATEGORIES = ['Housing', 'Bills', 'Data & Airtime', 'Transport', 'Entertainment', 'Health', 'Food', 'Savings', 'Other'];
-const INCOME_CATEGORIES = ['Salary', 'Freelance', 'Rent income', 'Allowance', 'Interest', 'Other'];
-const BUCKETS = ['Essential', 'Free Spending', 'Savings', 'Investments', 'Miscellaneous', 'Debt Financing'];
 const FREQ_LABEL: Record<RecurringFrequency, string> = { weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
 
 type Draft = {
@@ -56,12 +55,12 @@ function blankDraft(): Draft {
     type: 'expense',
     amount: '',
     description: '',
-    category: 'Bills',
+    category: 'Bills & utilities',
     frequency: 'monthly',
     nextDueDate: toIsoDate(new Date()),
     autoCreate: true,
     remindDaysBefore: 1,
-    budgetCategory: 'Essential',
+    budgetCategory: 'Needs',
     paused: false
   };
 }
@@ -75,6 +74,7 @@ function daysUntil(iso: string) {
 }
 
 export default function RecurringScreen() {
+  const { expense: expenseCats, income: incomeCats } = useCategories();
   const nav = useNavigation<any>();
   const { theme } = useTheme();
   const { user } = useAuth();
@@ -354,7 +354,7 @@ export default function RecurringScreen() {
 
                 <Text style={[type.smallStrong, styles.label, { color: theme.colors.text }]}>Category</Text>
                 <View style={styles.wrap}>
-                  {(draft.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((c) => chip(c, draft.category === c, () => setDraft({ ...draft, category: c })))}
+                  {(draft.type === 'income' ? incomeCats : expenseCats).map((x) => x.name).map((c) => chip(c, draft.category === c, () => setDraft({ ...draft, category: c })))}
                 </View>
 
                 <Text style={[type.smallStrong, styles.label, { color: theme.colors.text }]}>How often</Text>

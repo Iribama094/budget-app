@@ -1,0 +1,466 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BellRing, Check, ChevronLeft, CircleDollarSign, ListChecks, Plus, Receipt, Sparkles, X } from 'lucide-react-native';
+
+import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { useToast } from '../components/Common/Toast';
+import { Amount, Card, Chip, HeroCard, IconTile, InlineError, PrimaryButton, SecondaryButton, SegmentedControl, TextButton } from '../components/Common/ui';
+import { ChoiceChip } from '../components/Plan/ChoiceChip';
+import { IncomeEditor } from '../components/Plan/IncomeEditor';
+import { PlanSplit } from '../components/Plan/PlanSplit';
+import {
+  completeOnboarding,
+  listIncomeSources,
+  previewPlan,
+  skipOnboarding,
+  type ApiPlan,
+  type BillInput,
+  type IncomeInput,
+  type PainPoint,
+  type PlanInputs
+} from '../api/personal';
+import { BILL_PRESETS, blankBill, blankIncome, fromApiIncome, toBillInput, toIncomeInput, type DraftBill, type DraftIncome } from '../lib/planDrafts';
+import { setDailyReminder } from '../lib/notifications';
+import { currencySymbol, formatNumberInput } from '../utils/format';
+import { fonts, type } from '../theme/typography';
+
+const PAIN_OPTIONS: Array<{ key: PainPoint; title: string; body: string }> = [
+  { key: 'runs_out', title: 'My money runs out before payday', body: 'We’ll show what’s safe to spend each day.' },
+  { key: 'no_idea', title: 'I don’t know where my money goes', body: 'Logging takes seconds, and we’ll point out the leaks.' },
+  { key: 'cant_save', title: 'I find it hard to save', body: 'Savings comes first in your plan, even small amounts.' },
+  { key: 'debt', title: 'I’m paying off debt', body: 'Repayments are covered before wants.' },
+  { key: 'irregular', title: 'My income isn’t steady', body: 'We’ll plan around a safe estimate.' }
+];
+
+const REMINDERS = [
+  { key: 'morning', label: 'Morning', time: '8:00 am', hour: 8 },
+  { key: 'lunch', label: 'Lunchtime', time: '1:00 pm', hour: 13 },
+  { key: 'evening', label: 'Evening', time: '8:00 pm', hour: 20 },
+  { key: 'none', label: 'No reminder', time: 'I’ll remember myself', hour: -1 }
+] as const;
+
+type ReminderKey = (typeof REMINDERS)[number]['key'];
+
+const LAST_STEP = 5;
+
+/**
+ * The first-run plan: what's hard right now, income and payday, regular bills, the plan itself, and a daily
+ * reminder. Every step can be skipped, and everything can be changed later from the profile.
+ */
+export default function SetupPlanScreen() {
+  const nav = useNavigation<any>();
+  const route = useRoute<any>();
+  const fromHome = !!route.params?.fromHome;
+  const { user, refreshUser } = useAuth();
+  const { theme } = useTheme();
+  const toast = useToast();
+  const insets = useSafeAreaInsets();
+  const glyph = currencySymbol(user?.currency);
+  const firstName = (user?.name ?? '').trim().split(/\s+/)[0] || null;
+
+  const [step, setStep] = useState(0);
+  const [pains, setPains] = useState<PainPoint[]>((user?.onboarding?.painPoints as PainPoint[] | undefined) ?? []);
+  const [incomes, setIncomes] = useState<DraftIncome[]>([blankIncome('salary')]);
+  const [bills, setBills] = useState<DraftBill[]>([]);
+  const [payday, setPayday] = useState(user?.budgetPeriod !== 'monthly');
+  const [plan, setPlan] = useState<ApiPlan | null>(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [reminder, setReminder] = useState<ReminderKey>('evening');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fade = useRef(new Animated.Value(1)).current;
+
+  // Updating an existing plan starts from what's saved.
+  useEffect(() => {
+    if (!fromHome) return;
+    listIncomeSources()
+      .then((items) => items.length && setIncomes(items.map(fromApiIncome)))
+      .catch(() => undefined);
+  }, [fromHome]);
+
+  const inputs = (): PlanInputs => ({
+    income: incomes.map(toIncomeInput).filter(Boolean) as IncomeInput[],
+    bills: bills.map(toBillInput).filter(Boolean) as BillInput[],
+    painPoints: pains,
+    budgetPeriod: payday ? 'payday' : 'monthly'
+  });
+
+  useEffect(() => {
+    if (step !== 4) return;
+    let cancelled = false;
+    setPlanLoading(true);
+    setError(null);
+    previewPlan(inputs())
+      .then((p) => !cancelled && setPlan(p))
+      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not build your plan. Check your connection.'))
+      .finally(() => !cancelled && setPlanLoading(false));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, payday]);
+
+  const go = (next: number) => {
+    setError(null);
+    Animated.sequence([
+      Animated.timing(fade, { toValue: 0, duration: 90, useNativeDriver: true }),
+      Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true })
+    ]).start();
+    setStep(next);
+  };
+
+  const leave = () => {
+    if (fromHome && nav.canGoBack()) nav.goBack();
+    else nav.reset({ index: 0, routes: [{ name: 'Main' }] });
+  };
+
+  const skip = async () => {
+    setBusy(true);
+    try {
+      if (!user?.onboarding?.completedAt) await skipOnboarding();
+      await refreshUser();
+    } catch {
+      // Skipping should never block getting into the app.
+    } finally {
+      setBusy(false);
+    }
+    leave();
+  };
+
+  const finish = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await completeOnboarding({ ...inputs(), createBudget: true });
+      const choice = REMINDERS.find((r) => r.key === reminder)!;
+      if (choice.hour >= 0) {
+        const ok = await setDailyReminder({ hour: choice.hour, minute: 0 }).catch(() => false);
+        if (!ok) toast.show('Allow notifications in your phone settings to get the daily reminder.', 'info', 4000);
+      } else {
+        await setDailyReminder(null).catch(() => undefined);
+      }
+      await refreshUser();
+      toast.show('Your plan is ready', 'success');
+      leave();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save your plan. Check your connection and try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const hasPayDates = incomes.some((i) => (i.frequency === 'monthly' && i.payDay) || ((i.frequency === 'weekly' || i.frequency === 'biweekly') && i.payWeekday != null));
+  const addedPresets = new Set(bills.map((b) => b.name));
+
+  /* ------------------------------------------------------------ steps */
+
+  const welcome = (
+    <View>
+      <HeroCard style={{ marginTop: 8 }}>
+        <Text style={[type.eyebrow, { color: theme.colors.inkText, opacity: 0.72 }]}>Two minutes</Text>
+        <Text style={[type.h1, { color: theme.colors.inkText, marginTop: 8, fontSize: 28, lineHeight: 34 }]}>
+          {firstName ? `Hi ${firstName}, let’s make a plan that works for you` : 'Let’s make a plan that works for you'}
+        </Text>
+        <Text style={[type.body, { color: theme.colors.inkText, opacity: 0.8, marginTop: 10 }]}>
+          Rough numbers are fine. There’s no judgement here, and you can change anything later.
+        </Text>
+      </HeroCard>
+      {[
+        { Icon: CircleDollarSign, title: 'What you earn and when', body: 'So your budget runs from payday to payday.' },
+        { Icon: Receipt, title: 'What you must pay', body: 'Rent, school fees, tithe, family support and more.' },
+        { Icon: ListChecks, title: 'A plan you can follow', body: 'Split into Needs, Wants and Savings in plain numbers.' }
+      ].map(({ Icon, title, body }) => (
+        <View key={title} style={styles.point}>
+          <IconTile bg={theme.colors.primarySoft} size={40}>
+            <Icon color={theme.colors.primary} size={20} />
+          </IconTile>
+          <View style={{ flex: 1 }}>
+            <Text style={[type.bodyStrong, { color: theme.colors.text }]}>{title}</Text>
+            <Text style={[type.small, { color: theme.colors.textMuted }]}>{body}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+
+  const painStep = (
+    <View>
+      <Text style={[type.eyebrow, { color: theme.colors.primary }]}>About you</Text>
+      <Text style={[type.h2, { color: theme.colors.text, marginTop: 6 }]}>What’s hardest about money right now?</Text>
+      <Text style={[type.body, { color: theme.colors.textMuted, marginTop: 6, marginBottom: 12 }]}>Pick any that sound like you. It shapes the tips you get.</Text>
+      {PAIN_OPTIONS.map((o) => {
+        const active = pains.includes(o.key);
+        return (
+          <Pressable
+            key={o.key}
+            onPress={() => setPains((p) => (active ? p.filter((x) => x !== o.key) : [...p, o.key]))}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: active }}
+            style={[styles.option, { borderColor: active ? theme.colors.primary : theme.colors.border, backgroundColor: active ? theme.colors.primarySoft : theme.colors.surface }]}
+          >
+            <View style={[styles.check, { borderColor: active ? theme.colors.primary : theme.colors.border, backgroundColor: active ? theme.colors.primary : 'transparent' }]}>
+              {active ? <Check color={theme.colors.onPrimary} size={14} strokeWidth={3} /> : null}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[type.bodyStrong, { color: theme.colors.text }]}>{o.title}</Text>
+              <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>{o.body}</Text>
+            </View>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
+  const incomeStep = (
+    <View>
+      <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Income</Text>
+      <Text style={[type.h2, { color: theme.colors.text, marginTop: 6 }]}>How do you get paid?</Text>
+      <Text style={[type.body, { color: theme.colors.textMuted, marginTop: 6 }]}>Add each way money comes in: salary, business, side hustle or allowance.</Text>
+      {incomes.map((inc, i) => (
+        <Card key={inc.key} style={{ marginTop: 14 }}>
+          <IncomeEditor
+            value={inc}
+            glyph={glyph}
+            title={incomes.length > 1 ? `Income ${i + 1}` : 'Income'}
+            onChange={(next) => setIncomes((list) => list.map((x) => (x.key === inc.key ? next : x)))}
+            onRemove={incomes.length > 1 ? () => setIncomes((list) => list.filter((x) => x.key !== inc.key)) : undefined}
+          />
+        </Card>
+      ))}
+      {incomes.length < 5 ? (
+        <SecondaryButton
+          title="Add another income"
+          iconLeft={<Plus color={theme.colors.text} size={18} />}
+          onPress={() => setIncomes((list) => [...list, blankIncome('side_hustle')])}
+          style={{ marginTop: 12 }}
+        />
+      ) : null}
+    </View>
+  );
+
+  const billsStep = (
+    <View>
+      <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Bills</Text>
+      <Text style={[type.h2, { color: theme.colors.text, marginTop: 6 }]}>What do you have to pay regularly?</Text>
+      <Text style={[type.body, { color: theme.colors.textMuted, marginTop: 6 }]}>
+        Tap the ones you have. Day-to-day spending like food and transport comes out of Needs, so you don’t need to add it here.
+      </Text>
+      <View style={styles.wrap}>
+        {BILL_PRESETS.filter((p) => !addedPresets.has(p.name)).map((p) => (
+          <ChoiceChip key={p.name} label={p.name} active={false} icon={<Plus color={theme.colors.textMuted} size={14} />} onPress={() => setBills((b) => [...b, blankBill(p)])} />
+        ))}
+        <ChoiceChip label="Something else" active={false} icon={<Plus color={theme.colors.textMuted} size={14} />} onPress={() => setBills((b) => [...b, blankBill()])} />
+      </View>
+
+      {bills.map((bill) => {
+        const update = (patch: Partial<DraftBill>) => setBills((list) => list.map((x) => (x.key === bill.key ? { ...x, ...patch } : x)));
+        return (
+          <Card key={bill.key} style={{ marginTop: 12 }}>
+            <View style={styles.rowBetween}>
+              <TextInput
+                value={bill.name}
+                onChangeText={(t) => update({ name: t })}
+                placeholder="Bill name"
+                placeholderTextColor={theme.colors.textMuted}
+                maxLength={60}
+                style={[type.bodyStrong, { color: theme.colors.text, flex: 1, paddingVertical: 4 }]}
+              />
+              <Pressable onPress={() => setBills((list) => list.filter((x) => x.key !== bill.key))} hitSlop={10} accessibilityLabel={`Remove ${bill.name || 'bill'}`}>
+                <X color={theme.colors.textMuted} size={18} />
+              </Pressable>
+            </View>
+            <View style={[styles.input, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface, marginTop: 8 }]}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: theme.colors.textMuted }}>{glyph}</Text>
+              <TextInput
+                value={bill.amount}
+                onChangeText={(t) => update({ amount: formatNumberInput(t.replace(/[^\d.,]/g, '')) })}
+                keyboardType="number-pad"
+                placeholder="How much?"
+                placeholderTextColor={theme.colors.textMuted}
+                style={[styles.inputText, { color: theme.colors.text }]}
+              />
+            </View>
+            <SegmentedControl
+              options={[
+                { key: 'monthly', label: 'Monthly' },
+                { key: 'yearly', label: 'Yearly' },
+                { key: 'weekly', label: 'Weekly' }
+              ]}
+              value={bill.frequency}
+              onChange={(k) => update({ frequency: k })}
+              style={{ marginTop: 10 }}
+            />
+            {bill.frequency === 'yearly' ? (
+              <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 6 }]}>We’ll set aside a little each month so it’s ready when it’s due.</Text>
+            ) : null}
+          </Card>
+        );
+      })}
+    </View>
+  );
+
+  const planStep = (
+    <View>
+      <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Your plan</Text>
+      <Text style={[type.h2, { color: theme.colors.text, marginTop: 6 }]}>Here’s a plan built around you</Text>
+      {planLoading || !plan ? (
+        <View style={{ paddingVertical: 48, alignItems: 'center' }}>{planLoading ? <ActivityIndicator color={theme.colors.primary} /> : null}</View>
+      ) : plan.status === 'no_income' ? (
+        <Card style={{ marginTop: 14 }}>
+          <Text style={[type.bodyStrong, { color: theme.colors.text }]}>Add your income to see a plan</Text>
+          <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 4 }]}>{plan.tips[0]}</Text>
+          <TextButton title="Add income" onPress={() => go(2)} style={{ alignItems: 'flex-start' }} />
+        </Card>
+      ) : (
+        <>
+          <HeroCard style={{ marginTop: 14 }}>
+            <View style={styles.rowBetween}>
+              <Text style={[type.eyebrow, { color: theme.colors.inkText, opacity: 0.72 }]}>Each month</Text>
+              <Chip
+                tone={plan.status === 'healthy' ? 'onInk' : 'brass'}
+                label={plan.status === 'healthy' ? 'Looks good' : plan.status === 'tight' ? 'Tight but doable' : 'Bills are more than income'}
+              />
+            </View>
+            <Amount value={plan.monthlyIncome} currency={glyph} size="hero" color={theme.colors.inkText} style={{ marginTop: 8 }} />
+            <Text style={[type.small, { color: theme.colors.inkText, opacity: 0.75 }]}>
+              {plan.committed > 0 ? `${glyph}${plan.committed.toLocaleString()} already goes to bills` : 'No regular bills added'}
+            </Text>
+          </HeroCard>
+          <Card style={{ marginTop: 12 }}>
+            <PlanSplit split={plan.split} percents={plan.percents} glyph={glyph} />
+          </Card>
+          <Card style={{ marginTop: 12, gap: 10 }}>
+            {plan.tips.map((tip) => (
+              <View key={tip} style={styles.tip}>
+                <Sparkles color={theme.colors.primary} size={15} style={{ marginTop: 3 }} />
+                <Text style={[type.small, { color: theme.colors.text, flex: 1 }]}>{tip}</Text>
+              </View>
+            ))}
+          </Card>
+          <View style={[styles.switchRow, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[type.bodyStrong, { color: theme.colors.text }]}>Budget from payday to payday</Text>
+              <Text style={[type.caption, { color: theme.colors.textMuted }]}>
+                {payday && plan.period.basis === 'payday'
+                  ? `This period: ${plan.period.label} · ${plan.period.daysToPayday} days to payday`
+                  : hasPayDates
+                    ? 'Or use calendar months instead'
+                    : 'Add the day you’re paid to use this'}
+              </Text>
+            </View>
+            <Switch
+              value={payday}
+              disabled={!hasPayDates}
+              onValueChange={setPayday}
+              trackColor={{ true: theme.colors.primary, false: theme.colors.border }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+        </>
+      )}
+    </View>
+  );
+
+  const reminderStep = (
+    <View>
+      <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Stay on track</Text>
+      <Text style={[type.h2, { color: theme.colors.text, marginTop: 6 }]}>When should we remind you to log spending?</Text>
+      <Text style={[type.body, { color: theme.colors.textMuted, marginTop: 6, marginBottom: 12 }]}>
+        A two-minute check-in each day is the habit that makes budgeting stick.
+      </Text>
+      {REMINDERS.map((r) => {
+        const active = reminder === r.key;
+        return (
+          <Pressable
+            key={r.key}
+            onPress={() => setReminder(r.key)}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: active }}
+            style={[styles.option, { borderColor: active ? theme.colors.primary : theme.colors.border, backgroundColor: active ? theme.colors.primarySoft : theme.colors.surface }]}
+          >
+            <IconTile bg={active ? theme.colors.surface : theme.colors.surfaceAlt} size={36}>
+              <BellRing color={active ? theme.colors.primary : theme.colors.textMuted} size={17} />
+            </IconTile>
+            <View style={{ flex: 1 }}>
+              <Text style={[type.bodyStrong, { color: theme.colors.text }]}>{r.label}</Text>
+              <Text style={[type.caption, { color: theme.colors.textMuted }]}>{r.time}</Text>
+            </View>
+            {active ? <Check color={theme.colors.primary} size={18} strokeWidth={3} /> : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
+  const content = [welcome, painStep, incomeStep, billsStep, planStep, reminderStep][step];
+
+  return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]} edges={['top', 'left', 'right']}>
+      <View style={styles.header}>
+        {step > 0 ? (
+          <Pressable onPress={() => go(step - 1)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back" style={styles.headerBtn}>
+            <ChevronLeft color={theme.colors.text} size={22} />
+          </Pressable>
+        ) : (
+          <View style={styles.headerBtn} />
+        )}
+        <View style={styles.steps} accessibilityLabel={step > 0 ? `Step ${step} of ${LAST_STEP}` : undefined}>
+          {step > 0
+            ? Array.from({ length: LAST_STEP }).map((_, i) => (
+                <View key={i} style={[styles.step, { backgroundColor: i < step ? theme.colors.primary : theme.colors.border }]} />
+              ))
+            : null}
+        </View>
+        <Pressable onPress={skip} disabled={busy} hitSlop={10} accessibilityRole="button">
+          <Text style={[type.smallStrong, { color: theme.colors.textMuted }]}>{fromHome ? 'Close' : 'Skip for now'}</Text>
+        </Pressable>
+      </View>
+
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          {error ? <InlineError message={error} /> : null}
+          <Animated.View style={{ opacity: fade, transform: [{ translateY: fade.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }}>{content}</Animated.View>
+        </ScrollView>
+
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12), borderTopColor: theme.colors.border, backgroundColor: theme.colors.surface }]}>
+          {step === 0 ? (
+            <PrimaryButton title="Let’s go" onPress={() => go(1)} style={{ flex: 1 }} />
+          ) : (
+            <>
+              <SecondaryButton title="Back" onPress={() => go(step - 1)} style={{ flex: 1 }} />
+              <PrimaryButton
+                title={step === LAST_STEP ? 'Finish' : step === 3 && bills.length === 0 ? 'No bills, continue' : 'Continue'}
+                onPress={() => (step === LAST_STEP ? finish() : go(step + 1))}
+                loading={busy}
+                disabled={step === 4 && planLoading}
+                style={{ flex: 2 }}
+              />
+            </>
+          )}
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, minHeight: 52 },
+  headerBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  steps: { flex: 1, flexDirection: 'row', gap: 5 },
+  step: { flex: 1, height: 4, borderRadius: 2 },
+  body: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 32 },
+  point: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 18 },
+  option: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 16, padding: 14, marginTop: 10 },
+  check: { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  input: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, minHeight: 48 },
+  inputText: { flex: 1, fontFamily: fonts.medium, fontSize: 16, paddingVertical: 10 },
+  tip: { flexDirection: 'row', gap: 8 },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 14, marginTop: 12 },
+  footer: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth }
+});

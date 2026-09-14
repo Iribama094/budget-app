@@ -1,6 +1,6 @@
 import { sql } from './db.ts';
 
-export type NotificationKind = 'pace' | 'over' | 'bill' | 'recurring' | 'autosave' | 'weekly' | 'shared' | 'security' | 'bank' | 'rollover';
+export type NotificationKind = 'pace' | 'over' | 'bill' | 'recurring' | 'autosave' | 'weekly' | 'shared' | 'security' | 'bank' | 'rollover' | 'insight';
 
 export type NotificationPrefs = { paceAlerts: boolean; billReminders: boolean; weeklyCheckIn: boolean; autoSave: boolean };
 
@@ -12,7 +12,8 @@ const PREF_FOR_KIND: Partial<Record<NotificationKind, keyof NotificationPrefs>> 
   bill: 'billReminders',
   recurring: 'billReminders',
   autosave: 'autoSave',
-  weekly: 'weeklyCheckIn'
+  weekly: 'weeklyCheckIn',
+  insight: 'weeklyCheckIn'
 };
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';

@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getPlan, type ApiPlan } from '../api/personal';
+import { bucketDescription, bucketDisplayName, normalizeBucket, type Bucket } from '../theme/buckets';
 import { View, Text, Pressable, ActivityIndicator, Modal, ScrollView, Animated, useWindowDimensions, FlatList, TextInput, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import Slider from '@react-native-community/slider';
@@ -54,14 +56,7 @@ export function BudgetScreen() {
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
   const bucketLabel = useCallback(
     (key: string) => {
-      if (!isBusiness) return key;
-      if (key === 'Essential') return 'Operating Costs';
-      if (key === 'Savings') return 'Reserves';
-      if (key === 'Free Spending') return 'Discretionary';
-      if (key === 'Investments') return 'Growth';
-      if (key === 'Miscellaneous') return 'Misc Ops';
-      if (key === 'Debt Financing') return 'Loans & Credit';
-      return key;
+      return bucketDisplayName(key, isBusiness);
     },
     [isBusiness]
   );
@@ -135,17 +130,22 @@ export function BudgetScreen() {
   const [endMonthSel, setEndMonthSel] = useState<number>(now.getMonth());
   const [endYearSel, setEndYearSel] = useState<number>(now.getFullYear());
 
+  // The saved plan sets payday-to-payday dates and the smart split.
+  const [plan, setPlan] = useState<ApiPlan | null>(null);
+  const [payRange, setPayRange] = useState<{ start: string; end: string; label: string } | null>(null);
+
   const [showStartMonthPicker, setShowStartMonthPicker] = useState(false);
   const [showStartYearPicker, setShowStartYearPicker] = useState(false);
   const [showEndMonthPicker, setShowEndMonthPicker] = useState(false);
   const [showEndYearPicker, setShowEndYearPicker] = useState(false);
 
   const durationMonths = useMemo(() => {
+    if (payRange) return 1;
     const s = new Date(startYearSel, startMonthSel, 1);
     const e = new Date(endYearSel, endMonthSel, 1);
     const months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()) + 1;
     return Math.max(1, months);
-  }, [startMonthSel, startYearSel, endMonthSel, endYearSel]);
+  }, [payRange, startMonthSel, startYearSel, endMonthSel, endYearSel]);
 
   const [timeframe, setTimeframe] = useState<'daily' | 'weekly' | 'monthly'>(durationMonths > 1 ? 'monthly' : 'weekly');
 
@@ -195,18 +195,18 @@ export function BudgetScreen() {
   // Category selection & percentages (including Debt Financing)
   // Only preselect core categories, not all
   const [includeEssential, setIncludeEssential] = useState(true);
-  const [includeSavings, setIncludeSavings] = useState(false);
-  const [includeFree, setIncludeFree] = useState(false);
+  const [includeSavings, setIncludeSavings] = useState(true);
+  const [includeFree, setIncludeFree] = useState(true);
   const [includeInvestments, setIncludeInvestments] = useState(false);
   const [includeMisc, setIncludeMisc] = useState(false);
   const [includeDebt, setIncludeDebt] = useState(false);
 
-  const [essentialPct, setEssentialPct] = useState<number>(45);
-  const [savingsPct, setSavingsPct] = useState<number>(15);
-  const [freePct, setFreePct] = useState<number>(15);
-  const [investmentsPct, setInvestmentsPct] = useState<number>(15);
-  const [miscPct, setMiscPct] = useState<number>(5);
-  const [debtPct, setDebtPct] = useState<number>(5);
+  const [essentialPct, setEssentialPct] = useState<number>(50);
+  const [savingsPct, setSavingsPct] = useState<number>(20);
+  const [freePct, setFreePct] = useState<number>(30);
+  const [investmentsPct, setInvestmentsPct] = useState<number>(0);
+  const [miscPct, setMiscPct] = useState<number>(0);
+  const [debtPct, setDebtPct] = useState<number>(0);
 
   // Multi-step wizard for budget setup
   const [setupStep, setSetupStep] = useState<1 | 2 | 3 | 4>(1);
@@ -218,6 +218,10 @@ export function BudgetScreen() {
   const [showLegend, setShowLegend] = useState(true);
 
   const [smartBalanceEnabled, setSmartBalanceEnabled] = useState(false);
+
+  useEffect(() => {
+    getPlan().then(setPlan).catch(() => setPlan(null));
+  }, [showSetup]);
 
   const parsedTotal = useMemo(() => {
     const n = Number(totalBudget.replace(/,/g, ''));
@@ -449,12 +453,13 @@ export function BudgetScreen() {
       return Math.max(0, base || 0);
     };
 
-    const valEssential = getVal('Essential');
-    const valSavings = getVal('Savings');
-    const valFree = getVal('Free Spending');
-    const valInvestments = getVal('Investments');
-    const valMisc = getVal('Miscellaneous');
-    const valDebt = getVal('Debt Financing');
+    const sumBucket = (bucket: Bucket) => Object.keys(cats).filter((k) => normalizeBucket(k) === bucket).reduce((sum, k) => sum + getVal(k), 0);
+    const valEssential = sumBucket('Needs');
+    const valSavings = sumBucket('Savings');
+    const valFree = sumBucket('Wants');
+    const valInvestments = 0;
+    const valMisc = 0;
+    const valDebt = 0;
 
     const total = valEssential + valSavings + valFree + valInvestments + valMisc + valDebt;
     if (!total || total <= 0) return;
@@ -513,6 +518,7 @@ export function BudgetScreen() {
       setStartYearSel(start.getFullYear());
       setEndMonthSel(end.getMonth());
       setEndYearSel(end.getFullYear());
+      setPayRange(start.getDate() !== 1 && b.endDate ? { start: b.startDate, end: b.endDate, label: b.name.replace(/^My Budget \((.*)\)$/, '$1') } : null);
       setPeriod(b.period);
       setTotalBudget(String(Math.round(b.totalBudget)).replace(/\B(?=(\d{3})+(?!\d))/g, ','));
 
@@ -525,12 +531,13 @@ export function BudgetScreen() {
         return Math.round((c.budgeted / total) * 100);
       };
 
-      const ePct = getPct('Essential');
-      const sPct = getPct('Savings');
-      const fPct = getPct('Free Spending');
-      const iPct = getPct('Investments');
-      const mPct = getPct('Miscellaneous');
-      const dPct = getPct('Debt Financing');
+      const pctFor = (bucket: Bucket) => Object.keys(cats).filter((k) => normalizeBucket(k) === bucket).reduce((sum, k) => sum + getPct(k), 0);
+      const ePct = pctFor('Needs');
+      const sPct = pctFor('Savings');
+      const fPct = pctFor('Wants');
+      const iPct = 0;
+      const mPct = 0;
+      const dPct = 0;
 
       setIncludeEssential(ePct > 0);
       setIncludeSavings(sPct > 0);
@@ -552,6 +559,14 @@ export function BudgetScreen() {
     },
     [parseIsoDateLocal]
   );
+
+  // Home can open the setup straight away, e.g. "Create your budget" from the plan.
+  useEffect(() => {
+    if (!route.params?.startNew || showSetup) return;
+    (nav as any).setParams?.({ startNew: undefined });
+    openNewBudget();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.params?.startNew]);
 
   // Allow other screens to jump straight into the edit flow.
   useEffect(() => {
@@ -587,17 +602,15 @@ export function BudgetScreen() {
       const miscAmt = Math.round((gross * miscPct) / 100);
       const debtAmt = Math.round((gross * debtPct) / 100);
 
-      if (includeEssential && essentialAmt > 0) categories['Essential'] = { budgeted: essentialAmt };
-      if (includeSavings && savingsAmt > 0) categories['Savings'] = { budgeted: savingsAmt };
-      if (includeFree && freeAmt > 0) categories['Free Spending'] = { budgeted: freeAmt };
-      if (includeInvestments && investmentsAmt > 0) categories['Investments'] = { budgeted: investmentsAmt };
-      if (includeMisc && miscAmt > 0) categories['Miscellaneous'] = { budgeted: miscAmt };
-      if (includeDebt && debtAmt > 0) categories['Debt Financing'] = { budgeted: debtAmt };
+      if (includeEssential) categories.Needs = { budgeted: essentialAmt };
+      if (includeFree) categories.Wants = { budgeted: freeAmt };
+      if (includeSavings) categories.Savings = { budgeted: savingsAmt };
 
-      const startDateObj = new Date(startYearSel, startMonthSel, 1);
-      const endDateObj = new Date(endYearSel, endMonthSel + 1, 0);
+      const startDateObj = payRange ? new Date(`${payRange.start}T12:00:00`) : new Date(startYearSel, startMonthSel, 1);
+      const endDateObj = payRange ? new Date(`${payRange.end}T12:00:00`) : new Date(endYearSel, endMonthSel + 1, 0);
 
       const nameForBudget = (() => {
+        if (payRange) return `My Budget (${payRange.label})`;
         if (startYearSel === endYearSel && startMonthSel === endMonthSel) {
           return `My Budget (${MONTHS[startMonthSel]} ${startYearSel})`;
         }
@@ -693,7 +706,7 @@ export function BudgetScreen() {
   const glyph = currencySymbol(currency);
   const hide = !showAmounts;
   const [preset, setPreset] = useState<'smart' | 'history' | 'custom'>('custom');
-  const [expandedBucket, setExpandedBucket] = useState<string | null>('Essential');
+  const [expandedBucket, setExpandedBucket] = useState<string | null>('Needs');
   const [monthSheet, setMonthSheet] = useState<null | 'start' | 'end'>(null);
   const [sheetYear, setSheetYear] = useState(now.getFullYear());
   const [rolloverFor, setRolloverFor] = useState<{ budget: ApiBudget; preview: RolloverPreview } | null>(null);
@@ -744,7 +757,10 @@ export function BudgetScreen() {
     setSetupStep(1);
     setBudget(null);
     setEditingBudgetId(null);
-    setTotalBudget('');
+    const onPayday = plan?.period?.basis === 'payday';
+    setPayRange(onPayday && plan ? { start: plan.period.start, end: plan.period.end, label: plan.period.label } : null);
+    const suggested = plan && plan.monthlyIncome > 0 ? Math.round((plan.monthlyIncome * (onPayday ? plan.period.days / (365 / 12) : 1)) / 100) * 100 : 0;
+    setTotalBudget(suggested ? String(suggested).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '');
     setStartMonthSel(now.getMonth());
     setStartYearSel(now.getFullYear());
     setEndMonthSel(now.getMonth());
@@ -764,42 +780,29 @@ export function BudgetScreen() {
   };
 
   const bucketDefs = [
-    { key: 'Essential', desc: isBusiness ? 'Payroll, tools, bills' : 'Rent, utilities, groceries', include: includeEssential, setInclude: setIncludeEssential, pct: essentialPct, setPct: setEssentialPct },
-    { key: 'Savings', desc: isBusiness ? 'Cash buffer and runway' : 'Emergency fund, future plans', include: includeSavings, setInclude: setIncludeSavings, pct: savingsPct, setPct: setSavingsPct },
-    { key: 'Free Spending', desc: isBusiness ? 'Nice-to-haves and perks' : 'Eating out, entertainment', include: includeFree, setInclude: setIncludeFree, pct: freePct, setPct: setFreePct },
-    { key: 'Investments', desc: isBusiness ? 'Marketing, hires, expansion' : 'Long-term wealth building', include: includeInvestments, setInclude: setIncludeInvestments, pct: investmentsPct, setPct: setInvestmentsPct },
-    ...(isBusiness ? [] : [{ key: 'Miscellaneous', desc: 'One-off or unexpected costs', include: includeMisc, setInclude: setIncludeMisc, pct: miscPct, setPct: setMiscPct }]),
-    { key: 'Debt Financing', desc: isBusiness ? 'Loan repayments and credit' : 'Loans, credit payments', include: includeDebt, setInclude: setIncludeDebt, pct: debtPct, setPct: setDebtPct }
+    { key: 'Needs', desc: bucketDescription('Needs', isBusiness), include: includeEssential, setInclude: setIncludeEssential, pct: essentialPct, setPct: setEssentialPct },
+    { key: 'Wants', desc: bucketDescription('Wants', isBusiness), include: includeFree, setInclude: setIncludeFree, pct: freePct, setPct: setFreePct },
+    { key: 'Savings', desc: bucketDescription('Savings', isBusiness), include: includeSavings, setInclude: setIncludeSavings, pct: savingsPct, setPct: setSavingsPct }
   ];
 
   const applySmartBalance = () => {
-    const base =
-      durationMonths <= 1
-        ? { e: 55, s: 10, f: 20, i: 5, m: 5, d: 5 }
-        : durationMonths <= 3
-          ? { e: 50, s: 15, f: 15, i: 10, m: 5, d: 5 }
-          : { e: 45, s: 20, f: 15, i: 10, m: 5, d: 5 };
-    const withMisc = !isBusiness;
-    const sum = base.e + base.s + base.f + base.i + (withMisc ? base.m : 0) + base.d;
-    const k = 100 / sum;
-    const s = Math.round(base.s * k);
-    const f = Math.round(base.f * k);
-    const i = Math.round(base.i * k);
-    const m = withMisc ? Math.round(base.m * k) : 0;
-    const d = Math.round(base.d * k);
-    const e = 100 - (s + f + i + m + d); // absorb rounding so the plan is exactly 100%
+    // Use the split from the person's plan when there is one; otherwise the 50/30/20 guide.
+    const fromPlan = plan && plan.monthlyIncome > 0 ? plan.percents : null;
+    const needs = Math.min(100, fromPlan ? fromPlan.Needs : 50);
+    const savings = Math.min(100 - needs, fromPlan ? fromPlan.Savings : durationMonths <= 1 ? 20 : 25);
+    const wants = Math.max(0, 100 - needs - savings);
     setIncludeEssential(true);
-    setIncludeSavings(true);
-    setIncludeFree(true);
-    setIncludeInvestments(true);
-    setIncludeMisc(withMisc);
-    setIncludeDebt(true);
-    setEssentialPct(e);
-    setSavingsPct(s);
-    setFreePct(f);
-    setInvestmentsPct(i);
-    setMiscPct(m);
-    setDebtPct(d);
+    setIncludeSavings(savings > 0);
+    setIncludeFree(wants > 0);
+    setIncludeInvestments(false);
+    setIncludeMisc(false);
+    setIncludeDebt(false);
+    setEssentialPct(needs);
+    setSavingsPct(savings);
+    setFreePct(wants);
+    setInvestmentsPct(0);
+    setMiscPct(0);
+    setDebtPct(0);
     setAllocTouched(true);
     setSmartBalanceEnabled(true);
     setPreset('smart');
@@ -808,12 +811,14 @@ export function BudgetScreen() {
   const startDateSel = new Date(startYearSel, startMonthSel, 1);
   const endDateSel = new Date(endYearSel, endMonthSel, 1);
   const datesInvalid = endDateSel < startDateSel;
-  const periodName =
-    durationMonths > 1 ? `${monthName(startMonthSel)} – ${monthName(endMonthSel)} ${endYearSel}` : `${monthName(startMonthSel, true)} ${startYearSel}`;
+  const periodName = payRange
+    ? payRange.label
+    : durationMonths > 1 ? `${monthName(startMonthSel)} – ${monthName(endMonthSel)} ${endYearSel}` : `${monthName(startMonthSel, true)} ${startYearSel}`;
   const unassignedPct = 100 - Math.round(allocatedPercent);
   const unassignedAmount = Number.isFinite(parsedTotal) ? Math.round((parsedTotal * unassignedPct) / 100) : 0;
 
   const applyQuickRange = (offset: number, months: number) => {
+    setPayRange(null);
     const s = new Date(now.getFullYear(), now.getMonth() + offset, 1);
     const e = new Date(s.getFullYear(), s.getMonth() + months - 1, 1);
     setStartMonthSel(s.getMonth());
@@ -864,6 +869,14 @@ export function BudgetScreen() {
               <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Dates</Text>
               <Text style={[type.h2, { color: theme.colors.text, marginTop: 6 }]}>When does this budget run?</Text>
               <View style={styles.wrap}>
+                {plan?.period?.basis === 'payday' ? (
+                  <Pressable
+                    onPress={() => setPayRange({ start: plan.period.start, end: plan.period.end, label: plan.period.label })}
+                    style={[styles.chip, { backgroundColor: payRange ? theme.colors.primarySoft : theme.colors.surface, borderColor: payRange ? theme.colors.primary : theme.colors.border }]}
+                  >
+                    <Text style={[type.smallStrong, { color: payRange ? theme.colors.primary : theme.colors.text }]}>Payday to payday · {plan.period.label}</Text>
+                  </Pressable>
+                ) : null}
                 {[
                   { label: 'This month', offset: 0, months: 1 },
                   { label: 'Next month', offset: 1, months: 1 },
@@ -874,7 +887,13 @@ export function BudgetScreen() {
                   </Pressable>
                 ))}
               </View>
-              <ListCard style={{ marginTop: 16 }}>
+              {payRange ? (
+                <Card style={{ marginTop: 16 }}>
+                  <Text style={[type.bodyStrong, { color: theme.colors.text }]}>{payRange.label}</Text>
+                  <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 4 }]}>From your last payday to the day before the next one, so the money you get lasts the whole way.</Text>
+                </Card>
+              ) : (
+                <ListCard style={{ marginTop: 16 }}>
                 <ListRow
                   icon={<CalendarDays color={theme.colors.textMuted} size={18} />}
                   title={`${monthName(startMonthSel, true)} ${startYearSel}`}
@@ -896,6 +915,7 @@ export function BudgetScreen() {
                   chevron
                 />
               </ListCard>
+              )}
               <Text style={[type.small, { color: datesInvalid ? theme.colors.error : theme.colors.textMuted, marginTop: 10 }]}>
                 {datesInvalid ? 'The end month must be the same as or after the start month.' : `${durationMonths} month${durationMonths === 1 ? '' : 's'} · ${periodName}`}
               </Text>
@@ -980,9 +1000,9 @@ export function BudgetScreen() {
               />
               <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 8 }]}>
                 {preset === 'smart'
-                  ? durationMonths <= 1
-                    ? 'Leans on essentials for a one-month budget. Tap a bucket to fine-tune it.'
-                    : 'Shifts more toward savings for a longer plan. Tap a bucket to fine-tune it.'
+                  ? plan && plan.monthlyIncome > 0
+                    ? 'Uses the Needs, Wants and Savings split from your plan. Tap a bucket to fine-tune it.'
+                    : 'Half for needs, 30% for wants and 20% for savings. Tap a bucket to fine-tune it.'
                   : preset === 'history'
                     ? 'Based on how you actually spent in your last budget.'
                     : 'Tick the buckets you want, then tap one to set its share.'}

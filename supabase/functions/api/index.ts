@@ -8,6 +8,20 @@ import { acceptInvite, budgetById, budgetsIndex, miniBudgets, rollover, sharing 
 import { analyticsSummary, transactionById, transactionsIndex } from './routes/transactions.ts';
 import { goalById, goalsIndex, recurringById, recurringIndex, taxCalc, taxRules } from './routes/planning.ts';
 import { bankLinkById, bankLinksIndex, bankSync, importedAction, importedIndex, monoConnect } from './routes/banks.ts';
+import {
+  categoriesIndex,
+  categoryById,
+  categorySuggest,
+  getPlan,
+  incomeSourceById,
+  incomeSourcesIndex,
+  onboardingComplete,
+  onboardingSkip,
+  planPreview
+} from './routes/personal.ts';
+import { assistantChat, insightDismiss, insightsIndex } from './routes/coach.ts';
+import { computeInsights } from './lib/insights.ts';
+import { notifyUser } from './lib/notify.ts';
 
 export type Ctx = {
   req: Request;
@@ -50,6 +64,30 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
       }
     }
     summary.bankSync = { links: stale.length, imported, failed };
+  }
+
+  // On Sundays (or on demand with ?insights=1), push each active person's most useful insight.
+  if (new Date(`${today}T12:00:00Z`).getUTCDay() === 0 || ctx.query.get('insights') === '1') {
+    const active = await sql`select distinct user_id from public.transactions where occurred_at > now() - interval '14 days' limit 1000`;
+    let sent = 0;
+    for (const { userId } of active) {
+      try {
+        const top = (await computeInsights(userId, 'personal', today)).find((i) => i.tone !== 'positive');
+        if (!top) continue;
+        const delivered = await notifyUser(userId, {
+          kind: 'insight',
+          title: top.title,
+          body: top.body,
+          data: top.action ? { screen: top.action.screen } : undefined,
+          dedupeKey: `insight:${top.key}`,
+          dedupeTtlSec: 7 * 86400
+        });
+        if (delivered) sent++;
+      } catch (err) {
+        console.error('[cron] insight failed', err);
+      }
+    }
+    summary.insights = { users: active.length, sent };
   }
 
   await sql`delete from public.rate_limits where expires_at < now()`;
@@ -100,6 +138,19 @@ function route(parts: string[]): Handler | null {
 
   if (a === 'imported-transactions' && n === 1) return importedIndex;
   if (a === 'imported-transactions' && n === 3) return importedAction;
+
+  if (a === 'income-sources' && n === 1) return incomeSourcesIndex;
+  if (a === 'income-sources' && n === 2) return incomeSourceById;
+  if (a === 'plan' && n === 1) return getPlan;
+  if (a === 'plan' && b === 'preview' && n === 2) return planPreview;
+  if (a === 'onboarding' && b === 'complete') return onboardingComplete;
+  if (a === 'onboarding' && b === 'skip') return onboardingSkip;
+  if (a === 'categories' && b === 'suggest' && n === 2) return categorySuggest;
+  if (a === 'categories' && n === 1) return categoriesIndex;
+  if (a === 'categories' && n === 2) return categoryById;
+  if (a === 'insights' && n === 1) return insightsIndex;
+  if (a === 'insights' && n === 3 && c === 'dismiss') return insightDismiss;
+  if (a === 'assistant' && b === 'chat') return assistantChat;
 
   return null;
 }

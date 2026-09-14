@@ -74,6 +74,41 @@ export async function scheduleWeeklyCheckIn(enabled: boolean): Promise<void> {
   });
 }
 
+const DAILY_ID = 'bf-daily-log';
+const DAILY_KEY = 'bf_daily_reminder_v1';
+
+export type DailyReminder = { hour: number; minute: number } | null;
+
+export async function getDailyReminder(): Promise<DailyReminder> {
+  try {
+    const raw = await AsyncStorage.getItem(DAILY_KEY);
+    return raw ? (JSON.parse(raw) as DailyReminder) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A daily nudge to log spending, on this phone's clock. Returns false if notifications aren't allowed. */
+export async function setDailyReminder(time: DailyReminder): Promise<boolean> {
+  await Notifications.cancelScheduledNotificationAsync(DAILY_ID).catch(() => undefined);
+  if (!time) {
+    await AsyncStorage.removeItem(DAILY_KEY);
+    return true;
+  }
+  if (!(await ensureNotificationPermission(true))) return false;
+  await Notifications.scheduleNotificationAsync({
+    identifier: DAILY_ID,
+    content: {
+      title: 'Two minutes for your money',
+      body: 'Log today’s spending so your safe-to-spend number stays right.',
+      data: { screen: 'AddTransaction' }
+    },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour: time.hour, minute: time.minute }
+  });
+  await AsyncStorage.setItem(DAILY_KEY, JSON.stringify(time));
+  return true;
+}
+
 export type ReminderItem = {
   id: string;
   name: string;

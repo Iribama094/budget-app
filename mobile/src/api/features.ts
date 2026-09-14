@@ -69,7 +69,7 @@ export async function runRecurring(): Promise<{ created: number }> {
 
 /* -------------------------------------------------------- notifications */
 
-export type NotificationKind = 'pace' | 'over' | 'bill' | 'recurring' | 'autosave' | 'weekly' | 'shared' | 'security' | 'bank' | 'rollover';
+export type NotificationKind = 'pace' | 'over' | 'bill' | 'recurring' | 'autosave' | 'weekly' | 'shared' | 'security' | 'bank' | 'rollover' | 'insight';
 
 export type ApiNotification = {
   id: string;

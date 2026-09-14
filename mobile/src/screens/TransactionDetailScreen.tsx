@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BUCKETS, bucketDisplayName, normalizeBucket } from '../theme/buckets';
+import { useCategories } from '../contexts/CategoriesContext';
 import { ActivityIndicator, Alert, Modal, Pressable, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
@@ -23,26 +25,7 @@ import {
   type ApiTransaction
 } from '../api/endpoints';
 
-const PERSONAL_EXPENSE_CATEGORIES = ['Food', 'Transport', 'Housing', 'Bills', 'Shopping', 'Health', 'Entertainment', 'Other'] as const;
-const PERSONAL_INCOME_CATEGORIES = ['Salary', 'Bonus', 'Gift', 'Interest', 'Other'] as const;
 
-const BUSINESS_EXPENSE_CATEGORIES = [
-  'Payroll',
-  'Rent',
-  'Utilities',
-  'Office Supplies',
-  'Software & Subscriptions',
-  'Marketing',
-  'Travel',
-  'Professional Services',
-  'Taxes & Fees',
-  'Equipment',
-  'Shipping',
-  'Other'
-] as const;
-const BUSINESS_INCOME_CATEGORIES = ['Client Payment', 'Sales', 'Service Revenue', 'Interest', 'Other'] as const;
-
-const BUCKETS = ['Essential', 'Free Spending', 'Savings', 'Investments', 'Miscellaneous', 'Debt Financing'] as const;
 
 export default function TransactionDetailScreen() {
   const nav = useNavigation<any>();
@@ -81,7 +64,7 @@ export default function TransactionDetailScreen() {
   const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
   const [showBudgetPicker, setShowBudgetPicker] = useState(false);
 
-  const [bucket, setBucket] = useState<(typeof BUCKETS)[number]>('Essential');
+  const [bucket, setBucket] = useState<(typeof BUCKETS)[number]>('Needs');
   const [showBucketPicker, setShowBucketPicker] = useState(false);
 
   const [miniBudgets, setMiniBudgets] = useState<Array<{ id: string; name: string; category?: string | null }>>([]);
@@ -96,22 +79,13 @@ export default function TransactionDetailScreen() {
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
   const bucketLabel = useCallback(
     (key: string) => {
-      if (!isBusiness) return key;
-      if (key === 'Essential') return 'Operating Costs';
-      if (key === 'Savings') return 'Reserves';
-      if (key === 'Free Spending') return 'Discretionary';
-      if (key === 'Investments') return 'Growth';
-      if (key === 'Miscellaneous') return 'Misc Ops';
-      if (key === 'Debt Financing') return 'Loans & Credit';
-      return key;
+      return bucketDisplayName(key, isBusiness);
     },
     [isBusiness]
   );
 
-  const categories = useMemo(() => {
-    if (type === 'expense') return isBusiness ? [...BUSINESS_EXPENSE_CATEGORIES] : [...PERSONAL_EXPENSE_CATEGORIES];
-    return isBusiness ? [...BUSINESS_INCOME_CATEGORIES] : [...PERSONAL_INCOME_CATEGORIES];
-  }, [isBusiness, type]);
+  const { expense: expenseCats, income: incomeCats } = useCategories();
+  const categories = useMemo(() => (type === 'expense' ? expenseCats : incomeCats).map((c) => c.name), [expenseCats, incomeCats, type]);
 
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const monthLabel = useMemo(() => `${MONTHS[calendarCursor.getMonth()]} ${calendarCursor.getFullYear()}`, [calendarCursor]);
@@ -148,7 +122,7 @@ export default function TransactionDetailScreen() {
       setDescription(String(t.description ?? ''));
       setDate(toIsoDate(new Date(t.occurredAt)));
       setSelectedBudgetId(t.budgetId ? String(t.budgetId) : null);
-      setBucket(((t.budgetCategory as any) || 'Essential') as (typeof BUCKETS)[number]);
+      setBucket(normalizeBucket(t.budgetCategory) ?? 'Needs');
       setSelectedMiniBudgetId(t.miniBudgetId ? String(t.miniBudgetId) : null);
       setIsEditing(false);
     } catch (e) {

@@ -157,6 +157,7 @@ Set function secrets with `npx supabase secrets set NAME=value`.
 
 | Feature | Function secret | App / build |
 | --- | --- | --- |
+| Flux, the AI money coach | `ANTHROPIC_API_KEY` (from console.anthropic.com); optional `ASSISTANT_MODEL` (default `claude-sonnet-5`) | — |
 | Password reset emails | `RESEND_API_KEY`, `EMAIL_FROM` (a sender on a domain verified in Resend) | — |
 | Reset codes shown in the app (test projects only, never with real users) | `AUTH_DEV_EXPOSE_RESET_CODE=1` | — |
 | Daily job: recurring transactions, bill reminders, bank sync | `CRON_SECRET` (already set), `APP_TZ_OFFSET_MINUTES` (default 60) | — |
@@ -164,6 +165,6 @@ Set function secrets with `npx supabase secrets set NAME=value`.
 | Live bank connections (Mono) | `MONO_SECRET_KEY` | `EXPO_PUBLIC_MONO_PUBLIC_KEY` |
 | Face ID, home-screen widgets | — | A development or store build. Widgets run `npx expo prebuild`; iOS needs `ios.appleTeamId` and the App Group `group.com.budgetfriendly.app` enabled for the app id |
 
-Without these, the app still works: the in-app notification feed fills without push, the demo bank flow stays available, and bill reminders are scheduled on the phone.
+Without these, the app still works (Flux explains that it isn’t switched on yet): the in-app notification feed fills without push, the demo bank flow stays available, and bill reminders are scheduled on the phone.
 
 Email confirmation on sign-up is off, because Supabase's built-in email only reaches members of the project's team. Turn it back on (`enable_confirmations` in `supabase/config.toml`) after adding custom SMTP.

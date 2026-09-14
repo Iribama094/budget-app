@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Wallet, BarChart3, Target, Plus } from 'lucide-react-native';
+import { Home, Wallet, BarChart3, Target, Plus, Settings as SettingsIcon } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { fonts } from '../../theme/typography';
 
@@ -10,14 +10,15 @@ const META: Record<string, { label: string; Icon: typeof Home }> = {
   Dashboard: { label: 'Home', Icon: Home },
   Budget: { label: 'Budgets', Icon: Wallet },
   Analytics: { label: 'Insights', Icon: BarChart3 },
-  Goals: { label: 'Goals', Icon: Target }
+  Goals: { label: 'Goals', Icon: Target },
+  Settings: { label: 'Settings', Icon: SettingsIcon }
 };
 
-/** Four tabs with a raised Add transaction action in the middle, reachable from every tab. */
+/** Tabs with a raised Add transaction action after the first two, reachable from every tab. */
 export function AppTabBar({ state, navigation, descriptors }: BottomTabBarProps) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const mid = Math.ceil(state.routes.length / 2);
+  const mid = Math.floor(state.routes.length / 2);
 
   // Full-screen flows (e.g. budget setup) hide the bar with tabBarStyle: { display: 'none' }.
   const focusedOptions = descriptors[state.routes[state.index].key]?.options;

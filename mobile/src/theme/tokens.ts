@@ -111,27 +111,13 @@ export const tokens = {
 
 export type Tokens = typeof tokens;
 
-// One distinct hue per budget bucket (Savings and Miscellaneous used to share #f97316).
-export const BUCKET_KEYS = ['Essential', 'Savings', 'Free Spending', 'Investments', 'Miscellaneous', 'Debt Financing'] as const;
+// One distinct hue per budget bucket.
+export const BUCKET_KEYS = ['Needs', 'Wants', 'Savings'] as const;
 export type BucketKey = (typeof BUCKET_KEYS)[number];
 
 export const bucketColors: Record<'light' | 'dark', Record<BucketKey, string>> = {
-  light: {
-    Essential: '#1C6B5E',
-    Savings: '#5470A0',
-    'Free Spending': '#C8963A',
-    Investments: '#8C5E8F',
-    Miscellaneous: '#9AA9A5',
-    'Debt Financing': '#7FAE8E'
-  },
-  dark: {
-    Essential: '#3FA38F',
-    Savings: '#7F9BD0',
-    'Free Spending': '#E2B65C',
-    Investments: '#B98ABC',
-    Miscellaneous: '#72847F',
-    'Debt Financing': '#9CCBAA'
-  }
+  light: { Needs: '#1C6B5E', Wants: '#C8963A', Savings: '#5470A0' },
+  dark: { Needs: '#3FA38F', Wants: '#E2B65C', Savings: '#7F9BD0' }
 };
 
 // Categorical palette for spending categories (index-stable).

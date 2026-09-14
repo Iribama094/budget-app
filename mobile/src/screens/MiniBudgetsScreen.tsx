@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { BUCKETS, bucketDisplayName } from '../theme/buckets';
 import { View, FlatList, Text, Pressable, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { X } from 'lucide-react-native';
@@ -16,26 +17,19 @@ export default function MiniBudgetsScreen({ route }: any) {
   const { spacesEnabled, activeSpaceId, activeSpace } = useSpace();
   const { user } = useAuth();
 
-  const { category: initialCategory = 'Essential', budgetId } = route.params || {};
+  const { category: initialCategory = 'Needs', budgetId } = route.params || {};
   const { theme } = useTheme();
 
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
   const bucketLabel = useCallback(
     (key: string) => {
-      if (!isBusiness) return key;
-      if (key === 'Essential') return 'Operating Costs';
-      if (key === 'Savings') return 'Reserves';
-      if (key === 'Free Spending') return 'Discretionary';
-      if (key === 'Investments') return 'Growth';
-      if (key === 'Miscellaneous') return 'Misc Ops';
-      if (key === 'Debt Financing') return 'Loans & Credit';
-      return key;
+      return bucketDisplayName(key, isBusiness);
     },
     [isBusiness]
   );
 
   const CATEGORIES = useMemo(
-    () => ['Essential', 'Free Spending', 'Savings', 'Investments', 'Miscellaneous', 'Debt Financing'] as const,
+    () => BUCKETS,
     []
   );
 

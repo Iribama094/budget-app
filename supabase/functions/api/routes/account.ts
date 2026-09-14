@@ -6,7 +6,7 @@ import { enforceRateLimit } from '../lib/rateLimit.ts';
 import { sendEmail } from '../lib/email.ts';
 import type { Ctx } from '../index.ts';
 
-function toApiUser(p: any, opts: { withTax?: boolean } = {}) {
+export function toApiUser(p: any, _opts: { withTax?: boolean } = {}) {
   return {
     id: p.id,
     email: p.email,
@@ -14,13 +14,19 @@ function toApiUser(p: any, opts: { withTax?: boolean } = {}) {
     currency: p.currency ?? null,
     locale: p.locale ?? null,
     monthlyIncome: p.monthlyIncome == null ? null : Number(p.monthlyIncome),
-    ...(opts.withTax ? { taxProfile: p.taxProfile ?? null } : {}),
+    taxProfile: p.taxProfile ?? null,
+    onboarding: {
+      completedAt: iso(p.onboardingCompletedAt),
+      skippedAt: iso(p.onboardingSkippedAt),
+      painPoints: p.painPoints ?? []
+    },
+    budgetPeriod: p.budgetPeriod ?? 'payday',
     createdAt: iso(p.createdAt),
     updatedAt: iso(p.updatedAt)
   };
 }
 
-async function loadProfile(userId: string, email: string | null) {
+export async function loadProfile(userId: string, email: string | null) {
   let [p] = await sql`select * from public.profiles where id = ${userId}`;
   if (!p) {
     // Safety net for accounts created before the signup trigger existed.
@@ -61,7 +67,9 @@ const PatchMeSchema = z
     currency: z.string().min(1).max(10).optional(),
     locale: z.string().min(2).max(20).optional(),
     monthlyIncome: z.number().finite().nonnegative().optional(),
-    taxProfile: TaxProfileSchema
+    taxProfile: TaxProfileSchema,
+    budgetPeriod: z.enum(['payday', 'monthly']).optional(),
+    painPoints: z.array(z.enum(['runs_out', 'no_idea', 'cant_save', 'debt', 'irregular'])).max(5).optional()
   })
   .strict();
 
@@ -79,7 +87,9 @@ export async function usersMe(ctx: Ctx) {
       currency = ${patch.currency !== undefined ? patch.currency : current.currency},
       locale = ${patch.locale !== undefined ? patch.locale : current.locale},
       monthly_income = ${patch.monthlyIncome !== undefined ? patch.monthlyIncome : current.monthlyIncome},
-      tax_profile = ${patch.taxProfile !== undefined ? sql.json(patch.taxProfile as any) : current.taxProfile ? sql.json(current.taxProfile) : null}
+      tax_profile = ${patch.taxProfile !== undefined ? sql.json(patch.taxProfile as any) : current.taxProfile ? sql.json(current.taxProfile) : null},
+      budget_period = ${patch.budgetPeriod ?? current.budgetPeriod},
+      pain_points = ${patch.painPoints ?? current.painPoints}
     where id = ${auth.userId}
     returning *
   `;

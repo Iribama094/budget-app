@@ -14,8 +14,7 @@ import {
   ShieldCheck,
   TrendingUp,
   Users,
-  type LucideIcon
-} from 'lucide-react-native';
+  type LucideIcon, Lightbulb } from 'lucide-react-native';
 
 import {
   getNotificationPrefs,
@@ -43,7 +42,8 @@ const KIND_ICON: Record<NotificationKind, LucideIcon> = {
   shared: Users,
   security: ShieldCheck,
   bank: Landmark,
-  rollover: ArrowRightLeft
+  rollover: ArrowRightLeft,
+  insight: Lightbulb
 };
 
 const TAB_SCREENS: Record<string, string> = { Dashboard: 'Dashboard', Budget: 'Budget', Analytics: 'Analytics', Goals: 'Goals' };

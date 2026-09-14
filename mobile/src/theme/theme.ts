@@ -1,4 +1,5 @@
 import { bucketColors, categoryPalette, tokens, type BucketKey } from './tokens';
+import { normalizeBucket } from './buckets';
 
 export type Theme = {
   mode: 'light' | 'dark';
@@ -114,14 +115,8 @@ export function categorySlot(category: string | null | undefined): number {
   return h % 6;
 }
 
-/** Colour for a budget bucket key, tolerant of business labels and casing. */
+/** Colour for a budget bucket, tolerant of business and older labels. */
 export function bucketColor(theme: Theme, key: string): string {
-  const k = key.trim().toLowerCase();
-  if (k.startsWith('essential') || k.includes('operating')) return theme.buckets.Essential;
-  if (k.startsWith('saving') || k.includes('reserve')) return theme.buckets.Savings;
-  if (k.startsWith('free') || k.includes('discretionary')) return theme.buckets['Free Spending'];
-  if (k.startsWith('invest') || k.includes('growth')) return theme.buckets.Investments;
-  if (k.startsWith('misc')) return theme.buckets.Miscellaneous;
-  if (k.startsWith('debt') || k.includes('loan')) return theme.buckets['Debt Financing'];
-  return theme.colors.textMuted;
+  const b = normalizeBucket(key);
+  return b ? theme.buckets[b] : theme.colors.textMuted;
 }

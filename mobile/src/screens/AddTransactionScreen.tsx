@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, Modal, TextInput, ScrollView, Switch, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CalendarDays, ChevronLeft, ChevronRight, ClipboardPaste, Delete, PieChart, Receipt, Wallet, X } from 'lucide-react-native';
+import { CalendarDays, ChevronLeft, ChevronRight, ClipboardPaste, Delete, PieChart, Plus, Receipt, Sparkles, Wallet, X } from 'lucide-react-native';
 
 import { createTransaction, listBudgets, listGoals, listMiniBudgets, listMiniBudgetsInSpace, listTransactions, patchGoal, patchGoalInSpace, type ApiBudget, type ApiGoal } from '../api/endpoints';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,26 +13,12 @@ import { useToast } from '../components/Common/Toast';
 import { useSync } from '../contexts/SyncContext';
 import { bucketColor } from '../theme/theme';
 import { fonts, type as typo } from '../theme/typography';
+import { useCategories } from '../contexts/CategoriesContext';
+import { suggestCategory } from '../api/personal';
+import { BUCKETS, bucketDisplayName, normalizeBucket, type Bucket } from '../theme/buckets';
+import { guessIconKey, iconForKey } from '../lib/categoryIcons';
 import { currencySymbol, formatNumberInput, formatShortDate, toIsoDate, toIsoDateTime } from '../utils/format';
 
-const PERSONAL_EXPENSE_CATEGORIES = ['Food', 'Transport', 'Housing', 'Bills', 'Data & Airtime', 'Shopping', 'Health', 'Entertainment', 'Other'] as const;
-const PERSONAL_INCOME_CATEGORIES = ['Salary', 'Bonus', 'Gift', 'Interest', 'Other'] as const;
-
-const BUSINESS_EXPENSE_CATEGORIES = [
-  'Payroll',
-  'Rent',
-  'Utilities',
-  'Office Supplies',
-  'Software & Subscriptions',
-  'Marketing',
-  'Travel',
-  'Professional Services',
-  'Taxes & Fees',
-  'Equipment',
-  'Shipping',
-  'Other'
-] as const;
-const BUSINESS_INCOME_CATEGORIES = ['Client Payment', 'Sales', 'Service Revenue', 'Interest', 'Other'] as const;
 
 export function AddTransactionScreen() {
   const nav = useNavigation<any>();
@@ -64,7 +50,7 @@ export function AddTransactionScreen() {
   const [error, setError] = useState<string | null>(null);
   const [budgets, setBudgets] = useState<ApiBudget[]>([]);
   const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
-  const [budgetTxnType, setBudgetTxnType] = useState<'essential' | 'savings' | 'free' | 'investments' | 'misc' | 'debt'>('essential');
+  const [budgetTxnType, setBudgetTxnType] = useState<Bucket>('Needs');
   const [miniBudgets, setMiniBudgets] = useState<Array<{ id: string; name: string; category?: string | null }>>([]);
   // undefined = not decided yet, null = explicitly "None"
   const [selectedMiniBudgetId, setSelectedMiniBudgetId] = useState<string | null | undefined>(undefined);
@@ -78,22 +64,12 @@ export function AddTransactionScreen() {
 
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
   const bucketLabel = useCallback(
-    (key: string) => {
-      if (!isBusiness) return key;
-      if (key === 'Essential') return 'Operating Costs';
-      if (key === 'Savings') return 'Reserves';
-      if (key === 'Free Spending') return 'Discretionary';
-      if (key === 'Investments') return 'Growth';
-      if (key === 'Miscellaneous') return 'Misc Ops';
-      if (key === 'Debt Financing') return 'Loans & Credit';
-      return key;
-    },
+    (key: string) => bucketDisplayName(key, isBusiness),
     [isBusiness]
   );
-  const categories = useMemo(() => {
-    if (type === 'expense') return isBusiness ? [...BUSINESS_EXPENSE_CATEGORIES] : [...PERSONAL_EXPENSE_CATEGORIES];
-    return isBusiness ? [...BUSINESS_INCOME_CATEGORIES] : [...PERSONAL_INCOME_CATEGORIES];
-  }, [isBusiness, type]);
+  const { expense: expenseCategories, income: incomeCategories, create: createCategory } = useCategories();
+  const categoryItems = type === 'expense' ? expenseCategories : incomeCategories;
+  const categories = useMemo(() => categoryItems.map((c) => c.name), [categoryItems]);
 
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -147,14 +123,7 @@ export function AddTransactionScreen() {
     return rows;
   }, [calendarCursor]);
 
-  const budgetCategoryLabel = useMemo(() => {
-    return budgetTxnType === 'essential' ? 'Essential'
-      : budgetTxnType === 'savings' ? 'Savings'
-      : budgetTxnType === 'investments' ? 'Investments'
-      : budgetTxnType === 'misc' ? 'Miscellaneous'
-      : budgetTxnType === 'debt' ? 'Debt Financing'
-      : 'Free Spending';
-  }, [budgetTxnType]);
+  const budgetCategoryLabel: string = budgetTxnType;
 
   const budgetCategoryDisplay = useMemo(() => {
     return bucketLabel(budgetCategoryLabel);
@@ -168,34 +137,10 @@ export function AddTransactionScreen() {
   const requiresBudget = type === 'expense' || (type === 'income' && applyToBudget);
 
   const allowedBudgetTypes = useMemo(() => {
-    const order = ['Essential', 'Free Spending', 'Savings', 'Investments', 'Miscellaneous', 'Debt Financing'] as const;
-    const labelForType: Record<typeof budgetTxnType, (typeof order)[number]> = {
-      essential: 'Essential',
-      free: 'Free Spending',
-      savings: 'Savings',
-      investments: 'Investments',
-      misc: 'Miscellaneous',
-      debt: 'Debt Financing'
-    };
-    const typeForLabel: Record<(typeof order)[number], typeof budgetTxnType> = {
-      Essential: 'essential',
-      'Free Spending': 'free',
-      Savings: 'savings',
-      Investments: 'investments',
-      Miscellaneous: 'misc',
-      'Debt Financing': 'debt'
-    };
-
-    const budgetCats = selectedBudget?.categories ? Object.keys(selectedBudget.categories) : [];
-    const normalized = new Set(budgetCats.map((x) => String(x).trim()).filter(Boolean));
-    if (normalized.size === 0) {
-      return order.map((lbl) => ({ key: typeForLabel[lbl], label: bucketLabel(lbl) }));
-    }
-
-    return order
-      .filter((lbl) => normalized.has(lbl))
-      .map((lbl) => ({ key: typeForLabel[lbl], label: bucketLabel(lbl) }));
-  }, [bucketLabel, budgetTxnType, selectedBudget?.categories]);
+    const present = new Set(Object.keys(selectedBudget?.categories ?? {}).map((k) => normalizeBucket(k)));
+    const list = BUCKETS.some((b) => present.has(b)) ? BUCKETS.filter((b) => present.has(b)) : [...BUCKETS];
+    return list.map((b) => ({ key: b, label: bucketLabel(b) }));
+  }, [bucketLabel, selectedBudget?.categories]);
 
   React.useEffect(() => {
     if (!requiresBudget) return;
@@ -214,10 +159,7 @@ export function AddTransactionScreen() {
     return Number.isFinite(n) ? n : NaN;
   }, [amount]);
 
-  const resolvedCategory = useMemo(() => {
-    if (category === 'Other') return otherCategory.trim();
-    return category.trim();
-  }, [category, otherCategory]);
+  const resolvedCategory = category.trim();
 
   const showGoalLink = useMemo(() => {
     return type === 'expense' && requiresBudget && budgetCategoryLabel === 'Savings';
@@ -360,10 +302,31 @@ export function AddTransactionScreen() {
     }
   }, [miniBudgetsForCategory, selectedBudgetId, selectedMiniBudgetId, type]);
 
+  // Suggest a category from the note, learned from this person's past choices.
+  const [categoryTouched, setCategoryTouched] = useState(false);
+  const [suggested, setSuggested] = useState<string | null>(null);
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatBucket, setNewCatBucket] = useState<Bucket>('Wants');
+  const [savingCat, setSavingCat] = useState(false);
   React.useEffect(() => {
-    // Reset the free-text category when leaving "Other".
-    if (category !== 'Other') setOtherCategory('');
-  }, [category]);
+    const text = description.trim();
+    if (categoryTouched || text.length < 3) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      suggestCategory(text, type, spacesEnabled ? activeSpaceId : 'personal')
+        .then((hit) => {
+          if (cancelled || !hit || !categories.includes(hit.category)) return;
+          setCategory(hit.category);
+          setSuggested(hit.category);
+        })
+        .catch(() => undefined);
+    }, 450);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [activeSpaceId, categories, categoryTouched, description, spacesEnabled, type]);
 
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
@@ -398,12 +361,7 @@ export function AddTransactionScreen() {
   // Picking a category pre-selects the budget bucket it usually belongs to.
   React.useEffect(() => {
     if (type !== 'expense' || !category) return;
-    const c = category.toLowerCase();
-    const guess: typeof budgetTxnType | null = /food|housing|bill|transport|health|rent|utilit|payroll|tax|equipment|shipping|professional/.test(c)
-      ? 'essential'
-      : /shopping|entertain|marketing|travel/.test(c)
-        ? 'free'
-        : null;
+    const guess = normalizeBucket(categoryItems.find((x) => x.name === category)?.bucket);
     if (guess && allowedBudgetTypes.some((t) => t.key === guess)) setBudgetTxnType(guess);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, type]);
@@ -505,6 +463,8 @@ export function AddTransactionScreen() {
           onChange={(k) => {
             setType(k);
             setCategory('');
+            setCategoryTouched(false);
+            setSuggested(null);
             if (k === 'expense') {
               setApplyToBudget(true);
             } else {
@@ -538,27 +498,44 @@ export function AddTransactionScreen() {
         ) : null}
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll} contentContainerStyle={styles.chips} keyboardShouldPersistTaps="handled">
-          {categories.map((c) => {
-            const active = category === c;
+          {categoryItems.map((c) => {
+            const active = category === c.name;
+            const Icon = iconForKey(c.icon);
             return (
               <Pressable
-                key={c}
-                onPress={() => setCategory(c)}
+                key={c.id}
+                onPress={() => {
+                  setCategory(c.name);
+                  setCategoryTouched(true);
+                }}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
                 style={[
                   styles.chip,
+                  styles.chipRow,
                   { backgroundColor: active ? theme.colors.primary : theme.colors.surface, borderColor: active ? theme.colors.primary : theme.colors.border }
                 ]}
               >
-                <Text style={[typo.smallStrong, { color: active ? theme.colors.onPrimary : theme.colors.text }]}>{c}</Text>
+                {Icon ? <Icon color={active ? theme.colors.onPrimary : theme.colors.textMuted} size={14} /> : null}
+                <Text style={[typo.smallStrong, { color: active ? theme.colors.onPrimary : theme.colors.text }]}>{c.name}</Text>
               </Pressable>
             );
           })}
+          <Pressable
+            onPress={() => setShowNewCategory(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Add a category"
+            style={[styles.chip, styles.chipRow, { backgroundColor: theme.colors.primarySoft, borderColor: theme.colors.primarySoft }]}
+          >
+            <Plus color={theme.colors.primary} size={14} />
+            <Text style={[typo.smallStrong, { color: theme.colors.primary }]}>New</Text>
+          </Pressable>
         </ScrollView>
-
-        {category === 'Other' ? (
-          <TextField label="Category name" value={otherCategory} onChangeText={setOtherCategory} placeholder="e.g. Gifts" maxLength={60} autoCapitalize="words" />
+        {suggested && suggested === category ? (
+          <View style={styles.suggested}>
+            <Sparkles color={theme.colors.primary} size={13} />
+            <Text style={[typo.caption, { color: theme.colors.primary, fontFamily: fonts.semibold }]}>Suggested from your past spending</Text>
+          </View>
         ) : null}
 
         <ListCard>
@@ -809,6 +786,55 @@ export function AddTransactionScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Modal transparent visible={showNewCategory} animationType="slide" onRequestClose={() => setShowNewCategory(false)}>
+        <Pressable style={[styles.backdrop, { backgroundColor: theme.colors.overlay }]} onPress={() => setShowNewCategory(false)}>
+          <Pressable style={[styles.sheet, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 16) }]} onPress={() => undefined}>
+            <Text style={[typo.title, { color: theme.colors.text, marginBottom: 12 }]}>New {type === 'expense' ? 'spending' : 'income'} category</Text>
+            <TextField
+              label="Name"
+              value={newCatName}
+              onChangeText={setNewCatName}
+              placeholder={type === 'expense' ? 'e.g. Generator fuel, Hair, Contributions' : 'e.g. Rent from tenants'}
+              maxLength={40}
+              autoCapitalize="words"
+              autoFocus
+            />
+            {type === 'expense' ? (
+              <>
+                <Text style={[typo.smallStrong, { color: theme.colors.text, marginBottom: 8 }]}>Counts as</Text>
+                <SegmentedControl options={BUCKETS.map((b) => ({ key: b, label: bucketDisplayName(b, isBusiness) }))} value={newCatBucket} onChange={setNewCatBucket} />
+              </>
+            ) : null}
+            <PrimaryButton
+              title="Add category"
+              style={{ marginTop: 18 }}
+              disabled={!newCatName.trim()}
+              loading={savingCat}
+              onPress={async () => {
+                setSavingCat(true);
+                try {
+                  const created = await createCategory({
+                    name: newCatName.trim(),
+                    type,
+                    bucket: type === 'expense' ? newCatBucket : null,
+                    icon: guessIconKey(newCatName, type === 'income')
+                  });
+                  setCategory(created.name);
+                  setCategoryTouched(true);
+                  if (type === 'expense' && created.bucket && allowedBudgetTypes.some((t) => t.key === created.bucket)) setBudgetTxnType(created.bucket);
+                  setNewCatName('');
+                  setShowNewCategory(false);
+                } catch (e) {
+                  toast.show(e instanceof Error ? e.message : 'Could not add that category', 'error');
+                } finally {
+                  setSavingCat(false);
+                }
+              }}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
@@ -824,6 +850,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 50 },
   noteInput: { flex: 1, fontFamily: fonts.regular, fontSize: 15, paddingVertical: 12 },
   miniChip: { height: 28, paddingHorizontal: 10, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  chipRow: { flexDirection: 'row', gap: 6 },
+  suggested: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -4, marginBottom: 10 },
   impact: { marginTop: 12, borderRadius: 14, padding: 12 },
   impactTrack: { flexDirection: 'row', height: 5, borderRadius: 3, overflow: 'hidden', marginTop: 8 },
   keys: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 6, marginBottom: 8 },

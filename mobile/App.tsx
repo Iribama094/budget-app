@@ -58,6 +58,11 @@ import DevicesScreen from './src/screens/DevicesScreen';
 import BankAlertScreen from './src/screens/BankAlertScreen';
 import MonoConnectScreen from './src/screens/MonoConnectScreen';
 import ShareBudgetScreen from './src/screens/ShareBudgetScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
+import SetupPlanScreen from './src/screens/SetupPlanScreen';
+import IncomeBillsScreen from './src/screens/IncomeBillsScreen';
+import CategoriesScreen from './src/screens/CategoriesScreen';
+import { CategoriesProvider } from './src/contexts/CategoriesContext';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -82,15 +87,22 @@ function MainTabs() {
       <Tab.Screen name="Budget" component={BudgetScreen} />
       <Tab.Screen name="Analytics" component={AnalyticsScreen} />
       <Tab.Screen name="Goals" component={GoalsScreen} />
+      <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );
 }
 
 function AuthedStack() {
   const { theme } = useTheme();
+  const { user } = useAuth();
+  // New accounts start with the first-run plan (skippable). Decided once, when signing in.
+  const [initialRoute] = React.useState(() =>
+    user?.onboarding && !user.onboarding.completedAt && !user.onboarding.skippedAt ? 'SetupPlan' : 'Main'
+  );
 
   return (
     <Stack.Navigator
+      initialRouteName={initialRoute}
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: theme.colors.background }
@@ -102,7 +114,9 @@ function AuthedStack() {
       <Stack.Screen name="GoalDetail" component={GoalDetailScreen} />
       <Stack.Screen name="AssistantModal" component={require('./src/screens/AssistantScreen').default} options={{ presentation: 'modal', headerShown: false }} />
       <Stack.Screen name="Account" component={require('./src/screens/AccountScreen').default} />
-      <Stack.Screen name="Settings" component={require('./src/screens/SettingsScreen').default} />
+      <Stack.Screen name="SetupPlan" component={SetupPlanScreen} options={{ gestureEnabled: false }} />
+      <Stack.Screen name="IncomeBills" component={IncomeBillsScreen} />
+      <Stack.Screen name="Categories" component={CategoriesScreen} />
       <Stack.Screen name="ProfileEdit" component={require('./src/screens/ProfileEditScreen').default} />
       <Stack.Screen name="ChangePassword" component={require('./src/screens/ChangePasswordScreen').default} />
       <Stack.Screen name="TaxSettings" component={TaxSettingsScreen} />
@@ -196,7 +210,7 @@ function Root() {
             void markOnboardingDone();
           }}
         />
-        {statusBar}
+        <StatusBar style="light" />
       </>
     );
   }
@@ -252,6 +266,7 @@ export default function App() {
                   <HintsProvider>
                     <AuthProvider>
                       <ToastProvider>
+                        <CategoriesProvider>
                         <SyncProvider>
                         <NavigationContainer ref={navigationRef}>
                           <TourProvider>
@@ -265,6 +280,7 @@ export default function App() {
                           </TourProvider>
                         </NavigationContainer>
                         </SyncProvider>
+                        </CategoriesProvider>
                       </ToastProvider>
                     </AuthProvider>
                   </HintsProvider>

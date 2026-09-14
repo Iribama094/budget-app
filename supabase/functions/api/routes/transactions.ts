@@ -5,6 +5,7 @@ import { badRequest, body, json, methodNotAllowed, noContent, notFound, spacePar
 import { parseQueryDate } from '../lib/dates.ts';
 import { budgetMemberIds, bumpBucket, bumpBudget, findVisibleBudget } from '../lib/budgets.ts';
 import { afterTransactionCreated } from '../lib/effects.ts';
+import { learnCategory } from '../lib/categories.ts';
 import type { Ctx } from '../index.ts';
 
 const CreateSchema = z.object({
@@ -111,6 +112,8 @@ export async function transactionsIndex(ctx: Ctx) {
     }
 
     const effects = await afterTransactionCreated(tx as any);
+    // Remember this payee → category choice so the next one is suggested.
+    await learnCategory(userId, input.type, input.description, input.category, input.budgetCategory).catch(() => undefined);
     return json(201, { transaction: toApiTransaction(tx), autoSaved: effects.autoSaved });
   }
 
@@ -233,6 +236,10 @@ export async function transactionById(ctx: Ctx) {
     returning *
   `;
   if (!t) notFound('Transaction not found');
+  // A corrected category teaches the suggestion for this payee.
+  if (patch.category || patch.description !== undefined) {
+    await learnCategory(userId, t.type, t.description, t.category, t.budgetCategory).catch(() => undefined);
+  }
   return json(200, { transaction: toApiTransaction(t, { full: false }) });
 }
 

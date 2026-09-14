@@ -64,25 +64,25 @@ function inferBudgetBucketFromCategory(category: string, spaceId: StubSpaceId): 
 
   // Business defaults
   if (spaceId === 'business') {
-    if (/payroll|salary|wage|staff/.test(c)) return 'Essential';
-    if (/rent|lease|utilities|power|internet|office|suppl|subscription|software|tools/.test(c)) return 'Essential';
-    if (/tax|fee|charges|compliance/.test(c)) return 'Essential';
-    if (/equipment|device|laptop|machine|hardware/.test(c)) return 'Investments';
-    if (/marketing|ads?|advert|growth|campaign/.test(c)) return 'Investments';
-    if (/travel|flight|hotel|transport/.test(c)) return 'Miscellaneous';
-    if (/loan|credit|interest|repay/.test(c)) return 'Debt Financing';
-    return 'Miscellaneous';
+    if (/payroll|salary|wage|staff/.test(c)) return 'Needs';
+    if (/rent|lease|utilities|power|internet|office|suppl|subscription|software|tools/.test(c)) return 'Needs';
+    if (/tax|fee|charges|compliance/.test(c)) return 'Needs';
+    if (/equipment|device|laptop|machine|hardware/.test(c)) return 'Savings';
+    if (/marketing|ads?|advert|growth|campaign/.test(c)) return 'Savings';
+    if (/travel|flight|hotel|transport/.test(c)) return 'Wants';
+    if (/loan|credit|interest|repay/.test(c)) return 'Needs';
+    return 'Wants';
   }
 
   // Personal defaults
-  if (/rent|housing|mortgage|utilities|bills|electric|water|internet/.test(c)) return 'Essential';
-  if (/food|grocer|groceries|transport|fuel|petrol|gas|health|medical|pharmacy/.test(c)) return 'Essential';
-  if (/subscription|netflix|spotify|dstv|gotv|airtime|data/.test(c)) return 'Free Spending';
-  if (/shopping|clothing|entertainment|eating out|restaurant|dining/.test(c)) return 'Free Spending';
+  if (/rent|housing|mortgage|utilities|bills|electric|water|internet/.test(c)) return 'Needs';
+  if (/food|grocer|groceries|transport|fuel|petrol|gas|health|medical|pharmacy/.test(c)) return 'Needs';
+  if (/subscription|netflix|spotify|dstv|gotv|airtime|data/.test(c)) return 'Wants';
+  if (/shopping|clothing|entertainment|eating out|restaurant|dining/.test(c)) return 'Wants';
   if (/saving|savings|reserve/.test(c)) return 'Savings';
-  if (/investment|stocks?|crypto|mutual|fund/.test(c)) return 'Investments';
-  if (/loan|credit|interest|repay/.test(c)) return 'Debt Financing';
-  return 'Miscellaneous';
+  if (/investment|stocks?|crypto|mutual|fund/.test(c)) return 'Savings';
+  if (/loan|credit|interest|repay/.test(c)) return 'Needs';
+  return 'Wants';
 }
 
 type StubSpaceId = 'personal' | 'business';

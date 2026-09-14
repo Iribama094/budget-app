@@ -1,171 +1,254 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { CreditCard, Download } from 'lucide-react-native';
+import React, { useCallback, useState } from 'react';
+import { Alert, Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as SecureStore from 'expo-secure-store';
+import {
+  BellRing,
+  Bell,
+  Calculator,
+  ClipboardPaste,
+  CreditCard,
+  Download,
+  Fingerprint,
+  HelpCircle,
+  Layers,
+  Repeat,
+  RotateCcw,
+  ScanFace,
+  Sparkles,
+  SunMoon,
+  Tags,
+  Users,
+  Wand2
+} from 'lucide-react-native';
 
-import { Screen, H1, P, Card } from '../components/Common/ui';
+import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { tokens } from '../theme/tokens';
-import { listBankLinks } from '../api/endpoints';
 import { useSpace } from '../contexts/SpaceContext';
+import { useTour } from '../contexts/TourContext';
+import { useNudges } from '../contexts/NudgesContext';
+import { useHints } from '../contexts/HintsContext';
+import { useCategories } from '../contexts/CategoriesContext';
+import { useToast } from '../components/Common/Toast';
+import { IconTile, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SegmentedControl } from '../components/Common/ui';
+import { ChoiceChip } from '../components/Plan/ChoiceChip';
+import { listBankLinks } from '../api/endpoints';
+import { getDailyReminder, setDailyReminder, type DailyReminder } from '../lib/notifications';
+import { type } from '../theme/typography';
 
+const ONBOARDING_KEY = 'bf_onboarding_done_v1';
+
+const REMINDER_TIMES = [
+  { label: '8:00 am', hour: 8 },
+  { label: '1:00 pm', hour: 13 },
+  { label: '6:00 pm', hour: 18 },
+  { label: '8:00 pm', hour: 20 },
+  { label: '10:00 pm', hour: 22 }
+];
+
+function timeLabel(r: DailyReminder): string {
+  if (!r) return 'Off';
+  const h = r.hour % 12 || 12;
+  return `${h}:${String(r.minute).padStart(2, '0')} ${r.hour < 12 ? 'am' : 'pm'}`;
+}
+
+/** App settings. Personal details live on the profile (the avatar on Home). */
 export default function SettingsScreen() {
   const nav = useNavigation<any>();
   const { theme, preference, setMode } = useTheme();
-  const { spacesEnabled, activeSpaceId } = useSpace();
+  const { biometric, setBiometricEnabled, logout } = useAuth();
+  const { spacesEnabled, activeSpaceId, setSpacesEnabled } = useSpace();
+  const { startFirstRunTour, resetTour } = useTour();
+  const { resetAll: resetNudges } = useNudges();
+  const { resetAll: resetLegacyHints } = useHints();
+  const { all: categories } = useCategories();
+  const toast = useToast();
+  const insets = useSafeAreaInsets();
 
-  const [bankSummary, setBankSummary] = useState<{ banks: number; accounts: number } | null>(null);
+  const [banks, setBanks] = useState<string[]>([]);
+  const [reminder, setReminder] = useState<DailyReminder>(null);
+  const [reminderSheet, setReminderSheet] = useState(false);
+  const [bioBusy, setBioBusy] = useState(false);
 
-  const loadBankSummary = useCallback(async () => {
-    try {
-      const res = await listBankLinks(spacesEnabled ? { spaceId: activeSpaceId } : undefined);
-      const banks = res.items?.length ?? 0;
-      const accounts = (res.items || []).reduce((sum, l: any) => sum + (l.accounts?.length ?? 0), 0);
-      setBankSummary({ banks, accounts });
-    } catch {
-      setBankSummary(null);
+  useFocusEffect(
+    useCallback(() => {
+      getDailyReminder().then(setReminder).catch(() => undefined);
+      listBankLinks(spacesEnabled ? { spaceId: activeSpaceId } : undefined)
+        .then((res) => setBanks((res.items || []).map((l) => l.bankName).filter(Boolean)))
+        .catch(() => undefined);
+    }, [activeSpaceId, spacesEnabled])
+  );
+
+  const tile = (Icon: typeof Bell) => (
+    <IconTile bg={theme.colors.primarySoft} size={34}>
+      <Icon color={theme.colors.primary} size={17} />
+    </IconTile>
+  );
+  const switchColors = { trackColor: { true: theme.colors.primary, false: theme.colors.border }, thumbColor: '#FFFFFF', ios_backgroundColor: theme.colors.border };
+  const BioIcon = biometric.kind === 'fingerprint' ? Fingerprint : ScanFace;
+  const customCount = categories.filter((c) => !c.isDefault).length;
+
+  const chooseReminder = async (next: DailyReminder) => {
+    const ok = await setDailyReminder(next).catch(() => false);
+    if (!ok) {
+      toast.show('Allow notifications for BudgetFriendly in your phone settings first.', 'error', 4000);
+      return;
     }
-  }, [activeSpaceId, spacesEnabled]);
+    setReminder(next);
+    setReminderSheet(false);
+    toast.show(next ? `Daily reminder set for ${timeLabel(next)}` : 'Daily reminder turned off', 'success');
+  };
 
-  useEffect(() => {
-    void loadBankSummary();
-  }, [loadBankSummary]);
+  const toggleBiometric = async (next: boolean) => {
+    setBioBusy(true);
+    try {
+      const ok = await setBiometricEnabled(next);
+      if (ok) toast.show(next ? `${biometric.label} sign-in is on` : `${biometric.label} sign-in is off`, 'success');
+    } finally {
+      setBioBusy(false);
+    }
+  };
 
-  const capped = useMemo(() => {
-    const banks = Math.min(bankSummary?.banks ?? 0, 6);
-    const accounts = Math.min(bankSummary?.accounts ?? 0, 12);
-    return { banks, accounts };
-  }, [bankSummary?.accounts, bankSummary?.banks]);
-
-  const opts: { key: 'light' | 'dark' | 'system'; label: string }[] = [
-    { key: 'light', label: 'Light' },
-    { key: 'dark', label: 'Dark' },
-    { key: 'system', label: 'System' }
-  ];
+  const openTipsMenu = () => {
+    Alert.alert('Tips and intro', 'Bring back the guided help you’ve already dismissed.', [
+      {
+        text: 'Reset tips',
+        onPress: () => {
+          resetTour();
+          resetNudges();
+          toast.show('Tips reset. You’ll see them again as you use the app.', 'success');
+        }
+      },
+      {
+        text: 'Replay intro',
+        onPress: async () => {
+          await SecureStore.deleteItemAsync(ONBOARDING_KEY).catch(() => undefined);
+          resetLegacyHints();
+          resetNudges();
+          resetTour();
+          toast.show('Signing out so the intro can play from the start.', 'info');
+          void logout();
+        }
+      },
+      { text: 'Cancel', style: 'cancel' }
+    ]);
+  };
 
   return (
     <Screen>
-      <H1>Settings</H1>
-      <P style={{ marginTop: 6 }}>App preferences</P>
+      <ScreenHeader title="Settings" />
 
-      <View style={{ marginTop: 18 }}>
-        <Card>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Data</Text>
-            {bankSummary ? (
-              <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>
-                {capped.banks} connected bank{capped.banks === 1 ? '' : 's'} • {capped.accounts} account{capped.accounts === 1 ? '' : 's'}
-              </Text>
-            ) : null}
+      <Text style={[type.eyebrow, styles.groupLabel, { color: theme.colors.textMuted }]}>Money</Text>
+      <ListCard>
+        <ListRow
+          icon={tile(Tags)}
+          title="Categories"
+          subtitle={customCount ? `${customCount} of your own · add or rename` : 'Add your own, like generator fuel or ajo'}
+          onPress={() => nav.navigate('Categories')}
+          chevron
+        />
+        <ListRow icon={tile(Repeat)} title="Recurring & bills" subtitle="Rent, subscriptions and salary on autopilot" onPress={() => nav.navigate('Recurring')} chevron />
+        <ListRow
+          icon={tile(CreditCard)}
+          title="Linked banks"
+          subtitle={banks.length ? banks.join(', ') : 'Connect a bank to import transactions'}
+          onPress={() => nav.navigate(banks.length ? 'BankConnections' : 'BankConnectTerms')}
+          chevron
+        />
+        <ListRow icon={tile(ClipboardPaste)} title="Paste a bank alert" subtitle="Turn a debit or credit SMS into a transaction" onPress={() => nav.navigate('BankAlertImport')} chevron />
+        <ListRow icon={tile(Users)} title="Join a shared budget" subtitle="Use a code from a partner or housemate" onPress={() => nav.navigate('ShareBudget')} chevron />
+        <ListRow
+          icon={tile(Layers)}
+          title="Spaces"
+          subtitle="Keep Personal and Business apart"
+          right={<Switch value={spacesEnabled} onValueChange={setSpacesEnabled} {...switchColors} />}
+        />
+        <ListRow icon={tile(Calculator)} title="Tax" subtitle="Estimate your take-home pay" onPress={() => nav.navigate('TaxSettings')} chevron />
+        <ListRow icon={tile(Download)} title="Export data" subtitle="Download your transactions" onPress={() => nav.navigate('ExportData')} chevron />
+      </ListCard>
+
+      <Text style={[type.eyebrow, styles.groupLabel, { color: theme.colors.textMuted }]}>Reminders</Text>
+      <ListCard>
+        <ListRow
+          icon={tile(BellRing)}
+          title="Daily reminder"
+          subtitle="A nudge to log what you spent"
+          right={<Text style={[type.smallStrong, { color: reminder ? theme.colors.primary : theme.colors.textMuted }]}>{timeLabel(reminder)}</Text>}
+          onPress={() => setReminderSheet(true)}
+          chevron
+        />
+        <ListRow icon={tile(Bell)} title="Notifications" subtitle="Alerts, bill reminders and insights" onPress={() => nav.navigate('Notifications')} chevron />
+      </ListCard>
+
+      <Text style={[type.eyebrow, styles.groupLabel, { color: theme.colors.textMuted }]}>Security</Text>
+      <ListCard>
+        <ListRow
+          icon={tile(BioIcon)}
+          title={biometric.available ? `${biometric.label} sign-in` : 'Biometric sign-in'}
+          subtitle={biometric.available ? (biometric.enabled ? 'Unlock without typing your password' : 'Off') : 'Set up a face or fingerprint on this phone first'}
+          right={<Switch value={biometric.enabled} disabled={!biometric.available || bioBusy} onValueChange={(v) => void toggleBiometric(v)} {...switchColors} />}
+        />
+      </ListCard>
+
+      <Text style={[type.eyebrow, styles.groupLabel, { color: theme.colors.textMuted }]}>Appearance</Text>
+      <ListCard>
+        <View style={{ paddingVertical: 11 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            {tile(SunMoon)}
+            <Text style={[type.bodyStrong, { color: theme.colors.text }]}>Theme</Text>
           </View>
-          <P style={{ marginTop: 8 }}>Connect and manage your bank data.</P>
+          <SegmentedControl
+            options={[
+              { key: 'system', label: 'System' },
+              { key: 'light', label: 'Light' },
+              { key: 'dark', label: 'Dark' }
+            ]}
+            value={preference}
+            onChange={(k) => setMode(k)}
+            style={{ marginTop: 10 }}
+          />
+        </View>
+      </ListCard>
 
-          <View style={{ marginTop: 12, gap: 10 }}>
-            <Pressable
-              onPress={() => nav.navigate('BankConnectTerms')}
-              style={({ pressed }) => [
-                {
-                  paddingVertical: 12,
-                  paddingHorizontal: 12,
-                  borderRadius: 14,
-                  backgroundColor: theme.colors.surfaceAlt,
-                  opacity: pressed ? 0.92 : 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }
-              ]}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, paddingRight: 10 }}>
-                <CreditCard color={theme.colors.primary} size={18} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>Connect Bank</Text>
-                  <Text style={{ color: theme.colors.textMuted, marginTop: 2, fontSize: 12 }} numberOfLines={1}>
-                    Add a new bank connection
-                  </Text>
-                </View>
-              </View>
-              <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_700Bold' }}>→</Text>
-            </Pressable>
+      <Text style={[type.eyebrow, styles.groupLabel, { color: theme.colors.textMuted }]}>Help</Text>
+      <ListCard>
+        <ListRow icon={tile(Sparkles)} title="Ask Flux" subtitle="Your AI money coach" onPress={() => nav.navigate('AssistantModal')} chevron />
+        <ListRow icon={tile(HelpCircle)} title="Help & support" subtitle="FAQs and contact" onPress={() => nav.navigate('HelpSupport')} chevron />
+        <ListRow
+          icon={tile(Wand2)}
+          title="Take the app tour"
+          subtitle="A two-minute walk through the key screens"
+          onPress={() => {
+            startFirstRunTour({ force: true });
+            nav.navigate('Main', { screen: 'Dashboard' });
+          }}
+          chevron
+        />
+        <ListRow icon={tile(RotateCcw)} title="Tips and intro" subtitle="Reset tips or replay the intro" onPress={openTipsMenu} chevron />
+      </ListCard>
 
-            <Pressable
-              onPress={() => nav.navigate('BankConnections')}
-              style={({ pressed }) => [
-                {
-                  paddingVertical: 12,
-                  paddingHorizontal: 12,
-                  borderRadius: 14,
-                  backgroundColor: theme.colors.surfaceAlt,
-                  opacity: pressed ? 0.92 : 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }
-              ]}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, paddingRight: 10 }}>
-                <CreditCard color={theme.colors.primary} size={18} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>Manage your connections</Text>
-                  <Text style={{ color: theme.colors.textMuted, marginTop: 2, fontSize: 12 }} numberOfLines={1}>
-                    View and disconnect connected banks
-                  </Text>
-                </View>
-              </View>
-              <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_700Bold' }}>→</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => nav.navigate('ExportData')}
-              style={({ pressed }) => [
-                {
-                  paddingVertical: 12,
-                  paddingHorizontal: 12,
-                  borderRadius: 14,
-                  backgroundColor: theme.colors.surfaceAlt,
-                  opacity: pressed ? 0.92 : 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }
-              ]}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, paddingRight: 10 }}>
-                <Download color={theme.colors.primary} size={18} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>Export data</Text>
-                  <Text style={{ color: theme.colors.textMuted, marginTop: 2, fontSize: 12 }} numberOfLines={1}>
-                    Download your transactions
-                  </Text>
-                </View>
-              </View>
-              <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_700Bold' }}>→</Text>
-            </Pressable>
-          </View>
-        </Card>
-      </View>
-
-      <View style={{ marginTop: 18 }}>
-        <Card>
-          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Theme</Text>
-          <P style={{ marginTop: 8 }}>Choose app appearance</P>
-
-          <View style={{ marginTop: 12, flexDirection: 'row', gap: 8 }}>
-            {opts.map((opt) => {
-              const active = preference === opt.key;
-              return (
-                <Pressable
-                  key={opt.key}
-                  onPress={() => setMode(opt.key)}
-                  style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12, backgroundColor: active ? theme.colors.primary : theme.colors.surfaceAlt, opacity: pressed ? 0.9 : 1 }]}
-                >
-                  <Text style={{ color: active ? tokens.colors.white : theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>{opt.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Card>
-      </View>
+      <Modal transparent visible={reminderSheet} animationType="slide" onRequestClose={() => setReminderSheet(false)}>
+        <Pressable style={[styles.backdrop, { backgroundColor: theme.colors.overlay }]} onPress={() => setReminderSheet(false)}>
+          <Pressable style={[styles.sheet, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 16) }]} onPress={() => undefined}>
+            <Text style={[type.title, { color: theme.colors.text }]}>Daily reminder</Text>
+            <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 4 }]}>Pick a time you’re usually free for two minutes.</Text>
+            <View style={styles.wrap}>
+              {REMINDER_TIMES.map((t) => (
+                <ChoiceChip key={t.hour} label={t.label} active={reminder?.hour === t.hour} onPress={() => void chooseReminder({ hour: t.hour, minute: 0 })} />
+              ))}
+            </View>
+            <PrimaryButton title={reminder ? 'Turn off reminder' : 'Close'} onPress={() => (reminder ? void chooseReminder(null) : setReminderSheet(false))} style={{ marginTop: 18 }} />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  groupLabel: { marginTop: 24, marginBottom: 8, marginLeft: 4 },
+  backdrop: { flex: 1, justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20 },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 }
+});

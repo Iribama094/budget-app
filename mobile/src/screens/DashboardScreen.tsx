@@ -34,6 +34,8 @@ import { useSpace } from '../contexts/SpaceContext';
 import { SpaceSwitcher } from '../components/Common/SpaceSwitcher';
 import { useTour, useTourAnchor } from '../contexts/TourContext';
 import { useNudges } from '../contexts/NudgesContext';
+import { FirstWeekChecklist } from '../components/Home/FirstWeekChecklist';
+import { InsightCards } from '../components/Home/InsightCards';
 
 export function DashboardScreen() {
   const nav = useNavigation<any>();
@@ -538,9 +540,11 @@ export function DashboardScreen() {
         <HeroCard style={{ marginTop: 14 }}>
           <Text style={[type.eyebrow, { color: inkText, opacity: 0.72 }]}>Start here</Text>
           <Text style={[type.h2, { color: inkText, marginTop: 8 }]}>Set a budget to see what’s safe to spend each day.</Text>
-          <PrimaryButton title="Create a budget" onPress={() => nav.navigate('Budget')} style={{ marginTop: 16 }} />
+          <PrimaryButton title="Create a budget" onPress={() => nav.navigate('Budget', { startNew: true })} style={{ marginTop: 16 }} />
         </HeroCard>
       )}
+
+      <FirstWeekChecklist hasTransactions={hasTransactions} hasBudget={hasBudget} loading={isLoading && !data} />
 
       <View style={styles.quick}>
         {[
@@ -642,18 +646,7 @@ export function DashboardScreen() {
         ) : null}
       </ListCard>
 
-      {insightMessage && hasTransactions ? (
-        <Card style={{ marginTop: 10 }}>
-          <View style={styles.inline}>
-            <Sparkles color={theme.colors.primary} size={14} />
-            <Text style={[type.caption, { color: theme.colors.primary, fontFamily: fonts.semibold }]}>Insight</Text>
-          </View>
-          <Text style={[type.body, { color: theme.colors.text, marginTop: 6 }]}>{insightMessage}</Text>
-          <Pressable onPress={() => nav.navigate('Analytics')} hitSlop={8} style={{ marginTop: 8, alignSelf: 'flex-start' }}>
-            <Text style={[type.smallStrong, { color: theme.colors.primary }]}>View breakdown</Text>
-          </Pressable>
-        </Card>
-      ) : null}
+      <InsightCards spaceId={spacesEnabled ? activeSpaceId : 'personal'} />
 
       {showSpaceNudge ? (
         <Card style={{ marginTop: 10 }}>
@@ -674,7 +667,7 @@ export function DashboardScreen() {
             title={showGettingStarted ? 'Let’s get you started' : 'No transactions yet'}
             body={
               showGettingStarted
-                ? 'Add a transaction first, then set a budget and a goal. Insights appear right away.'
+                ? 'Start by logging what you spent today. Your first-week checklist shows what to do next.'
                 : 'Add your first one and your budget updates automatically.'
             }
             actionLabel="Add transaction"

@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { BUCKETS, bucketDisplayName } from '../theme/buckets';
+import { useCategories } from '../contexts/CategoriesContext';
 import { View, Text, FlatList, Pressable, ActivityIndicator, type TextStyle, type ViewStyle } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft, CheckCircle2, XCircle, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react-native';
@@ -36,39 +38,20 @@ function suggestedCategory(tx: ApiImportedTransaction): string {
   const base = `${tx.merchant || ''} ${tx.description || ''}`.toLowerCase();
 
   if (tx.direction === 'debit') {
-    if (/mart|supermarket|grocer|shoprite|market/.test(base)) return 'Groceries';
+    if (/mart|supermarket|grocer|shoprite|market/.test(base)) return 'Food & groceries';
     if (/uber|bolt|taxi|ride|transport|bus|fuel|gas|petrol/.test(base)) return 'Transport';
     if (/netflix|spotify|dstv|gotv|subscription|subs/.test(base)) return 'Subscriptions';
-    if (/airtime|data|mtn|airtel|glo|9mobile/.test(base)) return 'Airtime & data';
+    if (/airtime|data|mtn|airtel|glo|9mobile/.test(base)) return 'Data & airtime';
     if (/restaurant|food|eatery|kfc|chicken republic|pizza/.test(base)) return 'Eating out';
-    return 'General spending';
+    return 'Other';
   }
 
   if (/salary|payroll|wage|employer/.test(base)) return 'Salary';
   if (/interest|refund|reversal|cashback/.test(base)) return 'Other income';
-  return 'Income';
+  return 'Other income';
 }
 
-const PERSONAL_EXPENSE_CATEGORIES = ['Food', 'Transport', 'Housing', 'Bills', 'Shopping', 'Health', 'Entertainment', 'Other'] as const;
-const PERSONAL_INCOME_CATEGORIES = ['Salary', 'Bonus', 'Gift', 'Interest', 'Other'] as const;
 
-const BUSINESS_EXPENSE_CATEGORIES = [
-  'Payroll',
-  'Rent',
-  'Utilities',
-  'Office Supplies',
-  'Software & Subscriptions',
-  'Marketing',
-  'Travel',
-  'Professional Services',
-  'Taxes & Fees',
-  'Equipment',
-  'Shipping',
-  'Other'
-] as const;
-const BUSINESS_INCOME_CATEGORIES = ['Client Payment', 'Sales', 'Service Revenue', 'Interest', 'Other'] as const;
-
-const BUCKETS = ['Essential', 'Free Spending', 'Savings', 'Investments', 'Miscellaneous', 'Debt Financing'] as const;
 
 type PendingStep = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -107,6 +90,7 @@ export default function PendingTransactionsScreen() {
   const { theme } = useTheme();
   const toast = useToast();
   const { spacesEnabled, activeSpaceId, activeSpace } = useSpace();
+  const { expense: expenseCats, income: incomeCats } = useCategories();
 
   const [items, setItems] = useState<ApiImportedTransaction[]>([]);
   const [loading, setLoading] = useState(false);
@@ -126,14 +110,7 @@ export default function PendingTransactionsScreen() {
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
   const bucketLabel = useCallback(
     (key: string) => {
-      if (!isBusiness) return key;
-      if (key === 'Essential') return 'Operating Costs';
-      if (key === 'Savings') return 'Reserves';
-      if (key === 'Free Spending') return 'Discretionary';
-      if (key === 'Investments') return 'Growth';
-      if (key === 'Miscellaneous') return 'Misc Ops';
-      if (key === 'Debt Financing') return 'Loans & Credit';
-      return key;
+      return bucketDisplayName(key, isBusiness);
     },
     [isBusiness]
   );
@@ -244,7 +221,7 @@ export default function PendingTransactionsScreen() {
         next[tx.id] = {
           category: suggestedCategory(tx),
           budgetId: null,
-          budgetCategory: 'Essential',
+          budgetCategory: 'Needs',
           miniBudgetId: null,
           goalId: null,
           step: 1
@@ -278,7 +255,7 @@ export default function PendingTransactionsScreen() {
       const ensured: PendingDraft = existing ?? {
         category: '',
         budgetId: null,
-        budgetCategory: 'Essential',
+        budgetCategory: 'Needs',
         miniBudgetId: null,
         step: 1
       };
@@ -360,7 +337,7 @@ export default function PendingTransactionsScreen() {
         category,
         description,
         budgetId: draft?.budgetId ? String(draft.budgetId) : null,
-        budgetCategory: draft?.budgetId ? (draft?.budgetCategory ?? 'Essential') : null,
+        budgetCategory: draft?.budgetId ? (draft?.budgetCategory ?? 'Needs') : null,
         miniBudgetId: draft?.budgetId && draft?.miniBudgetId ? String(draft.miniBudgetId) : null
       };
 
@@ -545,7 +522,7 @@ export default function PendingTransactionsScreen() {
           const draft: PendingDraft = drafts[item.id] ?? {
             category: suggestedCategory(item),
             budgetId: null,
-            budgetCategory: 'Essential',
+            budgetCategory: 'Needs',
             miniBudgetId: null,
             goalId: null,
             step: 1
@@ -553,12 +530,8 @@ export default function PendingTransactionsScreen() {
 
           const categoryOptions = (() => {
             const base = item.direction === 'debit'
-              ? isBusiness
-                ? [...BUSINESS_EXPENSE_CATEGORIES]
-                : [...PERSONAL_EXPENSE_CATEGORIES]
-              : isBusiness
-                ? [...BUSINESS_INCOME_CATEGORIES]
-                : [...PERSONAL_INCOME_CATEGORIES];
+              ? expenseCats.map((c) => c.name)
+              : incomeCats.map((c) => c.name);
 
             const s = suggestedCategory(item);
             const opts = [s, ...base];
@@ -568,7 +541,7 @@ export default function PendingTransactionsScreen() {
           const budgetOptions = budgets.length > 0 ? budgets : (currentBudget ? [currentBudget] : []);
           const selectedBudget = draft.budgetId ? (budgetOptions.find((b) => String(b.id) === String(draft.budgetId)) ?? null) : null;
           const allowedBuckets = (() => {
-            const order = ['Essential', 'Free Spending', 'Savings', 'Investments', 'Miscellaneous', 'Debt Financing'] as const;
+            const order = BUCKETS;
             const cats = selectedBudget?.categories ? Object.keys(selectedBudget.categories) : [];
             const normalized = new Set(cats.map((x) => String(x).trim()).filter(Boolean));
             if (normalized.size === 0) return [...BUCKETS];
@@ -598,7 +571,7 @@ export default function PendingTransactionsScreen() {
                       [item.id]: {
                         category: suggestedCategory(item),
                         budgetId: null,
-                        budgetCategory: 'Essential',
+                        budgetCategory: 'Needs',
                         miniBudgetId: null,
                         goalId: null,
                         step: 1

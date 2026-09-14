@@ -19,6 +19,9 @@ export type ApiUser = {
     optInTaxFeature?: boolean;
   } | null;
   netWorth?: number | null;
+  /** Answers from the first-run plan. */
+  onboarding?: { completedAt: string | null; skippedAt: string | null; painPoints: string[] };
+  budgetPeriod?: 'payday' | 'monthly';
   createdAt: string;
   updatedAt: string;
 };
@@ -28,7 +31,9 @@ export async function getMe(): Promise<ApiUser> {
   return (data as any).user as ApiUser;
 }
 
-export async function patchMe(patch: Partial<Pick<ApiUser, 'name' | 'currency' | 'locale' | 'monthlyIncome'>> & { taxProfile?: any }): Promise<ApiUser> {
+export async function patchMe(
+  patch: Partial<Pick<ApiUser, 'name' | 'currency' | 'locale' | 'monthlyIncome' | 'budgetPeriod'>> & { taxProfile?: any; painPoints?: string[] }
+): Promise<ApiUser> {
   const data = await apiFetch('/v1/users/me', { method: 'PATCH', body: JSON.stringify(patch) });
   return (data as any).user as ApiUser;
 }
@@ -564,11 +569,9 @@ export async function getAnalyticsSummary(start: string, end: string, params?: {
   return data as AnalyticsSummary;
 }
 
-export async function assistantChat(message: string, context?: any): Promise<{ reply: string }> {
-  try {
-    const data = await apiFetch('/v1/assistant/chat', { method: 'POST', body: JSON.stringify({ message, context }) });
-    return (data as any) || { reply: 'Sorry, no reply available' };
-  } catch (e) {
-    throw e;
-  }
+export type ChatTurn = { role: 'user' | 'assistant'; text: string };
+
+/** Ask Flux, the AI money coach. Answers are grounded in the signed-in person's own data. */
+export async function assistantChat(message: string, history: ChatTurn[] = []): Promise<{ reply: string }> {
+  return (await apiFetch('/v1/assistant/chat', { method: 'POST', body: JSON.stringify({ message, history }) })) as { reply: string };
 }

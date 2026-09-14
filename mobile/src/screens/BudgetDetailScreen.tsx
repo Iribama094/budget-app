@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { bucketDisplayName } from '../theme/buckets';
 import { View, Text, Pressable, ActivityIndicator, Animated, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Amount as UiAmount, HeroCard, ProgressBar } from '../components/Common/ui';
@@ -81,14 +82,7 @@ export default function BudgetDetailScreen() {
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
   const bucketLabel = useCallback(
     (key: string) => {
-      if (!isBusiness) return key;
-      if (key === 'Essential') return 'Operating Costs';
-      if (key === 'Savings') return 'Reserves';
-      if (key === 'Free Spending') return 'Discretionary';
-      if (key === 'Investments') return 'Growth';
-      if (key === 'Miscellaneous') return 'Misc Ops';
-      if (key === 'Debt Financing') return 'Loans & Credit';
-      return key;
+      return bucketDisplayName(key, isBusiness);
     },
     [isBusiness]
   );

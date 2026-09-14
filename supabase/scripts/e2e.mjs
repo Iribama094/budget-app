@@ -240,6 +240,73 @@ try {
   r = await call(a.token, 'POST', '/tax/calc', { country: 'NG', grossAnnual: 6000000 });
   check('tax calculation', r.status === 200 && r.data.result.totalTax > 0 && r.data.result.bands.length > 0, r);
 
+  section('Categories and learning');
+  r = await call(a.token, 'GET', '/categories?spaceId=personal');
+  const tithe = r.data?.items?.find((c) => c.name === 'Tithe & offering');
+  check('default categories include tithe under Needs', r.status === 200 && r.data.items.length > 20 && tithe?.bucket === 'Needs', r.data?.items?.length);
+  r = await call(a.token, 'POST', '/categories', { name: 'Generator fuel', type: 'expense', bucket: 'Needs', icon: 'fuel' });
+  check('create a custom category', r.status === 201 && r.data.category.name === 'Generator fuel' && r.data.category.isDefault === false, r);
+  const genId = r.data?.category?.id;
+  check('duplicate category name is refused', (await call(a.token, 'POST', '/categories', { name: 'generator FUEL', type: 'expense' })).status === 409);
+  r = await call(a.token, 'PATCH', `/categories/${genId}`, { name: 'Gen fuel', bucket: 'Needs' });
+  check('rename a category', r.status === 200 && r.data.category.name === 'Gen fuel', r);
+  r = await call(a.token, 'GET', `/categories/suggest?text=${encodeURIComponent('POS PURCHASE JUSTRITE IKOTA')}&type=expense`);
+  check('suggests a category from common payees', r.status === 200 && r.data.suggestion?.category === 'Food & groceries' && r.data.suggestion.source === 'keyword', r);
+  r = await call(a.token, 'POST', '/transactions', { type: 'expense', amount: 15000, category: 'Gen fuel', description: 'Adewale Ventures diesel', occurredAt: now(), budgetId, budgetCategory: 'Needs' });
+  check('transaction with the custom category', r.status === 201, r);
+  r = await call(a.token, 'GET', `/categories/suggest?text=${encodeURIComponent('adewale ventures')}&type=expense`);
+  check('learns the category from past choices', r.data?.suggestion?.category === 'Gen fuel' && r.data.suggestion.source === 'learned', r);
+  check('delete a category', (await call(a.token, 'DELETE', `/categories/${genId}`)).status === 204);
+
+  section('First-run plan and income');
+  const income = [{ name: 'Salary', kind: 'salary', amount: 300000, frequency: 'monthly', payDay: 25 }];
+  const bills = [
+    { name: 'Rent', category: 'Rent & housing', amount: 1200000, frequency: 'yearly' },
+    { name: 'Tithe', category: 'Tithe & offering', amount: 30000, frequency: 'monthly', dueDay: 1 }
+  ];
+  r = await call(b.token, 'POST', '/plan/preview', { income, bills, painPoints: ['runs_out'], budgetPeriod: 'payday' });
+  const preview = r.data?.plan;
+  check(
+    'plan preview splits income into needs, wants and savings',
+    r.status === 200 && preview.monthlyIncome === 300000 && preview.committed === 130000 && preview.split.Needs + preview.split.Wants + preview.split.Savings === 300000 && preview.period.basis === 'payday' && preview.tips.length >= 2,
+    preview
+  );
+  r = await call(b.token, 'GET', '/auth/me');
+  check('new account needs the first-run plan', r.data?.user?.onboarding?.completedAt === null && r.data.user.budgetPeriod === 'payday', r.data?.user?.onboarding);
+  r = await call(b.token, 'POST', '/onboarding/complete', { income, bills, painPoints: ['runs_out', 'cant_save'], budgetPeriod: 'payday', createBudget: true });
+  check(
+    'complete onboarding creates a payday budget',
+    r.status === 200 && !!r.data.user.onboarding.completedAt && r.data.budget && Object.keys(r.data.budget.categories).join(',') === 'Needs,Wants,Savings' && r.data.budget.startDate === preview.period.start,
+    r.data?.budget ?? r
+  );
+  r = await call(b.token, 'GET', '/recurring');
+  check('bills become reminders', r.data?.items?.some((x) => x.description === 'Rent' && x.autoCreate === false) && r.data.items.some((x) => x.description === 'Tithe'), r.data?.items?.map((x) => x.description));
+  r = await call(b.token, 'GET', '/plan');
+  check('saved plan reflects income and bills', r.status === 200 && r.data.plan.incomeSources.length === 1 && r.data.plan.bills.length >= 2 && r.data.plan.monthlyIncome === 300000, r.data?.plan);
+  r = await call(b.token, 'POST', '/income-sources', { name: 'POS business', kind: 'side_hustle', amount: 20000, frequency: 'weekly', nextPayDate: today });
+  check('add an income source', r.status === 201 && r.data.incomeSource.monthlyAmount === Math.round((20000 * 52) / 12), r);
+  const sideId = r.data?.incomeSource?.id;
+  check('plan grows with the new income', (await call(b.token, 'GET', '/plan')).data?.plan?.monthlyIncome === Math.round((300000 + (20000 * 52) / 12) / 100) * 100);
+  check('edit an income source', (await call(b.token, 'PATCH', `/income-sources/${sideId}`, { amount: 25000 })).data?.incomeSource?.amount === 25000);
+  check('remove an income source', (await call(b.token, 'DELETE', `/income-sources/${sideId}`)).status === 204);
+  r = await call(b.token, 'PATCH', '/users/me', { budgetPeriod: 'monthly' });
+  check('switch to calendar-month budgets', r.data?.user?.budgetPeriod === 'monthly' && (await call(b.token, 'GET', '/plan')).data?.plan?.period?.basis === 'monthly', r);
+  r = await call(a.token, 'POST', '/onboarding/skip');
+  check('skip the first-run plan', r.status === 200 && !!r.data.user.onboarding.skippedAt, r);
+
+  section('Insights and AI coach');
+  r = await call(a.token, 'GET', '/insights?spaceId=personal');
+  check('insights load', r.status === 200 && Array.isArray(r.data.items), r);
+  const firstInsight = r.data?.items?.[0];
+  if (firstInsight) {
+    check('dismiss an insight', (await call(a.token, 'POST', `/insights/${encodeURIComponent(firstInsight.key)}/dismiss`)).status === 200);
+    check('dismissed insight stays hidden', !(await call(a.token, 'GET', '/insights')).data?.items?.some((i) => i.key === firstInsight.key));
+  }
+  r = await call(a.token, 'POST', '/assistant/chat', { message: 'Will my money last until payday?', history: [] });
+  check('assistant answers, or says it is not switched on yet', (r.status === 200 && typeof r.data.reply === 'string') || (r.status === 501 && r.data.error.code === 'NOT_CONFIGURED'), r);
+  console.log(`  (assistant responded with ${r.status}${r.status === 501 ? ': add ANTHROPIC_API_KEY to switch it on' : ''})`);
+  check('assistant rejects empty questions', (await call(a.token, 'POST', '/assistant/chat', { message: '   ' })).status === 400);
+
   section('Devices, passwords and recovery');
   r = await call(a.token, 'GET', '/auth/sessions');
   check('devices list names this phone', r.status === 200 && r.data.items.some((s) => s.current && s.deviceName === 'Test iPhone'), r);
@@ -273,8 +340,8 @@ try {
 
   section('Scheduled job');
   check('daily job rejects missing secret', (await call(null, 'POST', '/cron/daily')).status === 401);
-  r = await call(null, 'POST', '/cron/daily', {}, { 'x-cron-secret': CRON });
-  check('daily job runs with secret', r.status === 200 && r.data.today === today && typeof r.data.billReminders === 'number', r);
+  r = await call(null, 'POST', '/cron/daily?insights=1', {}, { 'x-cron-secret': CRON });
+  check('daily job runs with secret', r.status === 200 && r.data.today === today && typeof r.data.billReminders === 'number' && typeof r.data.insights?.sent === 'number', r);
 
   section('Clean up');
   const fresh = (await signIn(A.email, 'ResetPassw0rd-3')).data?.access_token ?? a.token;

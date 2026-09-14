@@ -4,6 +4,7 @@ import { badRequest, body, HttpError, json, methodNotAllowed, notFound, spacePar
 import { exchangeCode, getAccount, MonoError, monoConfigured, syncBankLink, unlinkAccount, type BankLinkRow } from '../lib/bank.ts';
 import { bumpBudget, budgetCovering } from '../lib/budgets.ts';
 import { afterTransactionCreated } from '../lib/effects.ts';
+import { learnCategory } from '../lib/categories.ts';
 import type { Ctx } from '../index.ts';
 
 const toApiAccount = (a: any) => ({
@@ -247,6 +248,9 @@ export async function importedAction(ctx: Ctx) {
     await bumpBudget(budgetId, Number(tx.amount), budgetCategory, sql`b.user_id = ${userId} and b.space_id = ${txSpace}`);
   }
   await afterTransactionCreated(created as any);
+  if (input.category) {
+    await learnCategory(userId, type, tx.description || tx.merchant, input.category, budgetCategory).catch(() => undefined);
+  }
 
   const [out] = await sql`update public.imported_transactions set status = 'reconciled', reconciled_at = now() where id = ${tx.id} returning *`;
   return json(200, { transaction: toApiImported(out) });
