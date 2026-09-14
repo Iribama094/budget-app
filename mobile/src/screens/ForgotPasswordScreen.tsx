@@ -164,7 +164,7 @@ export default function ForgotPasswordScreen() {
               autoComplete="new-password"
               textContentType="newPassword"
               placeholder="At least 8 characters"
-              hint="Use at least 8 characters. Resetting signs you out on other devices."
+              hint="Use at least 8 characters."
               right={
                 <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={10} accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
                   {showPassword ? <EyeOff color={theme.colors.textMuted} size={20} /> : <Eye color={theme.colors.textMuted} size={20} />}

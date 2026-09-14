@@ -39,3 +39,8 @@ mobile/.env.*
 
 # OS / tooling
 Thumbs.db
+
+# Supabase local secrets
+.env.supabase.local
+supabase/.temp/
+supabase/.branches/

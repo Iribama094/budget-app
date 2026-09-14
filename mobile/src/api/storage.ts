@@ -1,37 +1,13 @@
 import * as SecureStore from 'expo-secure-store';
 
-const ACCESS_KEY = 'bf_access_token_v1';
-const REFRESH_KEY = 'bf_refresh_token_v1';
 const BIOMETRIC_KEY = 'bf_biometric_enabled_v1';
 const BIOMETRIC_PROMPTED_KEY = 'bf_biometric_prompted_v1';
 const LAST_USER_KEY = 'bf_last_user_v1';
-
-export type StoredTokens = {
-  accessToken: string;
-  refreshToken: string;
-};
 
 export type LastUser = {
   email: string;
   name: string | null;
 };
-
-export async function getTokens(): Promise<StoredTokens | null> {
-  const accessToken = await SecureStore.getItemAsync(ACCESS_KEY);
-  const refreshToken = await SecureStore.getItemAsync(REFRESH_KEY);
-  if (!accessToken || !refreshToken) return null;
-  return { accessToken, refreshToken };
-}
-
-export async function setTokens(tokens: StoredTokens): Promise<void> {
-  await SecureStore.setItemAsync(ACCESS_KEY, tokens.accessToken);
-  await SecureStore.setItemAsync(REFRESH_KEY, tokens.refreshToken);
-}
-
-export async function clearTokens(): Promise<void> {
-  await SecureStore.deleteItemAsync(ACCESS_KEY);
-  await SecureStore.deleteItemAsync(REFRESH_KEY);
-}
 
 export async function getBiometricEnabled(): Promise<boolean> {
   return (await SecureStore.getItemAsync(BIOMETRIC_KEY)) === '1';

@@ -1,32 +1,22 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
-import * as Device from 'expo-device';
-import { unregisterPushToken } from '../api/features';
+import { revokeSession, unregisterPushToken } from '../api/features';
 import { getRememberedPushToken, rememberPushToken } from '../lib/notifications';
 import { clearWidgetSnapshot } from '../lib/widgetData';
+import { friendlyAuthError, sessionIdOf, supabase } from '../lib/supabase';
+import { SUPABASE_URL } from '../config';
 import {
-  clearTokens,
   getBiometricEnabled,
   getBiometricPrompted,
   getLastUser,
-  getTokens,
   setBiometricEnabled as storeBiometricEnabled,
   setBiometricPrompted,
   setLastUser,
-  setTokens,
   type LastUser
 } from '../api/storage';
-import {
-  forgotPassword as apiForgotPassword,
-  getMe,
-  login as apiLogin,
-  logout as apiLogout,
-  register as apiRegister,
-  resetPassword as apiResetPassword,
-  type ApiUser,
-  type AuthResponse
-} from '../api/endpoints';
+import { forgotPassword, getMe, type ApiUser } from '../api/endpoints';
 
 export type BiometricInfo = {
   /** Device has biometric hardware with at least one enrolled face or finger. */
@@ -60,17 +50,15 @@ type AuthState = {
 // Re-lock after the app has been in the background this long.
 const LOCK_AFTER_MS = 5 * 60 * 1000;
 
+// Where supabase-js keeps the session (sb-<project ref>-auth-token).
+const SESSION_STORAGE_KEY = `sb-${new URL(SUPABASE_URL).hostname.split('.')[0]}-auth-token`;
+
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
-}
-
-/** Shown in the signed-in devices list, e.g. "iPhone 15" or "Pixel 8". */
-function deviceLabel(): string {
-  return Device.modelName || (Platform.OS === 'ios' ? 'iPhone' : 'Android phone');
 }
 
 async function readBiometricSupport(): Promise<Omit<BiometricInfo, 'enabled'>> {
@@ -91,6 +79,11 @@ async function readBiometricSupport(): Promise<Omit<BiometricInfo, 'enabled'>> {
   } catch {
     return { available: false, kind: 'generic', label: 'Biometrics' };
   }
+}
+
+async function currentSession() {
+  const { data } = await supabase.auth.getSession();
+  return data.session;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -117,8 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshUser = useCallback(async (): Promise<boolean> => {
-    const tokens = await getTokens();
-    if (!tokens) {
+    if (!(await currentSession())) {
       setUser(null);
       return false;
     }
@@ -127,8 +119,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(me);
       void rememberUser(me);
       return true;
-    } catch {
-      await clearTokens();
+    } catch (e) {
+      // A rejected session is gone for good; anything else (e.g. offline) keeps it for next time.
+      if ((e as { status?: number })?.status === 401) await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
       setUser(null);
       return false;
     }
@@ -137,11 +130,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       setIsLoading(true);
-      const [support, enabled, lu, tokens] = await Promise.all([readBiometricSupport(), getBiometricEnabled(), getLastUser(), getTokens()]);
+      const [support, enabled, lu, session] = await Promise.all([readBiometricSupport(), getBiometricEnabled(), getLastUser(), currentSession()]);
       const bioOn = enabled && support.available;
       setBiometric({ ...support, enabled: bioOn });
       setLastUserState(lu);
-      if (tokens && bioOn) {
+      if (session && bioOn) {
         setIsLocked(true);
       } else {
         await refreshUser();
@@ -149,6 +142,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Signed out elsewhere (e.g. this device was removed from another phone): return to sign-in.
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setIsLocked(false);
+      }
+    });
+    return () => data.subscription.unsubscribe();
   }, []);
 
   // Lock again when returning from a long background stint.
@@ -204,54 +208,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [setBiometricEnabled]);
 
-  const finishAuth = useCallback(
-    async (res: AuthResponse) => {
-      await setTokens({ accessToken: res.accessToken, refreshToken: res.refreshToken });
-      setUser(res.user);
-      setIsLocked(false);
-      void rememberUser(res.user);
-      void offerBiometrics();
-    },
-    [offerBiometrics, rememberUser]
-  );
+  /** Loads the profile for a fresh session and opens the app. */
+  const finishAuth = useCallback(async () => {
+    const me = await getMe();
+    setUser(me);
+    setIsLocked(false);
+    void rememberUser(me);
+    void offerBiometrics();
+  }, [offerBiometrics, rememberUser]);
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const previous = await getTokens();
-      const res = await apiLogin(email, password, deviceLabel());
-      // Signing in with a password while locked replaces the saved session; revoke the old one.
-      if (previous?.refreshToken && previous.refreshToken !== res.refreshToken) {
-        apiLogout(previous.refreshToken).catch(() => undefined);
-      }
-      await finishAuth(res);
+      const previous = await currentSession();
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+      if (error || !data.session) throw friendlyAuthError(error, 'Could not sign in. Try again.');
+      // Signing in with a password while locked replaces the saved session; sign the old one out.
+      const oldId = sessionIdOf(previous?.access_token);
+      if (oldId && oldId !== sessionIdOf(data.session.access_token)) revokeSession(oldId).catch(() => undefined);
+      await finishAuth();
     },
     [finishAuth]
   );
 
   const register = useCallback(
     async (email: string, password: string, name?: string) => {
-      const res = await apiRegister(email, password, name);
-      await finishAuth(res);
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+        options: { data: name ? { name } : {} }
+      });
+      if (error) throw friendlyAuthError(error, 'Could not create your account. Try again.');
+      if (!data.session) throw new Error('Check your email to confirm your account, then sign in.');
+      await finishAuth();
     },
     [finishAuth]
   );
 
   const logout = useCallback(async () => {
-    const tokens = await getTokens();
     // Stop push notifications for this account on this phone.
     const pushToken = await getRememberedPushToken().catch(() => null);
-    if (pushToken && tokens) {
+    if (pushToken) {
       await unregisterPushToken(pushToken).catch(() => undefined);
       await rememberPushToken(null).catch(() => undefined);
     }
-    if (tokens?.refreshToken) {
-      try {
-        await apiLogout(tokens.refreshToken);
-      } catch {
-        // ignore
-      }
-    }
-    await clearTokens();
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
+    // Offline: the server session expires on its own; make sure this phone forgets it now.
+    if (error) await AsyncStorage.removeItem(SESSION_STORAGE_KEY).catch(() => undefined);
     // Don’t leave balances on the home screen after signing out.
     void clearWidgetSnapshot().catch(() => undefined);
     setUser(null);
@@ -276,14 +278,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshUser]);
 
   const requestPasswordReset = useCallback(async (email: string) => {
-    const res = await apiForgotPassword(email.trim().toLowerCase());
+    const res = await forgotPassword(email.trim().toLowerCase());
     return { devCode: res.devCode };
   }, []);
 
   const resetPassword = useCallback(
     async (email: string, code: string, newPassword: string) => {
-      const res = await apiResetPassword(email.trim().toLowerCase(), code, newPassword, deviceLabel());
-      await finishAuth(res);
+      const verified = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: code, type: 'recovery' });
+      if (verified.error || !verified.data.session) throw friendlyAuthError(verified.error, 'That code isn’t right or has expired.');
+      const updated = await supabase.auth.updateUser({ password: newPassword });
+      if (updated.error) throw friendlyAuthError(updated.error, 'Could not set your new password. Try again.');
+      await finishAuth();
     },
     [finishAuth]
   );

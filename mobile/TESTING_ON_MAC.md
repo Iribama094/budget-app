@@ -2,6 +2,8 @@
 
 A step-by-step guide for previewing the app on a Mac.
 
+The app already talks to its cloud backend, so there's no server to run and no `.env` file to create.
+
 ## What you need
 
 - A Mac with **Xcode** installed from the App Store. Open it once so it finishes installing its components.
@@ -18,20 +20,7 @@ cd mobile
 npm install
 ```
 
-## 2. Point the app at a backend
-
-Create a file named `.env` inside the `mobile` folder:
-
-```
-EXPO_PUBLIC_API_BASE_URL=<API address from the app owner>
-```
-
-The owner's own dev address (for example `http://172.20.10.3:3002`) only works on their home network. Use one of these instead:
-
-- **The deployed API** the owner gives you. This is the easiest option.
-- **The backend running on this Mac.** See "Running the backend locally" below, then use `http://localhost:3002`.
-
-## 3. Quick preview (about 5 minutes)
+## 2. Quick preview (about 5 minutes)
 
 ```bash
 npx expo start
@@ -39,9 +28,11 @@ npx expo start
 
 When the menu appears, press **`i`**. This installs Expo Go in the iPhone simulator and opens the app.
 
-Every screen can be previewed this way. **Face ID, the home-screen widget and push notifications** need the full build in step 4.
+Tap **Create account** and sign up with any email address and a password of at least 8 characters. You're signed in straight away and everything you add is saved in the cloud, so it's still there next time.
 
-## 4. Full build with Face ID and the widget (first build takes 10–20 minutes)
+Every screen can be previewed this way. **Face ID, the home-screen widget and push notifications** need the full build in step 3.
+
+## 3. Full build with Face ID and the widget (first build takes 10–20 minutes)
 
 ```bash
 npx expo run:ios
@@ -63,30 +54,18 @@ If Xcode reports a **signing / development team** error (the widget shares data 
 | **Home-screen widget** | Press **⌘⇧H** to go home. Long-press the home screen, tap **+**, search for **BudgetFriendly**, then add **Safe to spend**. |
 | **Offline mode** | Turn off the Mac's Wi-Fi, add a transaction (it's saved on the phone), then turn Wi-Fi back on and watch it sync. |
 | **Paste a bank alert** | Copy a bank SMS on the Mac, then in the app go to **Add transaction › clipboard icon › Paste**. |
+| **Shared budget** | Create a second account in another simulator (**File › Open Simulator**). On the first, open a budget and tap **Share** to get a code; on the second, join with that code. |
+| **Signed-in devices** | Sign in to the same account in two simulators, then go to **Account › Signed-in devices** and sign the other one out. |
 | **Different iPhone sizes** | **File › Open Simulator** and pick another model, e.g. iPhone SE or iPhone 16 Pro Max. |
 | **Dark mode** | **Account › Appearance › Dark**, or **Features › Toggle Appearance** in the simulator. |
 
 To capture what you see, press **⌘S** for a screenshot, or use **File › Record Screen** for a video. Both are saved to the Desktop.
 
-## Running the backend locally (optional)
-
-From the repository root (`budget-app`, not `mobile`):
-
-```bash
-npm install
-cp .env.example .env
-```
-
-Fill in the real `MONGODB_URI`, `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` in `.env`, then start the server. Ask the owner for these values and share them privately, never in the repo.
-
-```bash
-DOTENV_CONFIG_PATH=.env npx tsx -r dotenv/config server/index.ts
-```
-
-The API listens on port 3002, so set `EXPO_PUBLIC_API_BASE_URL=http://localhost:3002` in `mobile/.env`.
+**Forgot password** sends a 6-digit code by email. Until the app owner turns on email delivery, the code won't arrive, so use accounts whose password you know.
 
 ## Troubleshooting
 
-- **"Network request failed"**: the API address is wrong or not reachable from this Mac. After changing `mobile/.env`, restart with `npx expo start -c`.
+- **"Check your connection and try again"**: the Mac is offline, or a network filter is blocking `supabase.co`.
 - **Build errors after pulling new code**: run `npx expo prebuild --clean`, then `npx expo run:ios`.
 - **Simulator doesn't open**: open Xcode once, then go to **Xcode › Settings › Platforms** and install an iOS simulator.
+- **Stale screens after pulling new code**: restart with `npx expo start -c`.

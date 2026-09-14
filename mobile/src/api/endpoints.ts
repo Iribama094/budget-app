@@ -23,32 +23,6 @@ export type ApiUser = {
   updatedAt: string;
 };
 
-export type AuthResponse = { user: ApiUser; accessToken: string; refreshToken: string };
-
-export async function register(email: string, password: string, name?: string): Promise<AuthResponse> {
-  return (await apiFetch('/v1/auth/register', {
-    method: 'POST',
-    skipAuth: true,
-    body: JSON.stringify({ email, password, name })
-  })) as AuthResponse;
-}
-
-export async function login(email: string, password: string, deviceName?: string): Promise<AuthResponse> {
-  return (await apiFetch('/v1/auth/login', {
-    method: 'POST',
-    skipAuth: true,
-    body: JSON.stringify({ email, password, deviceName })
-  })) as AuthResponse;
-}
-
-export async function logout(refreshToken: string): Promise<void> {
-  await apiFetch('/v1/auth/logout', {
-    method: 'POST',
-    skipAuth: true,
-    body: JSON.stringify({ refreshToken })
-  });
-}
-
 export async function getMe(): Promise<ApiUser> {
   const data = await apiFetch('/v1/auth/me', { method: 'GET' });
   return (data as any).user as ApiUser;
@@ -95,13 +69,6 @@ export async function forgotPassword(email: string): Promise<{ ok: boolean; devC
   })) as { ok: boolean; devCode?: string };
 }
 
-export async function resetPassword(email: string, code: string, newPassword: string, deviceName?: string): Promise<AuthResponse> {
-  return (await apiFetch('/v1/auth/reset-password', {
-    method: 'POST',
-    skipAuth: true,
-    body: JSON.stringify({ email, code, newPassword, deviceName })
-  })) as AuthResponse;
-}
 
 export type ApiTransaction = {
   id: string;
