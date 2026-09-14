@@ -109,7 +109,7 @@ export default function CreateGoalScreen() {
         style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', opacity: pressed ? 0.8 : 1 })}
       >
         <ChevronLeft color={theme.colors.text} size={20} />
-        <Text style={{ color: theme.colors.text, fontWeight: '900', marginLeft: 6 }}>Back</Text>
+        <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginLeft: 6 }}>Back</Text>
       </Pressable>
 
       <H1 style={{ marginTop: 10, marginBottom: 0 }}>Create Goal</H1>
@@ -138,7 +138,7 @@ export default function CreateGoalScreen() {
         />
 
         <View style={{ marginBottom: 12 }}>
-          <Text style={{ color: theme.colors.text, fontSize: 13, fontWeight: '700', marginBottom: 6 }}>Target date</Text>
+          <Text style={{ color: theme.colors.text, fontSize: 13, fontFamily: 'Figtree_600SemiBold', marginBottom: 6 }}>Target date</Text>
           <Pressable
             onPress={() => setShowDatePicker(true)}
             style={({ pressed }) => [
@@ -153,8 +153,8 @@ export default function CreateGoalScreen() {
               }
             ]}
           >
-            <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '700' }}>{targetDate}</Text>
-            <Text style={{ color: theme.colors.textMuted, marginTop: 4, fontSize: 12, fontWeight: '700' }}>Tap to pick a date</Text>
+            <Text style={{ color: theme.colors.text, fontSize: 16, fontFamily: 'Figtree_600SemiBold' }}>{targetDate}</Text>
+            <Text style={{ color: theme.colors.textMuted, marginTop: 4, fontSize: 12, fontFamily: 'Figtree_600SemiBold' }}>Tap to pick a date</Text>
           </Pressable>
         </View>
 
@@ -178,7 +178,7 @@ export default function CreateGoalScreen() {
             opacity: pressed ? 0.92 : 1
           })}
         >
-          <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Cancel</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>Cancel</Text>
         </Pressable>
       </View>
 
@@ -197,9 +197,9 @@ export default function CreateGoalScreen() {
                   alignItems: 'center'
                 }}
               >
-                <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Select target date</Text>
+                <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>Select target date</Text>
                 <Pressable onPress={() => setShowDatePicker(false)}>
-                  <Text style={{ color: theme.colors.primary, fontWeight: '700' }}>Close</Text>
+                  <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_600SemiBold' }}>Close</Text>
                 </Pressable>
               </View>
 
@@ -213,10 +213,10 @@ export default function CreateGoalScreen() {
                     }}
                     style={({ pressed }) => [{ paddingVertical: 8, paddingHorizontal: 10, opacity: pressed ? 0.85 : 1 }]}
                   >
-                    <Text style={{ color: theme.colors.primary, fontWeight: '900' }}>‹</Text>
+                    <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_700Bold' }}>‹</Text>
                   </Pressable>
 
-                  <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{monthLabel}</Text>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{monthLabel}</Text>
 
                   <Pressable
                     onPress={() => {
@@ -226,13 +226,13 @@ export default function CreateGoalScreen() {
                     }}
                     style={({ pressed }) => [{ paddingVertical: 8, paddingHorizontal: 10, opacity: pressed ? 0.85 : 1 }]}
                   >
-                    <Text style={{ color: theme.colors.primary, fontWeight: '900' }}>›</Text>
+                    <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_700Bold' }}>›</Text>
                   </Pressable>
                 </View>
 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                   {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d) => (
-                    <Text key={d} style={{ width: 36, textAlign: 'center', color: theme.colors.textMuted, fontWeight: '800' }}>
+                    <Text key={d} style={{ width: 36, textAlign: 'center', color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>
                       {d}
                     </Text>
                   ))}
@@ -270,7 +270,7 @@ export default function CreateGoalScreen() {
                             }
                           ]}
                         >
-                          <Text style={{ color: isSelected ? tokens.colors.white : theme.colors.text, fontWeight: '800' }}>{day}</Text>
+                          <Text style={{ color: isSelected ? tokens.colors.white : theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>{day}</Text>
                         </Pressable>
                       );
                     })}

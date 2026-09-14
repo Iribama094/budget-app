@@ -90,12 +90,12 @@ export default function AnalyticsCategoryDetailScreen() {
 
       <View style={{ marginTop: 12 }}>
         <Card>
-          <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Period</Text>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 14, marginTop: 4 }}>
+          <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Period</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 14, marginTop: 4 }}>
             {String(range?.start ?? '')} → {String(range?.end ?? '')}
           </Text>
-          <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12, marginTop: 10 }}>Total spending</Text>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 22, marginTop: 4 }}>
+          <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12, marginTop: 10 }}>Total spending</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 22, marginTop: 4 }}>
             {showAmounts ? formatMoney(total, user?.currency ?? '₦') : '••••'}
           </Text>
         </Card>
@@ -103,7 +103,7 @@ export default function AnalyticsCategoryDetailScreen() {
 
       <View style={{ marginTop: 12 }}>
         <Card>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Categories</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Categories</Text>
           <View style={{ marginTop: 10 }}>
             {items.length === 0 ? (
               <P>No category spending data yet.</P>
@@ -123,15 +123,15 @@ export default function AnalyticsCategoryDetailScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 12 }}>
                         <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: dot, marginRight: 10 }} />
-                        <Text style={{ color: theme.colors.text, fontWeight: '900', flex: 1 }} numberOfLines={1}>
+                        <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', flex: 1 }} numberOfLines={1}>
                           {category}
                         </Text>
                       </View>
-                      <Text style={{ color: theme.colors.text, fontWeight: '900' }}>
+                      <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>
                         {showAmounts ? formatMoney(amount, user?.currency ?? '₦') : '••••'}
                       </Text>
                     </View>
-                    <Text style={{ color: theme.colors.textMuted, fontWeight: '700', marginTop: 6, fontSize: 12 }}>
+                    <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', marginTop: 6, fontSize: 12 }}>
                       {pct}% of spending
                     </Text>
                   </View>

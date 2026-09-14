@@ -194,7 +194,7 @@ export default function MiniBudgetsScreen({ route }: any) {
                       }
                     ]}
                   >
-                    <Text style={{ color: active ? tokens.colors.white : theme.colors.text, fontWeight: '800', fontSize: 12 }}>
+                    <Text style={{ color: active ? tokens.colors.white : theme.colors.text, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>
                       {bucketLabel(c)}
                     </Text>
                   </Pressable>
@@ -203,19 +203,19 @@ export default function MiniBudgetsScreen({ route }: any) {
             </View>
 
             <Card style={{ marginTop: 12, paddingVertical: 10, paddingHorizontal: 12 }}>
-              <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>{bucketLabel(category)}</Text>
-              <Text style={{ color: theme.colors.textMuted, fontWeight: '700', marginTop: 4, fontSize: 12 }}>
+              <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>{bucketLabel(category)}</Text>
+              <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', marginTop: 4, fontSize: 12 }}>
                 Allocate mini budgets to keep spending intentional.
               </Text>
 
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Allocated</Text>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 4 }}>{formatMoney(sumAllocated, user?.currency ?? undefined)}</Text>
+                  <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Allocated</Text>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginTop: 4 }}>{formatMoney(sumAllocated, user?.currency ?? undefined)}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Category budget</Text>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 4 }}>
+                  <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Category budget</Text>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginTop: 4 }}>
                     {categoryBudgeted != null ? formatMoney(categoryBudgeted, user?.currency ?? undefined) : '—'}
                   </Text>
                 </View>
@@ -248,7 +248,7 @@ export default function MiniBudgetsScreen({ route }: any) {
             </View>
 
             <Card style={{ marginTop: 12, paddingVertical: 10, paddingHorizontal: 12 }}>
-              <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Add a mini budget</Text>
+              <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Add a mini budget</Text>
               <P style={{ marginTop: 6 }}>Example: “Subscriptions”, “Groceries”, “Fuel”.</P>
               <View style={{ marginTop: 10 }}>
                 <TextField label="Name" value={name} onChangeText={setName} placeholder="e.g. Subscriptions" />
@@ -275,7 +275,7 @@ export default function MiniBudgetsScreen({ route }: any) {
           <Card style={{ marginTop: 12, paddingVertical: 12, paddingHorizontal: 14 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <View style={{ flex: 1, paddingRight: 10 }}>
-                <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 15 }} numberOfLines={1}>
+                <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 15 }} numberOfLines={1}>
                   {item.name}
                 </Text>
                 <View
@@ -288,12 +288,12 @@ export default function MiniBudgetsScreen({ route }: any) {
                     backgroundColor: theme.colors.surfaceAlt
                   }}
                 >
-                  <Text style={{ color: theme.colors.textMuted, fontWeight: '800', fontSize: 11 }}>{bucketLabel(category)}</Text>
+                  <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 11 }}>{bucketLabel(category)}</Text>
                 </View>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>{formatMoney(item.amount, user?.currency ?? undefined)}</Text>
-                <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12, marginTop: 2 }}>per month</Text>
+                <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>{formatMoney(item.amount, user?.currency ?? undefined)}</Text>
+                <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12, marginTop: 2 }}>per month</Text>
               </View>
             </View>
           </Card>

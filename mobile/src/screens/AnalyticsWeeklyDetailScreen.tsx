@@ -93,12 +93,12 @@ export default function AnalyticsWeeklyDetailScreen() {
 
       <View style={{ marginTop: 12 }}>
         <Card>
-          <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Period</Text>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 14, marginTop: 4 }}>
+          <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Period</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 14, marginTop: 4 }}>
             {String(range?.start ?? '')} → {String(range?.end ?? '')}
           </Text>
-          <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12, marginTop: 10 }}>Total (last 7 days)</Text>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 22, marginTop: 4 }}>
+          <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12, marginTop: 10 }}>Total (last 7 days)</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 22, marginTop: 4 }}>
             {showAmounts ? formatMoney(total7, user?.currency ?? '₦') : '••••'}
           </Text>
         </Card>
@@ -106,7 +106,7 @@ export default function AnalyticsWeeklyDetailScreen() {
 
       <View style={{ marginTop: 12 }}>
         <Card>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Daily spending</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Daily spending</Text>
           <View style={{ marginTop: 10 }}>
             {daily.length === 0 ? (
               <P>No daily breakdown available yet.</P>
@@ -123,10 +123,10 @@ export default function AnalyticsWeeklyDetailScreen() {
                     justifyContent: 'space-between'
                   }}
                 >
-                  <Text style={{ color: theme.colors.text, fontWeight: '800', flex: 1, paddingRight: 12 }} numberOfLines={1}>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold', flex: 1, paddingRight: 12 }} numberOfLines={1}>
                     {d.date || '—'}
                   </Text>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900' }}>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>
                     {showAmounts ? formatMoney(d.expenses, user?.currency ?? '₦') : '••••'}
                   </Text>
                 </View>

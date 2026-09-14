@@ -171,7 +171,7 @@ export function NudgeTooltip({
             elevation: 10
           }}
         >
-          <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{title}</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{title}</Text>
           <Text style={{ color: theme.colors.textMuted, marginTop: 4, fontSize: 12, lineHeight: 17 }}>{body}</Text>
 
           <Pressable
@@ -186,7 +186,7 @@ export function NudgeTooltip({
               opacity: pressed ? 0.92 : 1
             })}
           >
-            <Text style={{ color: tokens.colors.white, fontWeight: '900' }}>{ctaLabel ?? 'Got it'}</Text>
+            <Text style={{ color: tokens.colors.white, fontFamily: 'Figtree_700Bold' }}>{ctaLabel ?? 'Got it'}</Text>
           </Pressable>
         </View>
       </View>

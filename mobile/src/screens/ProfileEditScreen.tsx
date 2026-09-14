@@ -172,12 +172,12 @@ export default function ProfileEditScreen() {
                   backgroundColor: theme.colors.primary
                 }}
               >
-                <Text style={{ color: tokens.colors.white, fontWeight: '900', fontSize: 20 }}>{initials}</Text>
+                <Text style={{ color: tokens.colors.white, fontFamily: 'Figtree_700Bold', fontSize: 20 }}>{initials}</Text>
               </View>
             )}
           </Pressable>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>
+            <Text numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>
               {displayName}
             </Text>
             <Text numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.colors.textMuted, marginTop: 4 }}>
@@ -188,7 +188,7 @@ export default function ProfileEditScreen() {
             ) : null}
             {avatarUri ? (
               <Pressable onPress={removeAvatar} style={({ pressed }) => [{ marginTop: 8, alignSelf: 'flex-start', opacity: pressed ? 0.9 : 1 }]}>
-                <Text style={{ color: theme.colors.primary, fontSize: 12, fontWeight: '700' }}>Remove photo</Text>
+                <Text style={{ color: theme.colors.primary, fontSize: 12, fontFamily: 'Figtree_600SemiBold' }}>Remove photo</Text>
               </Pressable>
             ) : null}
           </View>
@@ -196,17 +196,17 @@ export default function ProfileEditScreen() {
 
         <View style={{ marginTop: 12 }}>
           <Card>
-            <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Personal details</Text>
+            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Personal details</Text>
             <View style={{ marginTop: 12, gap: 12 }}>
               {!isEditing ? (
                 <>
                   <View>
                     <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>Full name</Text>
-                    <Text style={{ color: theme.colors.text, fontWeight: '700', marginTop: 4 }}>{name || 'Not set'}</Text>
+                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold', marginTop: 4 }}>{name || 'Not set'}</Text>
                   </View>
                   <View>
                     <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>Email</Text>
-                    <Text style={{ color: theme.colors.text, fontWeight: '700', marginTop: 4 }}>{user?.email ?? '-'}</Text>
+                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold', marginTop: 4 }}>{user?.email ?? '-'}</Text>
                   </View>
                 </>
               ) : (
@@ -220,23 +220,23 @@ export default function ProfileEditScreen() {
 
         <View style={{ marginTop: 12 }}>
           <Card>
-            <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Region & preferences</Text>
+            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Region & preferences</Text>
             <View style={{ marginTop: 12, gap: 12 }}>
               {!isEditing ? (
                 <>
                   <View>
                     <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>Preferred currency</Text>
-                    <Text style={{ color: theme.colors.text, fontWeight: '700', marginTop: 4 }}>{currency || '₦'}</Text>
+                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold', marginTop: 4 }}>{currency || '₦'}</Text>
                   </View>
                   <View>
                     <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>Region / locale</Text>
-                    <Text style={{ color: theme.colors.text, fontWeight: '700', marginTop: 4 }}>{locale || 'Not set'}</Text>
+                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold', marginTop: 4 }}>{locale || 'Not set'}</Text>
                   </View>
                 </>
               ) : (
                 <>
                   <View>
-                    <Text style={{ color: theme.colors.text, fontWeight: '700', marginBottom: 6 }}>Preferred currency</Text>
+                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold', marginBottom: 6 }}>Preferred currency</Text>
                     <Pressable
                       onPress={() => setShowCurrencyPicker(true)}
                       style={({ pressed }) => [
@@ -251,13 +251,13 @@ export default function ProfileEditScreen() {
                         }
                       ]}
                     >
-                      <Text style={{ color: theme.colors.text, fontWeight: '800' }}>{currency || '₦'}</Text>
+                      <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>{currency || '₦'}</Text>
                       <Text style={{ color: theme.colors.textMuted, marginTop: 4, fontSize: 12 }}>Tap to change</Text>
                     </Pressable>
                   </View>
 
                   <View>
-                    <Text style={{ color: theme.colors.text, fontWeight: '700', marginBottom: 6 }}>Region / locale</Text>
+                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold', marginBottom: 6 }}>Region / locale</Text>
                     <Pressable
                       onPress={() => setShowLocalePicker(true)}
                       style={({ pressed }) => [
@@ -272,7 +272,7 @@ export default function ProfileEditScreen() {
                         }
                       ]}
                     >
-                      <Text style={{ color: theme.colors.text, fontWeight: '800' }}>{locale || 'en-NG'}</Text>
+                      <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>{locale || 'en-NG'}</Text>
                       <Text style={{ color: theme.colors.textMuted, marginTop: 4, fontSize: 12 }}>Tap to change</Text>
                     </Pressable>
                   </View>
@@ -284,12 +284,12 @@ export default function ProfileEditScreen() {
 
         <View style={{ marginTop: 12 }}>
           <Card>
-            <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Income</Text>
+            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Income</Text>
             <View style={{ marginTop: 12 }}>
               {!isEditing ? (
                 <View>
                   <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>Monthly income (take-home)</Text>
-                  <Text style={{ color: theme.colors.text, fontWeight: '700', marginTop: 4 }}>{monthly || 'Not set'}</Text>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold', marginTop: 4 }}>{monthly || 'Not set'}</Text>
                 </View>
               ) : (
                 <TextField
@@ -340,7 +340,7 @@ export default function ProfileEditScreen() {
             onPress={() => {}}
             style={{ backgroundColor: theme.colors.surface, borderRadius: tokens.radius['2xl'], borderWidth: 1, borderColor: theme.colors.border, padding: 14, maxHeight: '70%' }}
           >
-            <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Preferred currency</Text>
+            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Preferred currency</Text>
             <ScrollView style={{ marginTop: 10 }}>
               {CURRENCY_OPTIONS.map((o) => {
                 const active = o.value === currency;
@@ -379,7 +379,7 @@ export default function ProfileEditScreen() {
             onPress={() => {}}
             style={{ backgroundColor: theme.colors.surface, borderRadius: tokens.radius['2xl'], borderWidth: 1, borderColor: theme.colors.border, padding: 14, maxHeight: '70%' }}
           >
-            <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Region / locale</Text>
+            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Region / locale</Text>
             <ScrollView style={{ marginTop: 10 }}>
               {LOCALE_OPTIONS.map((o) => {
                 const active = o.value === (locale || 'en-NG');

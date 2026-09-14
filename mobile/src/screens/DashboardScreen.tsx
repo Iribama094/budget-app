@@ -1,15 +1,33 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator, Animated, ScrollView } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, Animated, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { Plus, ChevronRight, Flame, Target, Eye, EyeOff, Bell, Sparkles, Wallet, BarChart3, List, CreditCard, Info } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Bell, CalendarCheck, Check, Eye, EyeOff, Flame, Landmark, Sparkles, WifiOff } from 'lucide-react-native';
+import { useSync } from '../contexts/SyncContext';
+import { publishWidgetSnapshot } from '../lib/widgetData';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { getAnalyticsSummary, listTransactions, listBudgets, listBankLinks, type AnalyticsSummary, type ApiTransaction, type ApiBudget } from '../api/endpoints';
-import { Card, H1, InlineError, P, PrimaryButton, Screen } from '../components/Common/ui';
-import { LinearGradient } from 'expo-linear-gradient';
-import { QuoteDisplay } from '../components/Dashboard/QuoteDisplay';
-import { formatMoney, toIsoDate, toIsoDateTime } from '../utils/format';
-import { tokens } from '../theme/tokens';
+import {
+  Amount,
+  Card,
+  Chip,
+  EmptyState,
+  HeroCard,
+  IconButton,
+  IconTile,
+  InlineError,
+  ListCard,
+  ListRow,
+  PrimaryButton,
+  ProgressBar,
+  Screen,
+  SectionHeader,
+  SegmentedControl,
+  formatAmount
+} from '../components/Common/ui';
+import { CategoryIcon } from '../components/Common/CategoryIcon';
+import { currencySymbol, formatLongToday, formatMoney, formatRelativeDay, toIsoDate, toIsoDateTime } from '../utils/format';
+import { fonts, type } from '../theme/typography';
 import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
 import { useNotificationBadges } from '../contexts/NotificationBadgeContext';
 import { useSpace } from '../contexts/SpaceContext';
@@ -36,6 +54,7 @@ export function DashboardScreen() {
   const introAnim = useRef(new Animated.Value(0)).current;
   const didMountRef = useRef(false);
   const { showAmounts, toggleShowAmounts } = useAmountVisibility();
+  const { isOnline, queued } = useSync();
   const notifAnim = useRef(new Animated.Value(0)).current;
   const { hasUnreadNotifications, hasAssistantUnread } = useNotificationBadges();
 
@@ -304,7 +323,7 @@ export function DashboardScreen() {
 
   const budgetRemaining = useMemo(() => {
     if (!currentBudget) return 0;
-    return Math.max(0, currentBudget.totalBudget - budgetUsed);
+    return currentBudget.totalBudget - budgetUsed;
   }, [currentBudget, budgetUsed]);
 
   const remainingBudgetForDisplay = useMemo(() => {
@@ -361,539 +380,347 @@ export function DashboardScreen() {
     }
   };
 
+  const glyph = currencySymbol(currency);
+  const hide = !showAmounts;
+  const nameParts = (user?.name ?? '').trim().split(/\s+/).filter(Boolean);
+  const firstName = nameParts[0] ?? null;
+  const avatarInitials = ((nameParts[0]?.[0] ?? user?.email?.[0] ?? 'U') + (nameParts[1]?.[0] ?? '')).toUpperCase();
+  const hour = new Date().getHours();
+  const greetingWord = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  // Budget pace: share of the budget spent against share of its time that has passed.
+  const pace = useMemo(() => {
+    if (!currentBudget) return null;
+    const start = parseIsoDateLocal(currentBudget.startDate);
+    const end = parseIsoDateLocal(budgetEffectiveEndIso(currentBudget));
+    if (!start || !end) return null;
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    const totalDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / msPerDay) + 1);
+    const elapsedDays = Math.min(totalDays, Math.max(1, Math.floor((today.getTime() - start.getTime()) / msPerDay) + 1));
+    const daysLeft = Math.max(1, totalDays - elapsedDays + 1);
+    const left = currentBudget.totalBudget - budgetUsed;
+    const spentRatio = currentBudget.totalBudget > 0 ? budgetUsed / currentBudget.totalBudget : 0;
+    const timeRatio = elapsedDays / totalDays;
+    const status: 'over' | 'hot' | 'onPace' = left < 0 ? 'over' : spentRatio > timeRatio + 0.05 ? 'hot' : 'onPace';
+    return { left, daysLeft, spentRatio, timeRatio, safePerDay: left > 0 ? left / daysLeft : 0, status };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBudget, budgetUsed, budgetEffectiveEndIso]);
+
+  const inkText = theme.colors.inkText;
+  const paceLabel = pace?.status === 'over' ? 'Over budget' : pace?.status === 'hot' ? 'Spending fast' : 'On pace';
+
+  // Keep the home-screen widget in step with what Home shows (respecting hidden amounts).
+  useEffect(() => {
+    if (isLoading) return;
+    const mask = (s: string) => (showAmounts ? s : '••••');
+    void publishWidgetSnapshot(
+      currentBudget && pace
+        ? {
+            status: pace.status,
+            safeToday: mask(formatAmount(pace.status === 'over' ? Math.abs(pace.left) : Math.round(pace.safePerDay), glyph)),
+            left: mask(formatAmount(Math.max(0, pace.left), glyph)),
+            daysLeft: pace.daysLeft,
+            label: currentBudget.name.replace(/^My Budget \((.*)\)$/, '$1'),
+            updatedAt: new Date().toISOString()
+          }
+        : { status: 'none', safeToday: '', left: '', daysLeft: 0, label: '', updatedAt: new Date().toISOString() }
+    ).catch(() => undefined);
+  }, [currentBudget, glyph, isLoading, pace, showAmounts]);
+
   return (
     <Screen onRefresh={handleRefresh} refreshing={isLoading}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View style={{ flex: 1, paddingRight: 12 }}>
-          <H1 style={{ fontSize: 20, fontWeight: '900' }}>
-            {greeting}
-          </H1>
-          <P style={{ marginTop: 4, fontSize: 12 }} numberOfLines={1} ellipsizeMode="tail">
-            Ready to manage your budget?
-          </P>
-
-          {spacesEnabled ? (
-            <View style={{ marginTop: 10, alignItems: 'flex-start' }}>
-              <Text style={{ color: theme.colors.textMuted, fontWeight: '800', marginBottom: 8 }}>
-                Viewing: {activeSpace.name}
-              </Text>
-              <View ref={spaceSwitcherAnchorRef} style={{ alignSelf: 'flex-start' }}>
-                <SpaceSwitcher compact />
-              </View>
-            </View>
-          ) : null}
-        </View>
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {/* Notifications icon with red dot when there are unread notifications */}
-          <Pressable
-            onPress={() => nav.navigate('Notifications')}
-            style={({ pressed }) => [{ padding: 6, borderRadius: 999, opacity: pressed ? 0.7 : 1 }]}
-          >
-            <Animated.View
-              style={{
-                padding: 6,
-                borderRadius: 999,
-                backgroundColor: theme.colors.surfaceAlt,
-                transform: [
-                  {
-                    scale: notifAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] })
-                  }
-                ]
-              }}
-            >
-              <View style={{ position: 'relative' }}>
-                <Bell color={theme.colors.primary} size={18} />
-                {hasUnreadNotifications && (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: -2,
-                      right: -2,
-                      width: 8,
-                      height: 8,
-                      borderRadius: 999,
-                      backgroundColor: tokens.colors.error[500]
-                    }}
-                  />
-                )}
-              </View>
-            </Animated.View>
-          </Pressable>
-
-          {/* AI assistant icon with red dot when there are pending assistant messages */}
-          <Pressable
-            onPress={() => nav.navigate('AssistantModal' as never)}
-            style={({ pressed }) => [{ padding: 6, borderRadius: 999, opacity: pressed ? 0.7 : 1 }]}
-          >
-            <View
-              style={{
-                padding: 6,
-                borderRadius: 999,
-                backgroundColor: theme.colors.surfaceAlt,
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative'
-              }}
-            >
-              <Sparkles color={theme.colors.primary} size={18} />
-              {hasAssistantUnread && (
-                <View
-                  style={{
-                    position: 'absolute',
-                    top: -2,
-                    right: -2,
-                    width: 8,
-                    height: 8,
-                    borderRadius: 999,
-                    backgroundColor: tokens.colors.error[500]
-                  }}
-                />
-              )}
-            </View>
-          </Pressable>
-
-          {/* Profile avatar */}
-          <Pressable
-            onPress={() => nav.navigate('Profile')}
-            style={({ pressed }) => [
-              {
-                width: 48,
-                height: 48,
-                borderRadius: 18,
-                backgroundColor: theme.colors.primary,
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: pressed ? 0.92 : 1
-              }
-            ]}
-          >
-            <Text style={{ color: tokens.colors.white, fontWeight: '900', fontSize: 18 }}>{initials}</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      {/* Legacy QUICK TIP overlay removed in favor of Tour coachmarks */}
-
-      <View style={{ marginTop: 6 }}>
-        <QuoteDisplay />
-      </View>
-
-      {/* Quick Gradient Tiles */}
-      <Animated.View
-        style={{
-          marginTop: 12,
-          flexDirection: 'row',
-          gap: 10,
-          opacity: introAnim,
-          transform: [
-            {
-              translateY: introAnim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] })
-            }
-          ]
-        }}
-      >
-        <Pressable style={{ flex: 1 }} onPress={() => nav.navigate('WeeklyCheckInDetail')}>
-          <LinearGradient
-            colors={[tokens.colors.secondary[500], tokens.colors.accent[400]]}
-            style={{ flex: 1, borderRadius: 16, padding: 14 }}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <View style={{ flex: 1, paddingRight: 8 }}>
-                <Text style={{ color: tokens.colors.white, fontWeight: '900', fontSize: 14 }}>Weekly check-in</Text>
-                <Text style={{ color: tokens.colors.white, marginTop: 4, fontWeight: '800' }}>
-                  {weekInfo.remainingDays > 0 ? `${weekInfo.remainingDays} day${weekInfo.remainingDays === 1 ? '' : 's'} left` : 'Week ending'}
-                </Text>
-                <P style={{ marginTop: 4, color: tokens.colors.white }}>
-                  {Math.round(weekInfo.progressPct)}% of this week has passed.
-                </P>
-              </View>
-              <View style={{ width: 32, height: 32, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.15)', alignItems: 'center', justifyContent: 'center', marginLeft: 6 }}>
-                <Target color={tokens.colors.white} size={18} />
-              </View>
-            </View>
-          </LinearGradient>
-        </Pressable>
-        <Pressable style={{ flex: 1 }} onPress={() => nav.navigate('BudgetStreakDetail')}>
-          <LinearGradient
-            colors={[tokens.colors.primary[600], tokens.colors.primary[400]]}
-            style={{ flex: 1, borderRadius: 16, padding: 14 }}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <View style={{ flex: 1, paddingRight: 8 }}>
-                <Text style={{ color: tokens.colors.white, fontWeight: '900', fontSize: 14 }}>Budget streak</Text>
-                <Text style={{ color: tokens.colors.white, marginTop: 4, fontWeight: '800' }}>
-                  {budgetStreakDays > 0 ? `${budgetStreakDays} day${budgetStreakDays === 1 ? '' : 's'}` : 'No streak yet'}
-                </Text>
-                <P style={{ marginTop: 4, color: tokens.colors.white }}>
-                  {remainingBudgetForDisplay >= 0
-                    ? `You’ve stayed on budget so far ${summaryLabelLower}.`
-                    : `You’ve gone over budget ${summaryLabelLower} — try resetting with a fresh plan.`}
-                </P>
-              </View>
-              <View style={{ width: 32, height: 32, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.15)', alignItems: 'center', justifyContent: 'center', marginLeft: 6 }}>
-                <Flame color={tokens.colors.white} size={18} />
-              </View>
-            </View>
-          </LinearGradient>
-        </Pressable>
-      </Animated.View>
-
-      <View style={{ marginTop: 18 }}>
-        {error ? <InlineError message={error} /> : null}
-        {isLoading ? <ActivityIndicator color={theme.colors.primary} /> : null}
-      </View>
-
-      <View style={{ marginTop: 14 }}>
-        <Animated.View
-          style={{
-            opacity: introAnim,
-            transform: [
-              {
-                translateY: introAnim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] })
-              }
-            ]
-          }}
-        >
-          <Card>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text style={{ color: theme.colors.textMuted, fontWeight: '700' }}>{summaryLabel}</Text>
-              <Pressable
-                onPress={toggleShowAmounts}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-              >
-                {showAmounts ? (
-                  <EyeOff color={theme.colors.textMuted} size={18} />
-                ) : (
-                  <Eye color={theme.colors.textMuted} size={18} />
-                )}
-              </Pressable>
-            </View>
-
-            <View
-              style={{
-                marginTop: 10,
-                flexDirection: 'row',
-                backgroundColor: theme.colors.surfaceAlt,
-                borderRadius: 999,
-                padding: 4,
-                borderWidth: 1,
-                borderColor: theme.colors.border
-              }}
-            >
-              {([
-                { key: 'today' as const, label: 'Today' },
-                { key: 'week' as const, label: 'Week' },
-                { key: 'month' as const, label: 'Month' }
-              ] as const).map((seg) => {
-                const selected = summaryRangeKey === seg.key;
-                return (
-                  <Pressable
-                    key={seg.key}
-                    onPress={() => setSummaryRangeKey(seg.key)}
-                    style={({ pressed }) => [
-                      {
-                        flex: 1,
-                        paddingVertical: 8,
-                        borderRadius: 999,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: selected ? theme.colors.surface : 'transparent',
-                        opacity: pressed ? 0.9 : 1
-                      }
-                    ]}
-                  >
-                    <Text style={{ color: selected ? theme.colors.text : theme.colors.textMuted, fontWeight: '900', fontSize: 12 }}>
-                      {seg.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {!data && isLoading ? (
-              <View style={{ marginTop: 12 }}>
-                <View style={{ height: 28, borderRadius: 8, backgroundColor: theme.colors.surfaceAlt, width: '60%' }} />
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ height: 18, borderRadius: 6, backgroundColor: theme.colors.surfaceAlt, width: '70%' }} />
-                    <View style={{ height: 20, borderRadius: 6, backgroundColor: theme.colors.surfaceAlt, width: '80%', marginTop: 6 }} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ height: 18, borderRadius: 6, backgroundColor: theme.colors.surfaceAlt, width: '70%' }} />
-                    <View style={{ height: 20, borderRadius: 6, backgroundColor: theme.colors.surfaceAlt, width: '80%', marginTop: 6 }} />
-                  </View>
-                </View>
-                <View style={{ marginTop: 16 }}>
-                  <View style={{ height: 18, borderRadius: 6, backgroundColor: theme.colors.surfaceAlt, width: '50%' }} />
-                  <View style={{ height: 20, borderRadius: 6, backgroundColor: theme.colors.surfaceAlt, width: '60%', marginTop: 6 }} />
-                </View>
-              </View>
-            ) : (
-              <>
-                <Text style={{ color: theme.colors.text, fontSize: 32, fontWeight: '900', marginTop: 8 }}>
-                  {showAmounts ? formatMoney(budgetRemaining, currency) : '••••'}
-                </Text>
-                <P style={{ marginTop: 6 }}>Remaining budget</P>
-
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Income</Text>
-                    <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 4 }}>
-                      {showAmounts ? formatMoney(data?.income ?? 0, currency) : '••••'}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Expenses</Text>
-                    <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 4 }}>
-                      {showAmounts ? formatMoney(data?.expenses ?? 0, currency) : '••••'}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={{ marginTop: 12 }}>
-                  <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Total budget</Text>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 4 }}>
-                    {showAmounts ? formatMoney(currentBudget?.totalBudget ?? 0, currency) : '••••'}
-                  </Text>
-                </View>
-              </>
-            )}
-            {!currentBudget ? (
-              <View style={{ marginTop: 10 }}>
-                <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>No active budget</Text>
-                <Text style={{ color: theme.colors.text, marginTop: 4 }}>
-                  Create a budget to track how your spending compares to your plan.
-                </Text>
-                <View style={{ marginTop: 8, alignSelf: 'flex-start' }}>
-                  <PrimaryButton title="Create a budget" onPress={() => nav.navigate('Budget')} />
-                </View>
-              </View>
-            ) : null}
-          </Card>
-        </Animated.View>
-      </View>
-
-      {bankSummary && (bankSummary.banks ?? 0) === 0 ? (
-        <View style={{ marginTop: 10 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Info color={theme.colors.textMuted} size={16} />
-            <Text style={{ color: theme.colors.textMuted, fontWeight: '700', flex: 1 }} numberOfLines={2}>
-              Tip: connect your bank to import transactions automatically.
-            </Text>
-          </View>
-
-          <Pressable
-            onPress={() => (nav as any).navigate('BankConnectTerms')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={({ pressed }) => [{ marginTop: 6, alignSelf: 'flex-start', opacity: pressed ? 0.8 : 1 }]}
-          >
-            <Text style={{ color: theme.colors.primary, fontWeight: '900' }}>Connect bank →</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
-      <View style={{ marginTop: 14 }}>
+      <View style={styles.header}>
         <Pressable
-          ref={addTxAnchorRef}
-          onPress={() => nav.navigate('AddTransaction')}
-          style={({ pressed }) => [
-            {
-              borderRadius: tokens.radius['2xl'],
-              backgroundColor: theme.colors.primary,
-              paddingVertical: 12,
-              alignItems: 'center',
-              flexDirection: 'row',
-              justifyContent: 'center',
-              gap: 10,
-              opacity: pressed ? 0.92 : 1,
-              shadowColor: '#000',
-              shadowOpacity: 0.12,
-              shadowRadius: 10,
-              shadowOffset: { width: 0, height: 4 }
-            }
-          ]}
+          onPress={() => nav.navigate('Profile')}
+          accessibilityRole="button"
+          accessibilityLabel="Account"
+          style={[styles.avatar, { backgroundColor: theme.colors.primarySoft }]}
         >
-          <Plus color={tokens.colors.white} size={18} />
-          <Text style={{ color: tokens.colors.white, fontWeight: '900' }}>Add Transaction</Text>
+          <Text style={{ fontFamily: fonts.display, fontSize: 14, color: theme.colors.primary }}>{avatarInitials}</Text>
         </Pressable>
-      </View>
-
-      {(showAddTxNudge || showSpaceNudge) && (
-        <View style={{ marginTop: 12 }}>
-          {showAddTxNudge ? (
-            <Card style={{ padding: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-                <Info color={theme.colors.textMuted} size={16} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Quick tip</Text>
-                  <Text style={{ color: theme.colors.textMuted, marginTop: 4, lineHeight: 18 }}>
-                    Start here: add your first transaction. Budgets and insights update automatically.
-                  </Text>
-
-                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-                    <Pressable
-                      onPress={() => {
-                        markSeen('dashboard.addTx');
-                        nav.navigate('AddTransaction');
-                      }}
-                      style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
-                    >
-                      <Text style={{ color: theme.colors.primary, fontWeight: '900' }}>Add transaction →</Text>
-                    </Pressable>
-
-                    <Pressable
-                      onPress={() => markSeen('dashboard.addTx')}
-                      style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
-                    >
-                      <Text style={{ color: theme.colors.textMuted, fontWeight: '900' }}>Dismiss</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-            </Card>
-          ) : null}
-
-          {showSpaceNudge ? (
-            <Card style={{ padding: 12, marginTop: showAddTxNudge ? 10 : 0 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-                <Info color={theme.colors.textMuted} size={16} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Spaces</Text>
-                  <Text style={{ color: theme.colors.textMuted, marginTop: 4, lineHeight: 18 }}>
-                    Keep Personal and Business money separate. Switch spaces anytime.
-                  </Text>
-
-                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-                    <Pressable
-                      onPress={() => markSeen('space.switcher')}
-                      style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
-                    >
-                      <Text style={{ color: theme.colors.textMuted, fontWeight: '900' }}>Dismiss</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-            </Card>
-          ) : null}
-        </View>
-      )}
-
-      {showGettingStarted ? (
-        <View style={{ marginTop: 12 }}>
-          <Card>
-            <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Getting started</Text>
-            <Text style={{ color: theme.colors.textMuted, marginTop: 6 }}>
-              Add a transaction first — then set a budget and a goal. You’ll start seeing insights right away.
-            </Text>
-
-            <View style={{ marginTop: 12, flexDirection: 'row', gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <PrimaryButton title="Add transaction" onPress={() => nav.navigate('AddTransaction')} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Pressable
-                  onPress={() => nav.navigate('Budget')}
-                  style={({ pressed }) => [
-                    {
-                      borderRadius: tokens.radius['2xl'],
-                      paddingVertical: 14,
-                      alignItems: 'center',
-                      borderWidth: 1,
-                      borderColor: theme.colors.border,
-                      backgroundColor: theme.colors.surfaceAlt,
-                      opacity: pressed ? 0.92 : 1,
-                      transform: [{ scale: pressed ? 0.985 : 1 }]
-                    }
-                  ]}
-                >
-                  <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Create budget</Text>
-                </Pressable>
-              </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text numberOfLines={1} style={[type.bodyStrong, { color: theme.colors.text, fontSize: 16 }]}>
+            {firstName ? `${greetingWord}, ${firstName}` : greetingWord}
+          </Text>
+          {spacesEnabled ? (
+            <View ref={spaceSwitcherAnchorRef} style={{ marginTop: 4 }}>
+              <SpaceSwitcher compact />
             </View>
-
-            <Pressable
-              onPress={() => nav.navigate('Goals')}
-              style={({ pressed }) => [{ marginTop: 10, alignSelf: 'flex-start', opacity: pressed ? 0.9 : 1 }]}
-            >
-              <Text style={{ color: theme.colors.primary, fontWeight: '800' }}>Set a goal →</Text>
-            </Pressable>
-          </Card>
-        </View>
-      ) : null}
-
-      {/* Quick actions removed as requested */}
-
-      <View style={{ marginTop: 18 }}>
-        {insightMessage && (
-          <Card style={{ marginBottom: 10 }}>
-            <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Insight</Text>
-            <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 6 }}>{insightMessage}</Text>
-          </Card>
-        )}
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={{ color: theme.colors.text, fontSize: 18, fontWeight: '900' }}>Recent Activity</Text>
-          <Pressable onPress={() => nav.navigate('Transactions')} style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ color: theme.colors.primary, fontWeight: '800' }}>View All</Text>
-            <ChevronRight color={theme.colors.primary} size={18} />
-          </Pressable>
-        </View>
-
-        <View style={{ marginTop: 10, gap: 10 }}>
-          {recent.length === 0 ? (
-            <Card>
-              <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 15 }}>No transactions yet</Text>
-              <Text style={{ color: theme.colors.textMuted, marginTop: 6 }}>
-                Add your first transaction to start tracking spending.
-              </Text>
-            </Card>
           ) : (
-            <Card style={{ paddingVertical: 12, paddingHorizontal: 12 }}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-                {recent.map((t) => (
-                  <Pressable
-                    key={t.id}
-                    onPress={() => nav.navigate('TransactionDetail', { id: String(t.id) })}
-                    style={({ pressed }) => [
-                      {
-                        width: 220,
-                        borderWidth: 1,
-                        borderColor: theme.colors.border,
-                        backgroundColor: theme.colors.surfaceAlt,
-                        borderRadius: tokens.radius['2xl'],
-                        paddingVertical: 12,
-                        paddingHorizontal: 12,
-                        opacity: pressed ? 0.92 : 1
-                      }
-                    ]}
-                  >
-                    <Text style={{ color: theme.colors.text, fontWeight: '900' }} numberOfLines={1}>
-                      {t.description || 'Transaction'}
-                    </Text>
-                    <Text style={{ color: theme.colors.textMuted, marginTop: 4, fontWeight: '700' }} numberOfLines={1}>
-                      {t.category}
-                    </Text>
-                    <Text
-                      style={{
-                        marginTop: 10,
-                        fontWeight: '900',
-                        color: t.type === 'expense' ? theme.colors.error : theme.colors.success
-                      }}
-                    >
-                      {t.type === 'expense' ? '-' : '+'}
-                      {showAmounts ? formatMoney(t.amount, currency) : '••••'}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </Card>
+            <Text style={[type.caption, { color: theme.colors.textMuted }]}>{formatLongToday()}</Text>
           )}
         </View>
+        <IconButton round accessibilityLabel="Ask the assistant" badge={hasAssistantUnread} onPress={() => nav.navigate('AssistantModal' as never)}>
+          <Sparkles color={theme.colors.text} size={19} />
+        </IconButton>
+        <IconButton round accessibilityLabel="Notifications" badge={hasUnreadNotifications} onPress={() => nav.navigate('Notifications')}>
+          <Bell color={theme.colors.text} size={19} />
+        </IconButton>
       </View>
 
-      {/* Pull-to-refresh enabled on the screen — no explicit buttons needed */}
+      {!isOnline || queued.length ? (
+        <Pressable onPress={() => nav.navigate('Transactions')} accessibilityRole="button" style={[styles.offline, { backgroundColor: theme.colors.brassSoft }]}>
+          <WifiOff color={theme.colors.warn} size={16} />
+          <Text style={[type.smallStrong, { color: theme.colors.warn, flex: 1 }]}>
+            {!isOnline
+              ? queued.length
+                ? `You’re offline · ${queued.length} waiting to sync`
+                : 'You’re offline. New transactions will sync later.'
+              : `${queued.length} transaction${queued.length === 1 ? '' : 's'} waiting to sync`}
+          </Text>
+        </Pressable>
+      ) : null}
+
+      {error ? (
+        <View style={{ marginTop: 14 }}>
+          <InlineError message={error} />
+        </View>
+      ) : null}
+
+      {currentBudget && pace ? (
+        <Pressable
+          onPress={() => nav.navigate('BudgetDetail', { budgetId: String(currentBudget.id) })}
+          accessibilityRole="button"
+          accessibilityLabel="Open current budget"
+          style={{ marginTop: 14 }}
+        >
+          <HeroCard>
+            <View style={styles.rowBetween}>
+              <Text style={[type.eyebrow, { color: inkText, opacity: 0.72 }]}>{pace.status === 'over' ? 'Over budget by' : 'Safe to spend today'}</Text>
+              <Pressable onPress={toggleShowAmounts} hitSlop={12} accessibilityLabel={showAmounts ? 'Hide amounts' : 'Show amounts'}>
+                {showAmounts ? <EyeOff color={inkText} size={18} opacity={0.75} /> : <Eye color={inkText} size={18} opacity={0.75} />}
+              </Pressable>
+            </View>
+            <Amount
+              value={pace.status === 'over' ? Math.abs(pace.left) : Math.round(pace.safePerDay)}
+              currency={glyph}
+              size="hero"
+              color={inkText}
+              hidden={hide}
+              style={{ marginTop: 10, marginBottom: 4 }}
+            />
+            <Text style={[type.small, { color: inkText, opacity: 0.75 }]}>
+              {hide
+                ? `${pace.daysLeft} day${pace.daysLeft === 1 ? '' : 's'} to go`
+                : pace.status === 'over'
+                  ? `Spent ${formatAmount(budgetUsed, glyph)} of ${formatAmount(currentBudget.totalBudget, glyph)}`
+                  : `${formatAmount(pace.left, glyph)} left of ${formatAmount(currentBudget.totalBudget, glyph)} · ${pace.daysLeft} day${pace.daysLeft === 1 ? '' : 's'} to go`}
+            </Text>
+            <View style={{ marginTop: 16 }}>
+              <ProgressBar
+                value={pace.spentRatio}
+                marker={pace.timeRatio}
+                height={8}
+                color={pace.status === 'onPace' ? '#8FD6C3' : '#E2B65C'}
+                trackColor="rgba(255,255,255,0.14)"
+                markerColor="#FFFFFF"
+              />
+            </View>
+            <View style={[styles.rowBetween, { marginTop: 10 }]}>
+              <Text style={[type.caption, { color: inkText, opacity: 0.75 }]}>
+                {Math.round(pace.spentRatio * 100)}% spent · {Math.round(pace.timeRatio * 100)}% of period gone
+              </Text>
+              <Chip
+                tone={pace.status === 'onPace' ? 'onInk' : 'brass'}
+                label={paceLabel}
+                icon={pace.status === 'onPace' ? <Check color="#8FD6C3" size={12} strokeWidth={3} /> : undefined}
+              />
+            </View>
+          </HeroCard>
+        </Pressable>
+      ) : isLoading && !data ? (
+        <HeroCard style={{ marginTop: 14, height: 190, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={inkText} />
+        </HeroCard>
+      ) : (
+        <HeroCard style={{ marginTop: 14 }}>
+          <Text style={[type.eyebrow, { color: inkText, opacity: 0.72 }]}>Start here</Text>
+          <Text style={[type.h2, { color: inkText, marginTop: 8 }]}>Set a budget to see what’s safe to spend each day.</Text>
+          <PrimaryButton title="Create a budget" onPress={() => nav.navigate('Budget')} style={{ marginTop: 16 }} />
+        </HeroCard>
+      )}
+
+      <View style={styles.quick}>
+        {[
+          { key: 'expense', label: 'Expense', Icon: ArrowUpRight, onPress: () => nav.navigate('AddTransaction', { type: 'expense' }), anchor: true },
+          { key: 'income', label: 'Income', Icon: ArrowDownLeft, onPress: () => nav.navigate('AddTransaction', { type: 'income' }) },
+          {
+            key: 'import',
+            label: 'Bank import',
+            Icon: Landmark,
+            onPress: () => nav.navigate((bankSummary?.banks ?? 0) > 0 ? 'PendingTransactions' : 'BankConnectTerms')
+          },
+          { key: 'ai', label: 'Ask AI', Icon: Sparkles, onPress: () => nav.navigate('AssistantModal' as never) }
+        ].map(({ key, label, Icon, onPress, anchor }) => (
+          <Pressable
+            key={key}
+            ref={anchor ? addTxAnchorRef : undefined}
+            onPress={onPress}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            style={({ pressed }) => [styles.quickItem, { opacity: pressed ? 0.7 : 1 }]}
+          >
+            <View style={[styles.quickIcon, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+              <Icon color={theme.colors.primary} size={21} />
+            </View>
+            <Text style={[type.caption, { color: theme.colors.text }]}>{label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <SectionHeader title="Money in and out" actionLabel="Insights" onAction={() => nav.navigate('Analytics')} />
+      <Card>
+        <SegmentedControl
+          options={[
+            { key: 'today', label: 'Today' },
+            { key: 'week', label: 'This week' },
+            { key: 'month', label: 'This month' }
+          ]}
+          value={summaryRangeKey}
+          onChange={setSummaryRangeKey}
+        />
+        <View style={styles.split}>
+          <View style={{ flex: 1, gap: 6 }}>
+            <View style={styles.inline}>
+              <View style={[styles.arrow, { backgroundColor: theme.colors.successSoft }]}>
+                <ArrowDownLeft color={theme.colors.success} size={11} strokeWidth={3} />
+              </View>
+              <Text style={[type.caption, { color: theme.colors.textMuted }]}>Money in</Text>
+            </View>
+            <Amount value={data?.income ?? 0} currency={glyph} hidden={hide} />
+          </View>
+          <View style={[styles.vr, { backgroundColor: theme.colors.border }]} />
+          <View style={{ flex: 1, gap: 6, paddingLeft: 16 }}>
+            <View style={styles.inline}>
+              <View style={[styles.arrow, { backgroundColor: theme.colors.errorSoft }]}>
+                <ArrowUpRight color={theme.colors.error} size={11} strokeWidth={3} />
+              </View>
+              <Text style={[type.caption, { color: theme.colors.textMuted }]}>Money out</Text>
+            </View>
+            <Amount value={data?.expenses ?? 0} currency={glyph} hidden={hide} />
+          </View>
+        </View>
+      </Card>
+
+      <ListCard style={{ marginTop: 10 }}>
+        <ListRow
+          icon={
+            <IconTile bg={theme.colors.brassSoft}>
+              <Flame color={theme.colors.brass} size={19} />
+            </IconTile>
+          }
+          title={budgetStreakDays > 0 ? `${budgetStreakDays} day${budgetStreakDays === 1 ? '' : 's'} on budget` : 'Your streak starts today'}
+          subtitle={remainingBudgetForDisplay >= 0 ? 'Keep spending under your plan to grow it' : 'You went over; a fresh plan resets it'}
+          onPress={() => nav.navigate('BudgetStreakDetail')}
+          chevron
+        />
+        <ListRow
+          icon={
+            <IconTile bg={theme.colors.primarySoft}>
+              <CalendarCheck color={theme.colors.primary} size={19} />
+            </IconTile>
+          }
+          title="Weekly check-in"
+          subtitle={weekInfo.remainingDays > 0 ? `Closes in ${weekInfo.remainingDays} day${weekInfo.remainingDays === 1 ? '' : 's'}` : 'Closes today'}
+          onPress={() => nav.navigate('WeeklyCheckInDetail')}
+          chevron
+        />
+        {bankSummary && (bankSummary.banks ?? 0) === 0 ? (
+          <ListRow
+            icon={
+              <IconTile bg={theme.colors.surfaceAlt}>
+                <Landmark color={theme.colors.text} size={19} />
+              </IconTile>
+            }
+            title="Connect your bank"
+            subtitle="Import transactions automatically"
+            onPress={() => (nav as any).navigate('BankConnectTerms')}
+            chevron
+          />
+        ) : null}
+      </ListCard>
+
+      {insightMessage && hasTransactions ? (
+        <Card style={{ marginTop: 10 }}>
+          <View style={styles.inline}>
+            <Sparkles color={theme.colors.primary} size={14} />
+            <Text style={[type.caption, { color: theme.colors.primary, fontFamily: fonts.semibold }]}>Insight</Text>
+          </View>
+          <Text style={[type.body, { color: theme.colors.text, marginTop: 6 }]}>{insightMessage}</Text>
+          <Pressable onPress={() => nav.navigate('Analytics')} hitSlop={8} style={{ marginTop: 8, alignSelf: 'flex-start' }}>
+            <Text style={[type.smallStrong, { color: theme.colors.primary }]}>View breakdown</Text>
+          </Pressable>
+        </Card>
+      ) : null}
+
+      {showSpaceNudge ? (
+        <Card style={{ marginTop: 10 }}>
+          <Text style={[type.bodyStrong, { color: theme.colors.text }]}>Spaces</Text>
+          <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 4 }]}>Keep Personal and Business money separate. Switch spaces anytime.</Text>
+          <Pressable onPress={() => markSeen('space.switcher')} hitSlop={8} style={{ marginTop: 8, alignSelf: 'flex-start' }}>
+            <Text style={[type.smallStrong, { color: theme.colors.textMuted }]}>Dismiss</Text>
+          </Pressable>
+        </Card>
+      ) : null}
+
+      <SectionHeader title="Recent activity" actionLabel={hasTransactions ? 'See all' : undefined} onAction={() => nav.navigate('Transactions')} />
+      {recent.length === 0 ? (
+        isLoading ? (
+          <ActivityIndicator color={theme.colors.primary} />
+        ) : (
+          <EmptyState
+            title={showGettingStarted ? 'Let’s get you started' : 'No transactions yet'}
+            body={
+              showGettingStarted
+                ? 'Add a transaction first, then set a budget and a goal. Insights appear right away.'
+                : 'Add your first one and your budget updates automatically.'
+            }
+            actionLabel="Add transaction"
+            onAction={() => {
+              if (showAddTxNudge) markSeen('dashboard.addTx');
+              nav.navigate('AddTransaction');
+            }}
+          />
+        )
+      ) : (
+        <ListCard>
+          {recent.slice(0, 5).map((t) => (
+            <ListRow
+              key={t.id}
+              icon={<CategoryIcon category={t.category} type={t.type} />}
+              title={t.description || t.category || 'Transaction'}
+              subtitle={`${t.category} · ${formatRelativeDay(t.occurredAt)}`}
+              onPress={() => nav.navigate('TransactionDetail', { id: String(t.id) })}
+              right={
+                <Amount
+                  value={t.type === 'expense' ? -t.amount : t.amount}
+                  currency={glyph}
+                  size="sm"
+                  signed={t.type === 'income'}
+                  hidden={hide}
+                  color={t.type === 'income' ? theme.colors.success : theme.colors.text}
+                />
+              }
+            />
+          ))}
+        </ListCard>
+      )}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 56 },
+  offline: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14 },
+  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  quick: { flexDirection: 'row', marginTop: 18 },
+  quickItem: { flex: 1, alignItems: 'center', gap: 7 },
+  quickIcon: { width: 54, height: 54, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+  split: { flexDirection: 'row', marginTop: 14 },
+  vr: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch' },
+  inline: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  arrow: { width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' }
+});

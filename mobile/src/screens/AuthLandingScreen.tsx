@@ -1,89 +1,75 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '../contexts/ThemeContext';
-import { H1, P, PrimaryButton, SecondaryButton } from '../components/Common/ui';
 import { useNavigation } from '@react-navigation/native';
-import { LogoMark } from '../components/Common/LogoMark';
+import { Check, Lock } from 'lucide-react-native';
+import { useTheme } from '../contexts/ThemeContext';
+import { Amount, Card, Chip, HeroCard, PrimaryButton, ProgressBar, Ring, SecondaryButton } from '../components/Common/ui';
+import { type } from '../theme/typography';
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export function AuthLandingScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<any>();
-  const heroSource = require('../../assets/splash-icon.png');
+  const month = MONTHS[new Date().getMonth()];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      {/* Full-screen hero background */}
-      <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
-        <Image source={heroSource} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-
-        {/* Soft wave overlay for readability */}
-        <LinearGradient
-          colors={
-            theme.mode === 'dark'
-              ? ['rgba(2,6,23,0.10)', 'rgba(2,6,23,0.68)', 'rgba(2,6,23,0.94)']
-              : ['rgba(249,250,251,0.10)', 'rgba(15,118,110,0.62)', 'rgba(2,6,23,0.92)']
-          }
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={{
-            position: 'absolute',
-            left: -80,
-            right: -80,
-            bottom: -140,
-            height: '84%',
-            borderTopLeftRadius: 240,
-            borderTopRightRadius: 340,
-            transform: [{ rotate: '-3deg' }]
-          }}
-        />
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]}>
+      <View style={styles.brand}>
+        <Image source={require('../../assets/logo.png')} style={{ width: 30, height: 30 }} resizeMode="contain" />
+        <Text style={[type.title, { color: theme.colors.text }]}>BudgetFriendly</Text>
       </View>
 
-      {/* Content */}
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 18, paddingBottom: 24, justifyContent: 'flex-end' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-          <LogoMark size={44} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: 'rgba(249,250,251,0.92)', fontWeight: '900', letterSpacing: 0.4, fontSize: 14 }}>
-              BudgetFriendly
-            </Text>
-            <Text style={{ color: 'rgba(249,250,251,0.75)', fontWeight: '800', fontSize: 12 }}>
-              Personal finance, made simple.
-            </Text>
+      {/* Product preview built from the real components, not a stock image. */}
+      <View style={[styles.illo, { backgroundColor: theme.colors.primarySoft }]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <HeroCard style={styles.heroTilt}>
+          <View style={styles.rowBetween}>
+            <Text style={[type.eyebrow, { color: theme.colors.inkText, opacity: 0.72 }]}>{month} budget</Text>
+            <Chip tone="onInk" label="On pace" icon={<Check color="#8FD6C3" size={12} strokeWidth={3} />} />
           </View>
-        </View>
-
-        <H1 style={{ color: '#fff', textAlign: 'left', maxWidth: 360 }}>
-          Track spending.
-          {'\n'}Build a budget.
-          {'\n'}Hit your goals.
-        </H1>
-        <P style={{ color: 'rgba(249,250,251,0.88)', marginTop: 10, maxWidth: 420 }}>
-          Get a clear picture of your money — then let budgets and insights do the heavy lifting.
-        </P>
-
-        <Text style={{ color: 'rgba(249,250,251,0.78)', marginTop: 12, fontSize: 12, fontWeight: '700', maxWidth: 420 }}>
-          “you dont grow rich to manage well, you manage well to grow rich.”
-        </Text>
-
-        <View style={{ height: 18 }} />
-
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <View style={{ flex: 1 }}>
-            <PrimaryButton title="Create Account" onPress={() => navigation.navigate('Register')} />
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: 8 }}>
+            <Amount value={263600} size="lg" color={theme.colors.inkText} />
+            <Text style={[type.small, { color: theme.colors.inkText, opacity: 0.7 }]}>left</Text>
           </View>
-          <View style={{ flex: 1 }}>
-            <SecondaryButton title="Sign In" onPress={() => navigation.navigate('Login')} />
+          <View style={{ marginTop: 12 }}>
+            <ProgressBar value={0.41} marker={0.43} height={8} color="#8FD6C3" trackColor="rgba(255,255,255,0.14)" markerColor="#FFFFFF" />
           </View>
-        </View>
+        </HeroCard>
+        <Card style={styles.goalTilt}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Ring progress={0.52} label="52%" />
+            <View style={{ flex: 1 }}>
+              <Text style={[type.bodyStrong, { color: theme.colors.text }]}>Emergency fund</Text>
+              <Text style={[type.caption, { color: theme.colors.textMuted }]}>₦520,000 of ₦1m</Text>
+            </View>
+          </View>
+        </Card>
+      </View>
 
-        <View style={{ height: 14 }} />
+      <Text style={[type.h1, { color: theme.colors.text, fontSize: 34, lineHeight: 40, marginTop: 26 }]}>Money with a plan.</Text>
+      <Text style={[type.body, { color: theme.colors.textMuted, marginTop: 10, fontSize: 16, lineHeight: 24 }]}>
+        Budgets that flex with your income, goals you can watch move, and one clear number for what’s safe to spend today.
+      </Text>
 
-        <Text style={{ color: 'rgba(249,250,251,0.75)', fontSize: 12 }}>
-          Your data stays private. You’re always in control.
-        </Text>
+      <View style={{ flex: 1 }} />
+
+      <PrimaryButton title="Create account" onPress={() => navigation.navigate('Register')} />
+      <SecondaryButton title="Sign in" onPress={() => navigation.navigate('Login')} style={{ marginTop: 10 }} />
+      <View style={styles.trust}>
+        <Lock color={theme.colors.textMuted} size={13} />
+        <Text style={[type.caption, { color: theme.colors.textMuted }]}>Your data stays private. You’re always in control.</Text>
       </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, paddingHorizontal: 20, paddingBottom: 12 },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 8 },
+  illo: { height: 280, borderRadius: 28, marginTop: 18, overflow: 'hidden' },
+  heroTilt: { position: 'absolute', left: 20, right: 34, top: 34, transform: [{ rotate: '-4deg' }] },
+  goalTilt: { position: 'absolute', left: 86, right: 18, bottom: 28, paddingVertical: 12, transform: [{ rotate: '2deg' }] },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  trust: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14 }
+});

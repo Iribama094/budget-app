@@ -54,7 +54,7 @@ export default function AssistantScreen() {
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <H1>{ASSISTANT_NAME}</H1>
         <Pressable onPress={() => navigation.goBack()} style={{ padding: 8 }}>
-          <Text style={{ color: theme.colors.primary, fontWeight: '800' }}>Close</Text>
+          <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_600SemiBold' }}>Close</Text>
         </Pressable>
       </View>
       <P style={{ marginTop: 6, fontSize: 13, color: theme.colors.textMuted }}>
@@ -66,8 +66,8 @@ export default function AssistantScreen() {
       ) : (
         <View style={{ marginTop: 12 }}>
           <Card>
-            <Text style={{ color: theme.colors.textMuted, fontWeight: '700' }}>This month</Text>
-            <Text style={{ color: theme.colors.text, fontSize: 22, fontWeight: '900', marginTop: 8 }}>
+            <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>This month</Text>
+            <Text style={{ color: theme.colors.text, fontSize: 22, fontFamily: 'Figtree_700Bold', marginTop: 8 }}>
               {summary ? formatMoney(Number(summary.totalBalance) || 0, user?.currency ?? '₦') : '—'}
             </Text>
             <P style={{ marginTop: 8, fontSize: 13 }}>
@@ -81,7 +81,7 @@ export default function AssistantScreen() {
 
           <View style={{ marginTop: 12 }}>
             <Card>
-              <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Chat</Text>
+              <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>Chat</Text>
               <View style={{ marginTop: 8, maxHeight: 240 }}>
                 <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 8 }}>
                   {messages.length === 0 ? (
@@ -91,7 +91,7 @@ export default function AssistantScreen() {
                       const isAssistant = m.role === 'assistant';
                       return (
                         <View key={i} style={{ marginBottom: 10, alignItems: isAssistant ? 'flex-start' : 'flex-end' }}>
-                          <Text style={{ color: theme.colors.textMuted, fontWeight: '800', fontSize: 11, marginBottom: 4 }}>
+                          <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 11, marginBottom: 4 }}>
                             {isAssistant ? ASSISTANT_NAME : 'You'}
                           </Text>
                           <View
@@ -105,7 +105,7 @@ export default function AssistantScreen() {
                               borderColor: isAssistant ? theme.colors.border : 'transparent'
                             }}
                           >
-                            <Text style={{ color: isAssistant ? theme.colors.text : tokens.colors.white, fontWeight: '700', lineHeight: 20 }}>
+                            <Text style={{ color: isAssistant ? theme.colors.text : tokens.colors.white, fontFamily: 'Figtree_600SemiBold', lineHeight: 20 }}>
                               {m.text}
                             </Text>
                           </View>
@@ -158,7 +158,7 @@ export default function AssistantScreen() {
                     }
                   ]}
                 >
-                  <Text style={{ color: tokens.colors.white, fontWeight: '900' }}>{sending ? '…' : 'Send'}</Text>
+                  <Text style={{ color: tokens.colors.white, fontFamily: 'Figtree_700Bold' }}>{sending ? '…' : 'Send'}</Text>
                 </Pressable>
               </View>
             </Card>

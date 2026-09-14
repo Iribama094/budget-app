@@ -124,3 +124,14 @@ TestFlight requires the paid Apple Developer Program ($99/year). If you’re not
 - Build/run on an iOS Simulator (Mac required)
 - Use Android internal testing without Apple membership
 
+## Features that need extra setup
+
+| Feature | Server env | App env / build |
+| --- | --- | --- |
+| Password reset emails | `RESEND_API_KEY`, `EMAIL_FROM` | — |
+| Daily job: recurring transactions, bill reminders, bank sync | `CRON_SECRET` (Vercel sends it automatically; the schedule is in `vercel.json`), `APP_TZ_OFFSET_MINUTES` (default 60) | — |
+| Push notifications (pace alerts, bills, auto-save, security) | `EXPO_ACCESS_TOKEN` only if Expo enhanced push security is on | An EAS project id (`npx eas init`) and a development or store build |
+| Live bank connections (Mono) | `MONO_SECRET_KEY` | `EXPO_PUBLIC_MONO_PUBLIC_KEY` |
+| Face ID, home-screen widgets | — | A development or store build. Widgets run `npx expo prebuild`; iOS needs `ios.appleTeamId` and the App Group `group.com.budgetfriendly.app` enabled for the app id |
+
+Without these, the app still works: reset codes are logged in dev, the in-app notification feed fills without push, the demo bank flow stays available, and bill reminders are scheduled on the phone.

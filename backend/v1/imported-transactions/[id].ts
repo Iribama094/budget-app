@@ -4,6 +4,7 @@ import { getDb } from '../../_lib/mongo.js';
 import { collections } from '../../_lib/collections.js';
 import { methodNotAllowed, readJson, sendError, sendJson, type ApiRequest, type ApiResponse } from '../../_lib/http.js';
 import { requireUserId } from '../../_lib/user.js';
+import { afterTransactionCreated } from '../../_lib/transactionEffects.js';
 
 const ReconcileSchema = z.object({
   type: z.enum(['income', 'expense']).optional(),
@@ -176,6 +177,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
         await budgets.updateOne(budgetFilter, { $inc: inc, $set: { updatedAt: now } });
       }
+
+      const createdTx = await transactions.findOne({ _id: newId, userId });
+      if (createdTx) await afterTransactionCreated(db, createdTx);
 
       const reconciledAt = now;
       await importedTransactions.updateOne(

@@ -205,8 +205,8 @@ export default function WeeklyCheckInDetailScreen() {
       </View>
 
       <View style={{ marginTop: 16 }}>
-        <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Progress</Text>
-        <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 22, marginTop: 6 }}>
+        <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Progress</Text>
+        <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 22, marginTop: 6 }}>
           {weekInfo.elapsedDays} / 7 days
         </Text>
         <View style={{ marginTop: 10, height: 10, backgroundColor: theme.colors.surfaceAlt, borderRadius: 999, overflow: 'hidden' }}>
@@ -218,7 +218,7 @@ export default function WeeklyCheckInDetailScreen() {
       </View>
 
       <View style={{ marginTop: 18 }}>
-        <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>This week so far</Text>
+        <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>This week so far</Text>
         <View style={{ marginTop: 8, borderTopWidth: 1, borderTopColor: theme.colors.border }}>
           {[
             { label: 'Income', value: weekIncome ?? 0 },
@@ -227,14 +227,14 @@ export default function WeeklyCheckInDetailScreen() {
           ].map((row) => (
             <View key={row.label} style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.border, flexDirection: 'row', justifyContent: 'space-between' }}>
               <Text style={{ color: theme.colors.text }}>{row.label}</Text>
-              <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{formatMoney(row.value, currency)}</Text>
+              <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{formatMoney(row.value, currency)}</Text>
             </View>
           ))}
         </View>
       </View>
 
       <View style={{ marginTop: 18 }}>
-        <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Daily snapshot</Text>
+        <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Daily snapshot</Text>
         <View style={{ marginTop: 8, borderTopWidth: 1, borderTopColor: theme.colors.border }}>
           {dailySnapshots.map((d) => (
             <View key={d.label} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.colors.border, flexDirection: 'row', justifyContent: 'space-between' }}>

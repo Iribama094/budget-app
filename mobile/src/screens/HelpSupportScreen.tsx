@@ -100,7 +100,7 @@ export default function HelpSupportScreen() {
 
       <View style={{ marginTop: 16 }}>
         <Card>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>FAQs</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>FAQs</Text>
           <View style={{ marginTop: 8 }}>
             {FAQ_ITEMS.map((item) => {
               const isOpen = openQuestion === item.q;
@@ -123,7 +123,7 @@ export default function HelpSupportScreen() {
                       opacity: pressed ? 0.8 : 1
                     }]}
                   >
-                    <Text style={{ color: theme.colors.text, fontWeight: '800', flex: 1, paddingRight: 12 }}>
+                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold', flex: 1, paddingRight: 12 }}>
                       {item.q}
                     </Text>
                     {isOpen ? (
@@ -144,7 +144,7 @@ export default function HelpSupportScreen() {
           <P style={{ marginTop: 6 }}>If you can’t find what you need in the FAQs, reach out to us.</P>
       <View style={{ marginTop: 12 }}>
         <Card>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Need more help?</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Need more help?</Text>
           <P style={{ marginTop: 6 }}>If you cant find what you need in the FAQs, reach out to us.</P>
 
           <Pressable
@@ -159,7 +159,7 @@ export default function HelpSupportScreen() {
               opacity: pressed ? 0.9 : 1
             }]}
           >
-            <Text style={{ color: '#fff', fontWeight: '900' }}>Email support</Text>
+            <Text style={{ color: '#fff', fontFamily: 'Figtree_700Bold' }}>Email support</Text>
           </Pressable>
 
           <P style={{ marginTop: 8 }}>You can also send feedback from inside the app anytime.</P>

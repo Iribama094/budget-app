@@ -252,14 +252,14 @@ export default function TaxSettingsScreen() {
 
       <View style={{ marginTop: 16 }}>
         <Card>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Tax profile</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Tax profile</Text>
           <P style={{ marginTop: 8 }}>
             We use this to estimate tax for your budget period. Your budgets stay based on your take-home income.
           </P>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
             <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={{ color: theme.colors.text, fontWeight: '700' }}>Enable tax features</Text>
+              <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>Enable tax features</Text>
               <Text style={{ color: theme.colors.textMuted, marginTop: 4, fontSize: 12 }}>
                 Optional — adds tax estimates in budgets and analytics.
               </Text>
@@ -289,14 +289,14 @@ export default function TaxSettingsScreen() {
                     }
                   ]}
                 >
-                  <Text style={{ color: active ? tokens.colors.white : theme.colors.text, fontWeight: '800', fontSize: 13 }}>{opt.label}</Text>
+                  <Text style={{ color: active ? tokens.colors.white : theme.colors.text, fontFamily: 'Figtree_600SemiBold', fontSize: 13 }}>{opt.label}</Text>
                 </Pressable>
               );
             })}
           </View>
 
           <Pressable onPress={() => setShowCountryPicker(true)} style={({ pressed }) => [{ paddingVertical: 12, opacity: pressed ? 0.9 : 1 }]}>
-            <Text style={{ color: theme.colors.text, fontWeight: '700' }}>Country</Text>
+            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>Country</Text>
             <Text numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.colors.textMuted, marginTop: 6 }}>{countryLabel}</Text>
           </Pressable>
 
@@ -315,13 +315,13 @@ export default function TaxSettingsScreen() {
                   {rulesMeta.bracketsArr.length ? (
                     <View style={{ marginTop: 8, padding: 10, borderRadius: 12, backgroundColor: theme.colors.surfaceAlt }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontWeight: '700' }}>Rules preview</Text>
+                        <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontFamily: 'Figtree_600SemiBold' }}>Rules preview</Text>
                         {rulesMeta.bracketsArr.length > 3 ? (
                           <Pressable
                             onPress={() => setShowAllRules((v) => !v)}
                             style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
                           >
-                            <Text style={{ color: theme.colors.primary, fontWeight: '800', fontSize: 12 }}>
+                            <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>
                               {showAllRules ? 'Hide' : 'View all'}
                             </Text>
                           </Pressable>
@@ -333,8 +333,8 @@ export default function TaxSettingsScreen() {
                         const pct = Math.round((b.rate ?? 0) * 100);
                         return (
                           <View key={`${String(b.upTo)}-${idx}`} style={{ marginTop: idx === 0 ? 10 : 8 }}>
-                            <Text style={{ color: theme.colors.text, fontWeight: '800' }}>{upToLabel} (annual)</Text>
-                            <Text style={{ color: theme.colors.textMuted, marginTop: 2, fontWeight: '800', fontSize: 12 }}>{pct}% rate</Text>
+                            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>{upToLabel} (annual)</Text>
+                            <Text style={{ color: theme.colors.textMuted, marginTop: 2, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>{pct}% rate</Text>
                           </View>
                         );
                       })}
@@ -350,7 +350,7 @@ export default function TaxSettingsScreen() {
           ) : null}
 
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-            <Text style={{ color: theme.colors.text, fontWeight: '700' }}>Tax withheld by employer</Text>
+            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>Tax withheld by employer</Text>
             <Switch value={withheldByEmployer} onValueChange={setWithheldByEmployer} disabled={!optInTaxFeature} />
           </View>
 
@@ -377,7 +377,7 @@ export default function TaxSettingsScreen() {
                     }
                   ]}
                 >
-                  <Text style={{ color: active ? tokens.colors.white : theme.colors.text, fontWeight: '800', fontSize: 13 }}>{opt.label}</Text>
+                  <Text style={{ color: active ? tokens.colors.white : theme.colors.text, fontFamily: 'Figtree_600SemiBold', fontSize: 13 }}>{opt.label}</Text>
                 </Pressable>
               );
             })}
@@ -466,15 +466,15 @@ export default function TaxSettingsScreen() {
 
           {optInTaxFeature && taxPreviewError ? (
             <View style={{ marginTop: 12, padding: 10, borderRadius: 12, backgroundColor: theme.colors.surfaceAlt }}>
-              <Text style={{ color: theme.colors.error, fontWeight: '800' }}>Tax estimate unavailable</Text>
+              <Text style={{ color: theme.colors.error, fontFamily: 'Figtree_600SemiBold' }}>Tax estimate unavailable</Text>
               <Text style={{ color: theme.colors.textMuted, marginTop: 4 }}>{taxPreviewError}</Text>
             </View>
           ) : null}
 
           {optInTaxFeature && taxPreview && !taxPreviewLoading ? (
             <View style={{ marginTop: 12, padding: 10, borderRadius: 12, backgroundColor: theme.colors.surfaceAlt }}>
-              <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontWeight: '700' }}>Estimated tax</Text>
-              <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 4 }}>
+              <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontFamily: 'Figtree_600SemiBold' }}>Estimated tax</Text>
+              <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginTop: 4 }}>
                 {formatMoney(taxPreview.totalTax, currency)} / year
               </Text>
               <Text style={{ color: theme.colors.textMuted, marginTop: 4 }}>
@@ -485,8 +485,8 @@ export default function TaxSettingsScreen() {
 
           {effectiveRateInfo && (
             <View style={{ marginTop: 12, padding: 10, borderRadius: 12, backgroundColor: theme.colors.surfaceAlt }}>
-              <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontWeight: '700' }}>Tax summary</Text>
-              <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 4 }}>
+              <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontFamily: 'Figtree_600SemiBold' }}>Tax summary</Text>
+              <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginTop: 4 }}>
                 Approx. effective rate {effectiveRateInfo.pct}% ({effectiveRateInfo.bracket})
               </Text>
               <P style={{ marginTop: 4 }}>
@@ -497,8 +497,8 @@ export default function TaxSettingsScreen() {
 
           {mode === 'whatIf' && extraBudgetMonthly != null && (
             <View style={{ marginTop: 10, padding: 10, borderRadius: 12, backgroundColor: theme.colors.surfaceAlt }}>
-              <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontWeight: '700' }}>What-if impact</Text>
-              <Text style={{ color: extraBudgetMonthly > 0 ? tokens.colors.success[600] : tokens.colors.warning[600], fontWeight: '900', marginTop: 4 }}>
+              <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontFamily: 'Figtree_600SemiBold' }}>What-if impact</Text>
+              <Text style={{ color: extraBudgetMonthly > 0 ? tokens.colors.success[600] : tokens.colors.warning[600], fontFamily: 'Figtree_700Bold', marginTop: 4 }}>
                 {extraBudgetMonthly > 0
                   ? `If this scenario applied, you’d have about ₦${Math.round(extraBudgetMonthly).toLocaleString()} more to budget each month.`
                   : `If this scenario applied, you’d have about ₦${Math.abs(Math.round(extraBudgetMonthly)).toLocaleString()} less to budget each month.`}
@@ -508,8 +508,8 @@ export default function TaxSettingsScreen() {
 
           {mode === 'whatIf' && optInTaxFeature && baselineNet == null ? (
             <View style={{ marginTop: 10, padding: 10, borderRadius: 12, backgroundColor: theme.colors.surfaceAlt }}>
-              <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontWeight: '700' }}>Tip</Text>
-              <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 4 }}>
+              <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontFamily: 'Figtree_600SemiBold' }}>Tip</Text>
+              <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginTop: 4 }}>
                 Save your “Current profile” once, then compare scenarios here.
               </Text>
             </View>
@@ -532,9 +532,9 @@ export default function TaxSettingsScreen() {
                   alignItems: 'center'
                 }}
               >
-                <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Select country</Text>
+                <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>Select country</Text>
                 <Pressable onPress={() => setShowCountryPicker(false)}>
-                  <Text style={{ color: theme.colors.primary, fontWeight: '700' }}>Close</Text>
+                  <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_600SemiBold' }}>Close</Text>
                 </Pressable>
               </View>
               <ScrollView style={{ maxHeight: 320 }} contentContainerStyle={{ padding: 12 }}>

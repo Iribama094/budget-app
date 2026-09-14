@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSpace, type SpaceId } from '../../contexts/SpaceContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { tokens } from '../../theme/tokens';
+import { type } from '../../theme/typography';
 
 export function SpaceSwitcher({ compact = false }: { compact?: boolean }) {
   const { theme } = useTheme();
@@ -10,34 +10,30 @@ export function SpaceSwitcher({ compact = false }: { compact?: boolean }) {
 
   if (!spacesEnabled) return null;
 
-  const pillPaddingY = compact ? 8 : 10;
-  const pillPaddingX = compact ? 12 : 14;
-
   const Option = ({ id, label }: { id: SpaceId; label: string }) => {
     const active = activeSpaceId === id;
     return (
       <Pressable
         onPress={() => setActiveSpaceId(id)}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: active }}
         style={({ pressed }) => [
           {
-            paddingHorizontal: pillPaddingX,
-            paddingVertical: pillPaddingY,
-            borderRadius: 999,
-            borderWidth: 1,
-            borderColor: active ? 'transparent' : theme.colors.border,
-            backgroundColor: active ? theme.colors.primary : theme.colors.surface,
-            opacity: pressed ? 0.92 : 1,
-            transform: [{ scale: pressed ? 0.99 : 1 }]
+            paddingHorizontal: compact ? 10 : 14,
+            paddingVertical: compact ? 5 : 7,
+            borderRadius: 9,
+            backgroundColor: active ? theme.colors.surface : 'transparent',
+            opacity: pressed ? 0.8 : 1
           }
         ]}
       >
-        <Text style={{ color: active ? tokens.colors.white : theme.colors.text, fontWeight: '900' }}>{label}</Text>
+        <Text style={[compact ? type.caption : type.smallStrong, { color: active ? theme.colors.text : theme.colors.textMuted }]}>{label}</Text>
       </Pressable>
     );
   };
 
   return (
-    <View style={{ flexDirection: 'row', gap: 10, alignSelf: 'center' }}>
+    <View style={{ flexDirection: 'row', padding: 3, borderRadius: 12, backgroundColor: theme.colors.surfaceAlt, alignSelf: 'flex-start' }}>
       <Option id="personal" label="Personal" />
       <Option id="business" label="Business" />
     </View>

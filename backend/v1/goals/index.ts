@@ -14,6 +14,7 @@ const CreateSchema = z.object({
   emoji: z.string().max(8).optional(),
   color: z.string().max(80).optional(),
   category: z.string().max(40).optional(),
+  autoSavePercent: z.number().min(0).max(50).nullable().optional(),
   spaceId: z.enum(['personal', 'business']).optional()
 });
 
@@ -46,6 +47,7 @@ export default async function handler(req: any, res: any) {
         emoji: input.emoji ?? null,
         color: input.color ?? null,
         category: input.category ?? null,
+        autoSavePercent: input.autoSavePercent ?? null,
         createdAt: now,
         updatedAt: now
       });
@@ -62,6 +64,7 @@ export default async function handler(req: any, res: any) {
           emoji: g!.emoji ?? null,
           color: g!.color ?? null,
           category: g!.category ?? null,
+          autoSavePercent: g!.autoSavePercent ?? null,
           createdAt: g!.createdAt.toISOString(),
           updatedAt: g!.updatedAt.toISOString()
         }
@@ -96,6 +99,7 @@ export default async function handler(req: any, res: any) {
       emoji: g.emoji ?? null,
       color: g.color ?? null,
       category: g.category ?? null,
+      autoSavePercent: g.autoSavePercent ?? null,
       createdAt: g.createdAt.toISOString(),
       updatedAt: g.updatedAt.toISOString()
     }))

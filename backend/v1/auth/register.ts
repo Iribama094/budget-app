@@ -6,6 +6,7 @@ import { getDb } from '../../_lib/mongo.js';
 import { collections } from '../../_lib/collections.js';
 import { methodNotAllowed, readJson, sendError, sendJson } from '../../_lib/http.js';
 import { parseWith, zEmail, zPassword } from '../../_lib/validate.js';
+import { clientIp, enforceRateLimits } from '../../_lib/rateLimit.js';
 
 const RegisterSchema = z.object({
   email: zEmail,
@@ -37,6 +38,9 @@ export default async function handler(req: any, res: any) {
     const { users, sessions } = collections(db);
 
     const email = input.email.toLowerCase();
+    const allowed = await enforceRateLimits(db, res, [{ key: `register:ip:${clientIp(req)}`, limit: 10, windowSec: 60 * 60 }]);
+    if (!allowed) return;
+
     const existing = await users.findOne({ email });
     if (existing) {
       return sendError(res, 409, 'VALIDATION_ERROR', 'Email already in use');
@@ -73,10 +77,12 @@ export default async function handler(req: any, res: any) {
       createdAt: now,
       expiresAt,
       revokedAt: null,
-      rotatedAt: null
+      rotatedAt: null,
+      startedAt: now,
+      lastUsedAt: now
     });
 
-    const accessToken = signAccessToken(userId);
+    const accessToken = signAccessToken(userId, sessionId);
     const user = await users.findOne({ _id: userId });
 
     return sendJson(res, 200, {

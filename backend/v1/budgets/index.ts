@@ -5,6 +5,7 @@ import { collections } from '../../_lib/collections.js';
 import { methodNotAllowed, readJson, sendError, sendJson } from '../../_lib/http.js';
 import { parseWith } from '../../_lib/validate.js';
 import { requireUserId } from '../../_lib/user.js';
+import { toApiBudget, visibleBudgetsFilter } from '../../_lib/budgets.js';
 
 function parseIsoDateUtcNoon(iso: string) {
   // iso is YYYY-MM-DD
@@ -112,20 +113,7 @@ export default async function handler(req: any, res: any) {
       });
 
       const b = await budgets.findOne({ _id: id, userId });
-      return sendJson(res, 201, {
-        budget: {
-          id: b!._id,
-          spaceId: b!.spaceId ?? 'personal',
-          name: b!.name,
-          totalBudget: b!.totalBudget,
-          period: b!.period,
-          startDate: b!.startDate,
-          endDate: b!.endDate ?? null,
-          categories: b!.categories,
-          createdAt: b!.createdAt.toISOString(),
-          updatedAt: b!.updatedAt.toISOString()
-        }
-      });
+      return sendJson(res, 201, { budget: toApiBudget(b!, userId) });
     } catch (err: any) {
       if (err?.name === 'ZodError') {
         return sendError(res, 400, 'VALIDATION_ERROR', 'Invalid request body', err.issues);
@@ -135,14 +123,8 @@ export default async function handler(req: any, res: any) {
   }
 
   const { start, end, spaceId } = req.query ?? {};
-  const filter: any = { userId };
-
-  // Space-aware filtering (treat legacy docs without spaceId as personal).
-  if (spaceId === 'business') {
-    filter.spaceId = 'business';
-  } else if (spaceId === 'personal') {
-    filter.$or = [{ spaceId: 'personal' }, { spaceId: { $exists: false } }, { spaceId: null }];
-  }
+  // Own budgets in this space, plus household budgets shared with this user.
+  const filter: any = visibleBudgetsFilter(userId, spaceId);
 
   if (start || end) {
     // startDate is YYYY-MM-DD; treat as lexicographically comparable
@@ -154,17 +136,6 @@ export default async function handler(req: any, res: any) {
   const items = await budgets.find(filter).sort({ startDate: -1, _id: -1 }).toArray();
 
   return sendJson(res, 200, {
-    items: items.map((b) => ({
-      id: b._id,
-      spaceId: b.spaceId ?? 'personal',
-      name: b.name,
-      totalBudget: b.totalBudget,
-      period: b.period,
-      startDate: b.startDate,
-      endDate: b.endDate ?? null,
-      categories: b.categories,
-      createdAt: b.createdAt.toISOString(),
-      updatedAt: b.updatedAt.toISOString()
-    }))
+    items: items.map((b) => toApiBudget(b, userId))
   });
 }

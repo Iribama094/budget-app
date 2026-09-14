@@ -1,12 +1,16 @@
 import React, { createContext, useContext, useRef, useState, useCallback, useEffect } from 'react';
 import { Animated, View, Text, Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
+import type { Theme } from '../../theme/theme';
+import { fonts } from '../../theme/typography';
 
 type ToastType = 'success' | 'error' | 'info';
-type Toast = { id: number; message: string; type?: ToastType };
+type ToastAction = { label: string; onPress: () => void };
+type Toast = { id: number; message: string; type?: ToastType; action?: ToastAction };
 
 type ToastContextType = {
-  show: (message: string, type?: ToastType, duration?: number) => void;
+  show: (message: string, type?: ToastType, duration?: number, action?: ToastAction) => void;
 };
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -21,42 +25,81 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextId = useRef(1);
 
-  const show = useCallback((message: string, type: ToastType = 'info', duration = 3000) => {
-    const id = nextId.current++;
-    setToasts((t) => [...t, { id, message, type }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), duration);
-  }, []);
+  const dismiss = useCallback((id: number) => setToasts((t) => t.filter((x) => x.id !== id)), []);
 
-  return <ToastContext.Provider value={{ show }}>{children}<ToastContainer toasts={toasts} /></ToastContext.Provider>;
+  const show = useCallback(
+    (message: string, type: ToastType = 'info', duration?: number, action?: ToastAction) => {
+      const id = nextId.current++;
+      setToasts((t) => [...t.slice(-2), { id, message, type, action }]);
+      setTimeout(() => dismiss(id), duration ?? (action ? 5000 : 3000));
+    },
+    [dismiss]
+  );
+
+  return (
+    <ToastContext.Provider value={{ show }}>
+      {children}
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
+    </ToastContext.Provider>
+  );
 }
 
-function ToastContainer({ toasts }: { toasts: Toast[] }) {
+function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: number) => void }) {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   return (
-    <View pointerEvents="box-none" style={{ position: 'absolute', top: 48, left: 12, right: 12, zIndex: 9999 }}>
+    <View pointerEvents="box-none" style={{ position: 'absolute', bottom: insets.bottom + 92, left: 16, right: 16, zIndex: 9999 }}>
       {toasts.map((t) => (
-        <ToastItem key={t.id} toast={t} theme={theme} />
+        <ToastItem key={t.id} toast={t} theme={theme} onDismiss={() => onDismiss(t.id)} />
       ))}
     </View>
   );
 }
 
-function ToastItem({ toast, theme }: { toast: Toast; theme: any }) {
+function ToastItem({ toast, theme, onDismiss }: { toast: Toast; theme: Theme; onDismiss: () => void }) {
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(anim, { toValue: 1, duration: 270, useNativeDriver: true }).start();
-    return () => {
-      Animated.timing(anim, { toValue: 0, duration: 200, useNativeDriver: true }).start();
-    };
+    Animated.timing(anim, { toValue: 1, duration: 240, useNativeDriver: true }).start();
   }, [anim]);
 
-  const bg = toast.type === 'error' ? theme.colors.error : toast.type === 'success' ? theme.colors.success : theme.colors.primary;
+  const dot = toast.type === 'error' ? '#F07565' : toast.type === 'success' ? '#45C28A' : '#8FD6C3';
 
   return (
-    <Animated.View style={{ transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-10, 0] }) }], opacity: anim, marginBottom: 8 }}>
-      <View style={{ borderRadius: 12, padding: 12, backgroundColor: bg, shadowColor: '#000', shadowOpacity: 0.12, shadowOffset: { width: 0, height: 6 }, shadowRadius: 12 }}>
-        <Text style={{ color: '#fff', fontWeight: '800' }}>{toast.message}</Text>
+    <Animated.View
+      accessibilityLiveRegion="polite"
+      style={{ transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }], opacity: anim, marginTop: 8 }}
+    >
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
+          borderRadius: 16,
+          paddingVertical: 13,
+          paddingHorizontal: 14,
+          backgroundColor: theme.mode === 'dark' ? '#1E3531' : theme.colors.ink,
+          shadowColor: '#000',
+          shadowOpacity: 0.18,
+          shadowOffset: { width: 0, height: 8 },
+          shadowRadius: 16,
+          elevation: 6
+        }}
+      >
+        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: dot }} />
+        <Text style={{ flex: 1, color: '#EAF4F1', fontFamily: fonts.medium, fontSize: 14, lineHeight: 19 }}>{toast.message}</Text>
+        {toast.action ? (
+          <Pressable
+            hitSlop={10}
+            onPress={() => {
+              toast.action?.onPress();
+              onDismiss();
+            }}
+            accessibilityRole="button"
+          >
+            <Text style={{ color: '#E2B65C', fontFamily: fonts.semibold, fontSize: 14 }}>{toast.action.label}</Text>
+          </Pressable>
+        ) : null}
       </View>
     </Animated.View>
   );

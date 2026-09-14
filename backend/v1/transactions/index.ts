@@ -1,10 +1,12 @@
 import crypto from 'crypto';
 import { z } from 'zod';
 import { getDb } from '../../_lib/mongo.js';
-import { collections } from '../../_lib/collections.js';
+import { collections, type TransactionDoc } from '../../_lib/collections.js';
 import { methodNotAllowed, readJson, sendError, sendJson, type ApiRequest, type ApiResponse } from '../../_lib/http.js';
 import { parseWith } from '../../_lib/validate.js';
 import { requireUserId } from '../../_lib/user.js';
+import { afterTransactionCreated } from '../../_lib/transactionEffects.js';
+import { budgetMemberIds, findVisibleBudget } from '../../_lib/budgets.js';
 
 const CreateSchema = z.object({
   type: z.enum(['income', 'expense']),
@@ -17,7 +19,9 @@ const CreateSchema = z.object({
   budgetCategory: z.string().min(1).max(60).optional(),
   miniBudgetId: z.string().min(1).max(120).optional(),
   miniBudget: z.string().min(1).max(120).optional(),
-  spaceId: z.enum(['personal', 'business']).optional()
+  spaceId: z.enum(['personal', 'business']).optional(),
+  /** Client-generated id; retrying the same request (e.g. from the offline queue) returns the original. */
+  clientId: z.string().min(8).max(100).optional()
 });
 
 function encodeCursor(doc: { occurredAt: Date; id: string }): string {
@@ -32,6 +36,26 @@ function decodeCursor(raw: string): { t: Date; id: string } | null {
   } catch {
     return null;
   }
+}
+
+function toApiTransaction(t: TransactionDoc) {
+  return {
+    id: t._id,
+    userId: t.userId,
+    spaceId: t.spaceId ?? 'personal',
+    type: t.type,
+    amount: t.amount,
+    category: t.category,
+    description: t.description,
+    budgetId: t.budgetId ?? null,
+    budgetCategory: t.budgetCategory ?? null,
+    miniBudgetId: t.miniBudgetId ?? null,
+    recurringId: t.recurringId ?? null,
+    clientId: t.clientId ?? null,
+    occurredAt: t.occurredAt.toISOString(),
+    createdAt: t.createdAt.toISOString(),
+    updatedAt: t.updatedAt.toISOString()
+  };
 }
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
@@ -55,7 +79,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       const miniBudgetId = input.miniBudgetId ?? input.miniBudget ?? null;
       const spaceId = input.spaceId ?? 'personal';
 
-      await transactions.insertOne({
+      if (input.clientId) {
+        const existing = await transactions.findOne({ userId, clientId: input.clientId });
+        if (existing) return sendJson(res, 200, { transaction: toApiTransaction(existing), duplicate: true, autoSaved: [] });
+      }
+      if (input.budgetId && !(await findVisibleBudget(db, userId, String(input.budgetId)))) {
+        return sendError(res, 400, 'VALIDATION_ERROR', 'That budget is not available');
+      }
+
+      const doc: TransactionDoc = {
         _id: id,
         userId,
         spaceId,
@@ -66,21 +98,28 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         budgetId: input.budgetId ?? null,
         budgetCategory: input.budgetCategory ?? null,
         miniBudgetId,
+        clientId: input.clientId ?? null,
+        recurringId: null,
         occurredAt,
         createdAt: now,
         updatedAt: now
-      });
+      };
+      try {
+        await transactions.insertOne(doc);
+      } catch (err: any) {
+        if (err?.code === 11000 && input.clientId) {
+          const existing = await transactions.findOne({ userId, clientId: input.clientId });
+          if (existing) return sendJson(res, 200, { transaction: toApiTransaction(existing), duplicate: true, autoSaved: [] });
+        }
+        throw err;
+      }
 
       // If the user chooses to apply income to a budget, treat it as increasing
       // the budget total AND the selected budget category allocation so totals
       // and percentages stay consistent across the app.
       if (input.type === 'income' && input.budgetId) {
-        const budgetFilter: any = { _id: String(input.budgetId), userId };
-        if (spaceId === 'business') {
-          budgetFilter.spaceId = 'business';
-        } else if (spaceId === 'personal') {
-          budgetFilter.$or = [{ spaceId: 'personal' }, { spaceId: { $exists: false } }, { spaceId: null }];
-        }
+        // Owners and household members can both add income to a shared budget.
+        const budgetFilter: any = { _id: String(input.budgetId), $or: [{ userId }, { 'members.userId': userId }] };
 
         const inc: Record<string, number> = { totalBudget: input.amount };
         if (input.budgetCategory) {
@@ -90,22 +129,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         await budgets.updateOne(budgetFilter, { $inc: inc, $set: { updatedAt: now } });
       }
 
-      return sendJson(res, 201, {
-        transaction: {
-          id,
-          spaceId,
-          type: input.type,
-          amount: input.amount,
-          category: input.category,
-          description: input.description,
-          budgetId: input.budgetId ?? null,
-          budgetCategory: input.budgetCategory ?? null,
-          miniBudgetId,
-          occurredAt: occurredAt.toISOString(),
-          createdAt: now.toISOString(),
-          updatedAt: now.toISOString()
-        }
-      });
+      const effects = await afterTransactionCreated(db, doc);
+      return sendJson(res, 201, { transaction: toApiTransaction(doc), autoSaved: effects.autoSaved });
     } catch (err: any) {
       if (err?.name === 'ZodError') {
         return sendError(res, 400, 'VALIDATION_ERROR', 'Invalid request body', err.issues);
@@ -121,7 +146,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   const and: any[] = [];
   if (type) filter.type = type;
   if (category) filter.category = category;
-  if (budgetId) filter.budgetId = String(budgetId);
+  if (budgetId) {
+    filter.budgetId = String(budgetId);
+    // A shared budget shows every member's spending.
+    const shared = await findVisibleBudget(db, userId, String(budgetId));
+    if (shared && (shared.members ?? []).length) filter.userId = { $in: budgetMemberIds(shared) };
+  }
 
   // Space-aware filtering (treat legacy docs without spaceId as personal).
   if (spaceId === 'business') {
@@ -173,20 +203,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     : null;
 
   return sendJson(res, 200, {
-    items: page.map((t) => ({
-      id: t._id,
-      spaceId: t.spaceId ?? 'personal',
-      type: t.type,
-      amount: t.amount,
-      category: t.category,
-      description: t.description,
-      budgetId: t.budgetId ?? null,
-      budgetCategory: t.budgetCategory ?? null,
-      miniBudgetId: t.miniBudgetId ?? null,
-      occurredAt: t.occurredAt.toISOString(),
-      createdAt: t.createdAt.toISOString(),
-      updatedAt: t.updatedAt.toISOString()
-    })),
+    items: page.map((t) => toApiTransaction(t)),
     nextCursor
   });
 }

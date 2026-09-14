@@ -51,9 +51,9 @@ export default function SettingsScreen() {
       <View style={{ marginTop: 18 }}>
         <Card>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Data</Text>
+            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Data</Text>
             {bankSummary ? (
-              <Text style={{ color: theme.colors.textMuted, fontWeight: '800', fontSize: 12 }}>
+              <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>
                 {capped.banks} connected bank{capped.banks === 1 ? '' : 's'} • {capped.accounts} account{capped.accounts === 1 ? '' : 's'}
               </Text>
             ) : null}
@@ -79,13 +79,13 @@ export default function SettingsScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, paddingRight: 10 }}>
                 <CreditCard color={theme.colors.primary} size={18} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Connect Bank</Text>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>Connect Bank</Text>
                   <Text style={{ color: theme.colors.textMuted, marginTop: 2, fontSize: 12 }} numberOfLines={1}>
                     Add a new bank connection
                   </Text>
                 </View>
               </View>
-              <Text style={{ color: theme.colors.primary, fontWeight: '900' }}>→</Text>
+              <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_700Bold' }}>→</Text>
             </Pressable>
 
             <Pressable
@@ -106,13 +106,13 @@ export default function SettingsScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, paddingRight: 10 }}>
                 <CreditCard color={theme.colors.primary} size={18} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Manage your connections</Text>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>Manage your connections</Text>
                   <Text style={{ color: theme.colors.textMuted, marginTop: 2, fontSize: 12 }} numberOfLines={1}>
                     View and disconnect connected banks
                   </Text>
                 </View>
               </View>
-              <Text style={{ color: theme.colors.primary, fontWeight: '900' }}>→</Text>
+              <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_700Bold' }}>→</Text>
             </Pressable>
 
             <Pressable
@@ -133,13 +133,13 @@ export default function SettingsScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, paddingRight: 10 }}>
                 <Download color={theme.colors.primary} size={18} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Export data</Text>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>Export data</Text>
                   <Text style={{ color: theme.colors.textMuted, marginTop: 2, fontSize: 12 }} numberOfLines={1}>
                     Download your transactions
                   </Text>
                 </View>
               </View>
-              <Text style={{ color: theme.colors.primary, fontWeight: '900' }}>→</Text>
+              <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_700Bold' }}>→</Text>
             </Pressable>
           </View>
         </Card>
@@ -147,7 +147,7 @@ export default function SettingsScreen() {
 
       <View style={{ marginTop: 18 }}>
         <Card>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Theme</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Theme</Text>
           <P style={{ marginTop: 8 }}>Choose app appearance</P>
 
           <View style={{ marginTop: 12, flexDirection: 'row', gap: 8 }}>
@@ -159,7 +159,7 @@ export default function SettingsScreen() {
                   onPress={() => setMode(opt.key)}
                   style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12, backgroundColor: active ? theme.colors.primary : theme.colors.surfaceAlt, opacity: pressed ? 0.9 : 1 }]}
                 >
-                  <Text style={{ color: active ? tokens.colors.white : theme.colors.text, fontWeight: '800' }}>{opt.label}</Text>
+                  <Text style={{ color: active ? tokens.colors.white : theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>{opt.label}</Text>
                 </Pressable>
               );
             })}

@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator, Animated, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Amount as UiAmount, HeroCard, ProgressBar } from '../components/Common/ui';
+import { type } from '../theme/typography';
+import { currencySymbol } from '../utils/format';
 import { ChevronLeft } from 'lucide-react-native';
 
 import { calcTax, deleteBudget, deleteBudgetInSpace, getBudget, getBudgetInSpace, listTransactions, type ApiBudget, type ApiTransaction } from '../api/endpoints';
@@ -208,7 +210,7 @@ export default function BudgetDetailScreen() {
   }, [budget]);
 
   const used = txSummary.expenses ?? 0;
-  const remaining = Math.max(0, effectiveTotal - used);
+  const remaining = effectiveTotal - used;
   const progress = effectiveTotal > 0 ? Math.min(1, Math.max(0, used / effectiveTotal)) : 0;
 
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -232,7 +234,7 @@ export default function BudgetDetailScreen() {
           style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', opacity: pressed ? 0.8 : 1 })}
         >
           <ChevronLeft color={theme.colors.text} size={20} />
-          <Text style={{ color: theme.colors.text, fontWeight: '900', marginLeft: 6 }}>Back</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginLeft: 6 }}>Back</Text>
         </Pressable>
 
         {budget ? (
@@ -245,7 +247,19 @@ export default function BudgetDetailScreen() {
               style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
             >
               <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: theme.colors.surfaceAlt }}>
-                <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Edit</Text>
+                <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>Edit</Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              onPress={() => nav.navigate('ShareBudget', { budgetId: budget.id, budgetName: budget.name })}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={budget.isShared ? 'See who shares this budget' : 'Share this budget'}
+              style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+            >
+              <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: theme.colors.primarySoft }}>
+                <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_700Bold' }}>{budget.isShared ? 'Shared' : 'Share'}</Text>
               </View>
             </Pressable>
 
@@ -255,7 +269,7 @@ export default function BudgetDetailScreen() {
               style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
             >
               <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: theme.colors.surfaceAlt }}>
-                <Text style={{ color: theme.colors.error, fontWeight: '900' }}>Delete</Text>
+                <Text style={{ color: theme.colors.error, fontFamily: 'Figtree_700Bold' }}>Delete</Text>
               </View>
             </Pressable>
           </View>
@@ -264,7 +278,7 @@ export default function BudgetDetailScreen() {
 
       {error ? (
         <View style={{ marginTop: 12 }}>
-          <Text style={{ color: tokens.colors.error[500], fontWeight: '800' }}>{error}</Text>
+          <Text style={[type.smallStrong, { color: theme.colors.error }]}>{error}</Text>
         </View>
       ) : null}
 
@@ -276,58 +290,32 @@ export default function BudgetDetailScreen() {
 
       {budget ? (
         <View style={{ marginTop: 12 }}>
-          <LinearGradient
-            colors={[tokens.colors.secondary[400], tokens.colors.primary[500]]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={{ paddingHorizontal: 16, paddingVertical: 16, borderRadius: 20, overflow: 'hidden' }}
-          >
-            <Text style={{ color: tokens.colors.white, fontWeight: '900', fontSize: 18 }} numberOfLines={2}>
-              {title}
+          <HeroCard>
+            <Text style={[type.eyebrow, { color: theme.colors.inkText, opacity: 0.72 }]} numberOfLines={1}>
+              {title.replace(/^My Budget ((.*))$/, '$1')}
             </Text>
-
-            <View style={{ marginTop: 12 }}>
-              <Text style={{ color: tokens.colors.white, fontWeight: '900', fontSize: 24 }}>
-                {showAmounts ? formatMoney(effectiveTotal, currency) : '••••'}
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: 10 }}>
+              {remaining < 0 ? <Text style={[type.bodyStrong, { color: '#F4A79C' }]}>Over by</Text> : null}
+              <UiAmount value={Math.abs(remaining)} currency={currencySymbol(currency)} size="lg" hidden={!showAmounts} color={theme.colors.inkText} />
+              {remaining >= 0 ? <Text style={[type.small, { color: theme.colors.inkText, opacity: 0.75 }]}>left</Text> : null}
+            </View>
+            <Text style={[type.small, { color: theme.colors.inkText, opacity: 0.75, marginTop: 2 }]}>
+              {showAmounts ? `${formatMoney(used, currency)} spent of ${formatMoney(effectiveTotal, currency)}` : 'Spent of total budget'}
+            </Text>
+            {txSummary.income > 0 ? (
+              <Text style={[type.caption, { color: theme.colors.inkText, opacity: 0.7, marginTop: 2 }]}>
+                Includes income added: {showAmounts ? formatMoney(txSummary.income, currency) : '••••'}
               </Text>
-              <Text style={{ color: 'rgba(255,255,255,0.9)', marginTop: 4, fontWeight: '700' }}>Total budget</Text>
-              {txSummary.income > 0 ? (
-                <Text style={{ color: 'rgba(255,255,255,0.85)', marginTop: 4, fontWeight: '700', fontSize: 12 }}>
-                  Includes income added: {formatMoney(txSummary.income, currency)}
-                </Text>
-              ) : null}
+            ) : null}
+            <View style={{ marginTop: 14 }}>
+              <ProgressBar value={progress} height={8} color={remaining < 0 ? '#F07565' : '#8FD6C3'} trackColor="rgba(255,255,255,0.14)" />
             </View>
-
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: 'rgba(255,255,255,0.85)', fontWeight: '700', fontSize: 12 }}>Spent</Text>
-                <Text style={{ color: tokens.colors.white, fontWeight: '900', marginTop: 4 }}>
-                  {showAmounts ? formatMoney(used, currency) : '••••'}
-                </Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: 'rgba(255,255,255,0.85)', fontWeight: '700', fontSize: 12 }}>Remaining</Text>
-                <Text style={{ color: tokens.colors.white, fontWeight: '900', marginTop: 4 }}>
-                  {showAmounts ? formatMoney(remaining, currency) : '••••'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={{ height: 10, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 999, overflow: 'hidden', marginTop: 12 }}>
-              <Animated.View
-                style={{
-                  width: progressBarsAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', `${Math.round(progress * 100)}%`] }),
-                  height: '100%',
-                  backgroundColor: tokens.colors.white
-                }}
-              />
-            </View>
-          </LinearGradient>
+          </HeroCard>
 
           {/* Monthly overview when budget spans multiple months */}
           {budgetRange && budgetRange.months > 1 ? (
             <View style={{ marginTop: 14 }}>
-              <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '900' }}>Monthly overview</Text>
+              <Text style={{ color: theme.colors.text, fontSize: 16, fontFamily: 'Figtree_700Bold' }}>Monthly overview</Text>
               <View style={{ marginTop: 10 }}>
                 {Array.from({ length: budgetRange.months }).map((_, i) => {
                   const d = new Date(budgetRange.start.getFullYear(), budgetRange.start.getMonth() + i, 1);
@@ -335,8 +323,8 @@ export default function BudgetDetailScreen() {
                   const amount = Math.round(effectiveTotal / budgetRange.months);
                   return (
                     <View key={`${d.getFullYear()}-${d.getMonth()}`} style={{ paddingVertical: 8, borderBottomWidth: 1, borderColor: theme.colors.border }}>
-                      <Text style={{ color: theme.colors.textMuted, fontWeight: '700' }}>{label}</Text>
-                      <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 6, fontSize: 15 }}>{formatMoney(amount, currency)}</Text>
+                      <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>{label}</Text>
+                      <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginTop: 6, fontSize: 15 }}>{formatMoney(amount, currency)}</Text>
                     </View>
                   );
                 })}
@@ -347,7 +335,7 @@ export default function BudgetDetailScreen() {
           {/* Categories */}
           <View style={{ marginTop: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text style={{ color: theme.colors.text, fontSize: 18, fontWeight: '900' }}>Categories</Text>
+              <Text style={{ color: theme.colors.text, fontSize: 18, fontFamily: 'Figtree_700Bold' }}>Categories</Text>
 
               {budgetRange ? (
                 <View style={{ flexDirection: 'row', borderRadius: tokens.radius['3xl'], backgroundColor: theme.colors.surfaceAlt, padding: 4 }}>
@@ -372,7 +360,7 @@ export default function BudgetDetailScreen() {
                           }
                         ]}
                       >
-                        <Text style={{ color: active ? tokens.colors.white : theme.colors.text, fontWeight: '800' }}>{k.charAt(0).toUpperCase() + k.slice(1)}</Text>
+                        <Text style={{ color: active ? tokens.colors.white : theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>{k.charAt(0).toUpperCase() + k.slice(1)}</Text>
                       </Pressable>
                     );
                   })}
@@ -398,31 +386,31 @@ export default function BudgetDetailScreen() {
                 return (
                   <View key={cat} style={{ paddingVertical: 12, borderBottomWidth: 1, borderColor: theme.colors.border }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{bucketLabel(cat)}</Text>
+                      <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{bucketLabel(cat)}</Text>
                       <Pressable
                         onPress={() => nav.navigate('MiniBudgets', { budgetId: budget.id, category: cat })}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}
                       >
                         <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: theme.colors.surfaceAlt }}>
-                          <Text style={{ color: theme.colors.textMuted, fontWeight: '900', fontSize: 11 }}>Mini budgets</Text>
+                          <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_700Bold', fontSize: 11 }}>Mini budgets</Text>
                         </View>
                       </Pressable>
                     </View>
 
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-                      <Text style={{ color: theme.colors.textMuted, fontWeight: '700' }}>Budgeted</Text>
-                      <Text style={{ color: theme.colors.text, fontWeight: '800' }}>{formatMoney(c.budgeted, currency)}</Text>
+                      <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Budgeted</Text>
+                      <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>{formatMoney(c.budgeted, currency)}</Text>
                     </View>
 
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-                      <Text style={{ color: theme.colors.textMuted, fontWeight: '700' }}>Suggested ({timeframe})</Text>
-                      <Text style={{ color: theme.colors.text, fontWeight: '800' }}>{formatMoney(suggested, currency)}</Text>
+                      <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Suggested ({timeframe})</Text>
+                      <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>{formatMoney(suggested, currency)}</Text>
                     </View>
 
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-                      <Text style={{ color: theme.colors.textMuted, fontWeight: '700' }}>Spent</Text>
-                      <Text style={{ color: theme.colors.text, fontWeight: '800' }}>{formatMoney(spent, currency)}</Text>
+                      <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Spent</Text>
+                      <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>{formatMoney(spent, currency)}</Text>
                     </View>
 
                     <View style={{ height: 10, backgroundColor: theme.colors.surfaceAlt, borderRadius: 999, overflow: 'hidden', marginTop: 10 }}>
@@ -455,8 +443,8 @@ export default function BudgetDetailScreen() {
 
             return (
               <View style={{ marginTop: 14 }}>
-                <Text style={{ color: theme.colors.textMuted, fontWeight: '800', fontSize: 12 }}>Burn rate</Text>
-                <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 6 }}>
+                <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Burn rate</Text>
+                <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginTop: 6 }}>
                   At your recent pace, you have ~{estDaysLeft} day{estDaysLeft === 1 ? '' : 's'} of budget left.
                 </Text>
                 <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginTop: 4 }}>
@@ -507,7 +495,7 @@ export default function BudgetDetailScreen() {
               />
 
               {lastTaxEstimate != null && lastTaxLabel ? (
-                <Text style={{ color: theme.colors.textMuted, fontWeight: '700', marginTop: 8 }}>
+                <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', marginTop: 8 }}>
                   Last estimate for {lastTaxLabel}: {lastTaxEstimate.toLocaleString()}
                 </Text>
               ) : null}

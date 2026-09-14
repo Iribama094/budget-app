@@ -54,10 +54,12 @@ export default async function handler(req: any, res: any) {
       createdAt: now,
       expiresAt,
       revokedAt: null,
-      rotatedAt: null
+      rotatedAt: null,
+      startedAt: session.startedAt ?? session.createdAt,
+      lastUsedAt: now
     });
 
-    const accessToken = signAccessToken(payload.sub);
+    const accessToken = signAccessToken(payload.sub, rotatedSessionId);
 
     return sendJson(res, 200, { accessToken, refreshToken: newRefreshToken });
   } catch (err: any) {

@@ -459,7 +459,7 @@ export default function PendingTransactionsScreen() {
               <View style={{ marginLeft: 12, flex: 1 }}>
                 <H1 style={{ marginBottom: 0 }}>Pending transactions</H1>
                 {spacesEnabled ? (
-                  <Text style={{ marginTop: 4, color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>
+                  <Text style={{ marginTop: 4, color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>
                     Viewing: {activeSpace?.name ?? 'Personal'}
                   </Text>
                 ) : null}
@@ -475,7 +475,7 @@ export default function PendingTransactionsScreen() {
             {showTip ? (
               <View style={{ marginTop: 12 }}>
                 <Card>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Tip</Text>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>Tip</Text>
                   <Text style={{ color: theme.colors.textMuted, marginTop: 6 }}>
                     Tap a transaction to open it. Choose: category → budget → type (Essential/Savings/etc) → mini budget (or NIL), then add.
                   </Text>
@@ -500,10 +500,10 @@ export default function PendingTransactionsScreen() {
               <Card>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontWeight: '700' }}>
+                    <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontFamily: 'Figtree_600SemiBold' }}>
                       Weekly reconciliation streak
                     </Text>
-                    <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 4 }}>
+                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginTop: 4 }}>
                       {progress.done} of {progress.target} transactions cleared
                     </Text>
                     <Text style={{ color: theme.colors.textMuted, marginTop: 2, fontSize: 12 }}>Aim for inbox zero once a week.</Text>
@@ -519,7 +519,7 @@ export default function PendingTransactionsScreen() {
                       justifyContent: 'center'
                     }}
                   >
-                    <Text style={{ color: theme.colors.primary, fontWeight: '900' }}>{progress.pct}%</Text>
+                    <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_700Bold' }}>{progress.pct}%</Text>
                   </View>
                 </View>
               </Card>
@@ -611,7 +611,7 @@ export default function PendingTransactionsScreen() {
               >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <View style={{ flex: 1, paddingRight: 8 }}>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900' }} numberOfLines={1}>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }} numberOfLines={1}>
                     {item.merchant || item.description || 'Transaction'}
                   </Text>
                   <Text style={{ color: theme.colors.textMuted, marginTop: 2 }} numberOfLines={1}>
@@ -622,7 +622,7 @@ export default function PendingTransactionsScreen() {
                   </Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color, fontWeight: '900' }}>
+                  <Text style={{ color, fontFamily: 'Figtree_700Bold' }}>
                     {sign}
                     {formatMoney(item.amount, item.currency === 'NGN' ? '₦' : item.currency)}
                   </Text>
@@ -634,7 +634,7 @@ export default function PendingTransactionsScreen() {
                 <View style={{ marginTop: 10 }}>
                   {/* Wizard header with < / > */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontWeight: '800' }}>
+                    <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontFamily: 'Figtree_600SemiBold' }}>
                       {draft.step <= 5 ? `Step ${draft.step} of ${draft.budgetCategory === 'Savings' ? 5 : 4}` : 'Confirm'} • {stepTitle(draft.step)}
                     </Text>
 
@@ -692,28 +692,28 @@ export default function PendingTransactionsScreen() {
                   {draft.step > 1 ? (
                     <View style={{ paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.border }}>
                       <Text style={{ color: theme.colors.textMuted, fontSize: 12 }} numberOfLines={1}>
-                        Category: <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{draft.category || '—'}</Text>
+                        Category: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{draft.category || '—'}</Text>
                       </Text>
                     </View>
                   ) : null}
                   {draft.step > 2 ? (
                     <View style={{ paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.border }}>
                       <Text style={{ color: theme.colors.textMuted, fontSize: 12 }} numberOfLines={1}>
-                        Budget: <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{(budgetOptions.find((b) => b.id === draft.budgetId)?.name ?? '—')}</Text>
+                        Budget: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{(budgetOptions.find((b) => b.id === draft.budgetId)?.name ?? '—')}</Text>
                       </Text>
                     </View>
                   ) : null}
                   {draft.step > 3 ? (
                     <View style={{ paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.border }}>
                       <Text style={{ color: theme.colors.textMuted, fontSize: 12 }} numberOfLines={1}>
-                        Type: <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{bucketLabel(draft.budgetCategory)}</Text>
+                        Type: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{bucketLabel(draft.budgetCategory)}</Text>
                       </Text>
                     </View>
                   ) : null}
                   {draft.step > 4 ? (
                     <View style={{ paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.border }}>
                       <Text style={{ color: theme.colors.textMuted, fontSize: 12 }} numberOfLines={1}>
-                        Mini budget: <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{draft.miniBudgetId ? (miniBudgetsForDraft.find((m) => m.id === draft.miniBudgetId)?.name ?? '—') : 'NIL'}</Text>
+                        Mini budget: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{draft.miniBudgetId ? (miniBudgetsForDraft.find((m) => m.id === draft.miniBudgetId)?.name ?? '—') : 'NIL'}</Text>
                       </Text>
                     </View>
                   ) : null}
@@ -721,7 +721,7 @@ export default function PendingTransactionsScreen() {
                   {draft.step > 5 && draft.budgetCategory === 'Savings' ? (
                     <View style={{ paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.border }}>
                       <Text style={{ color: theme.colors.textMuted, fontSize: 12 }} numberOfLines={1}>
-                        Goal: <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{draft.goalId ? (goals.find((g) => String(g.id) === String(draft.goalId))?.name ?? '—') : 'None'}</Text>
+                        Goal: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{draft.goalId ? (goals.find((g) => String(g.id) === String(draft.goalId))?.name ?? '—') : 'None'}</Text>
                       </Text>
                     </View>
                   ) : null}

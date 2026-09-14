@@ -4,6 +4,7 @@ import { collections } from '../../_lib/collections.js';
 import { methodNotAllowed, readJson, sendError, sendJson, sendNoContent } from '../../_lib/http.js';
 import { parseWith } from '../../_lib/validate.js';
 import { requireUserId } from '../../_lib/user.js';
+import { findVisibleBudget, toApiBudget } from '../../_lib/budgets.js';
 
 function parseIsoDateUtcNoon(iso: string) {
   const [y, m, d] = iso.split('-').map((n) => Number(n));
@@ -81,22 +82,10 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method === 'GET') {
-    const b = await budgets.findOne(filter);
+    // Members of a shared budget can read it; only the owner can change or delete it.
+    const b = (await budgets.findOne(filter)) ?? (await findVisibleBudget(db, userId, id));
     if (!b) return sendError(res, 404, 'NOT_FOUND', 'Budget not found');
-    return sendJson(res, 200, {
-      budget: {
-        id: b._id,
-        spaceId: b.spaceId ?? 'personal',
-        name: b.name,
-        totalBudget: b.totalBudget,
-        period: b.period,
-        startDate: b.startDate,
-        endDate: b.endDate ?? null,
-        categories: b.categories,
-        createdAt: b.createdAt.toISOString(),
-        updatedAt: b.updatedAt.toISOString()
-      }
-    });
+    return sendJson(res, 200, { budget: toApiBudget(b, userId) });
   }
 
   if (req.method === 'DELETE') {
@@ -144,20 +133,7 @@ export default async function handler(req: any, res: any) {
     if (!result.matchedCount) return sendError(res, 404, 'NOT_FOUND', 'Budget not found');
 
     const b = await budgets.findOne(filter);
-    return sendJson(res, 200, {
-      budget: {
-        id: b!._id,
-        spaceId: b!.spaceId ?? 'personal',
-        name: b!.name,
-        totalBudget: b!.totalBudget,
-        period: b!.period,
-        startDate: b!.startDate,
-        endDate: b!.endDate ?? null,
-        categories: b!.categories,
-        createdAt: b!.createdAt.toISOString(),
-        updatedAt: b!.updatedAt.toISOString()
-      }
-    });
+    return sendJson(res, 200, { budget: toApiBudget(b!, userId) });
   } catch (err: any) {
     if (err?.name === 'ZodError') {
       return sendError(res, 400, 'VALIDATION_ERROR', 'Invalid request body', err.issues);

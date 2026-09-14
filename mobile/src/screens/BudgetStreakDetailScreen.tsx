@@ -168,17 +168,17 @@ export default function BudgetStreakDetailScreen() {
             <Flame color={theme.colors.primary} size={20} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Current streak</Text>
-            <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 22 }}>{streakDays} days</Text>
+            <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Current streak</Text>
+            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 22 }}>{streakDays} days</Text>
           </View>
-          <Text style={{ color: isOnBudget ? theme.colors.success : theme.colors.error, fontWeight: '900' }}>
+          <Text style={{ color: isOnBudget ? theme.colors.success : theme.colors.error, fontFamily: 'Figtree_700Bold' }}>
             {isOnBudget ? 'On track' : 'Over budget'}
           </Text>
         </View>
       </View>
 
       <View style={{ marginTop: 18 }}>
-        <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Month progress</Text>
+        <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Month progress</Text>
         <View style={{ marginTop: 8, borderTopWidth: 1, borderTopColor: theme.colors.border }}>
           {[
             { label: 'Days completed', value: `${periodInfo.elapsedDays} / ${periodInfo.daysInPeriod}` },
@@ -188,14 +188,14 @@ export default function BudgetStreakDetailScreen() {
           ].map((row) => (
             <View key={row.label} style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.border, flexDirection: 'row', justifyContent: 'space-between' }}>
               <Text style={{ color: theme.colors.text }}>{row.label}</Text>
-              <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{row.value}</Text>
+              <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{row.value}</Text>
             </View>
           ))}
         </View>
       </View>
 
       <View style={{ marginTop: 18 }}>
-        <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Tips</Text>
+        <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Tips</Text>
         <View style={{ marginTop: 8 }}>
           {[
             'Keep daily spending below your average to maintain the streak.',

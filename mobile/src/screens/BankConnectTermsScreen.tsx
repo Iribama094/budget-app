@@ -36,7 +36,7 @@ export default function BankConnectTermsScreen() {
         <View style={{ marginLeft: 12, flex: 1 }}>
           <H1 style={{ marginBottom: 0 }}>Connect bank</H1>
           {spacesEnabled ? (
-            <Text style={{ marginTop: 4, color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>
+            <Text style={{ marginTop: 4, color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>
               Viewing: {activeSpace?.name ?? 'Personal'}
             </Text>
           ) : null}
@@ -45,7 +45,7 @@ export default function BankConnectTermsScreen() {
 
       <View style={{ marginTop: 14 }}>
         <Card>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Terms & consent</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Terms & consent</Text>
           <P style={{ marginTop: 8 }}>
             By connecting, you authorise read-only access to your transaction history via a secure partner.
           </P>
@@ -56,7 +56,7 @@ export default function BankConnectTermsScreen() {
       </View>
 
       <View style={{ marginTop: 14 }}>
-        <PrimaryButton title="Connect Bank" onPress={() => nav.navigate('BankConnectForm')} />
+        <PrimaryButton title="Connect Bank" onPress={() => nav.navigate('MonoConnect')} />
       </View>
     </Screen>
   );

@@ -2,6 +2,7 @@ import { getDb } from '../../_lib/mongo.js';
 import { collections } from '../../_lib/collections.js';
 import { methodNotAllowed, sendError, sendJson, type ApiRequest, type ApiResponse } from '../../_lib/http.js';
 import { requireUserId } from '../../_lib/user.js';
+import { monoConfigured, unlinkAccount } from '../../_lib/mono.js';
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (req.method !== 'DELETE') return methodNotAllowed(res, ['DELETE']);
@@ -38,6 +39,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   await bankAccounts.deleteMany({ userId, bankLinkId: String(id) });
+
+  if (link.provider === 'mono' && link.externalAccountId && monoConfigured()) {
+    // Revoke data access at Mono too; a failure here shouldn't block disconnecting.
+    await unlinkAccount(link.externalAccountId).catch((err) => console.error('[bank-links] mono unlink failed', err));
+  }
 
   await bankLinks.deleteOne({ _id: String(id), userId });
 

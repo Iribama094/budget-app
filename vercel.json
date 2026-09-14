@@ -1,6 +1,18 @@
 {
   "rewrites": [
-    { "source": "/v1/:path*", "destination": "/api/v1?path=:path*" },
-    { "source": "/api/v1/:path*", "destination": "/api/v1?path=:path*" }
+    {
+      "source": "/v1/:path*",
+      "destination": "/api/v1?path=:path*"
+    },
+    {
+      "source": "/api/v1/:path*",
+      "destination": "/api/v1?path=:path*"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/v1/cron/daily",
+      "schedule": "0 7 * * *"
+    }
   ]
 }

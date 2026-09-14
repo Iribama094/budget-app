@@ -87,6 +87,22 @@ export async function changePassword(oldPassword: string, newPassword: string): 
   await apiFetch('/v1/auth/change-password', { method: 'POST', body: JSON.stringify({ oldPassword, newPassword }) });
 }
 
+export async function forgotPassword(email: string): Promise<{ ok: boolean; devCode?: string }> {
+  return (await apiFetch('/v1/auth/forgot-password', {
+    method: 'POST',
+    skipAuth: true,
+    body: JSON.stringify({ email })
+  })) as { ok: boolean; devCode?: string };
+}
+
+export async function resetPassword(email: string, code: string, newPassword: string, deviceName?: string): Promise<AuthResponse> {
+  return (await apiFetch('/v1/auth/reset-password', {
+    method: 'POST',
+    skipAuth: true,
+    body: JSON.stringify({ email, code, newPassword, deviceName })
+  })) as AuthResponse;
+}
+
 export type ApiTransaction = {
   id: string;
   spaceId?: 'personal' | 'business';
@@ -269,6 +285,8 @@ export type ApiGoal = {
   emoji?: string | null;
   color?: string | null;
   category?: string | null;
+  /** Share of each income added to this goal automatically (0-50). */
+  autoSavePercent?: number | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -341,6 +359,11 @@ export type ApiBudget = {
   startDate: string;
   endDate?: string;
   categories: Record<string, { budgeted: number; spent?: number }>;
+  ownerId?: string;
+  role?: "owner" | "member";
+  isShared?: boolean;
+  members?: Array<{ userId: string; role: "owner" | "member"; name: string | null; email: string; joinedAt: string }>;
+  rollover?: { destination: "goal" | "next-budget"; amount: number; goalId: string | null; budgetId: string | null; at: string } | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -396,6 +419,8 @@ export type ApiBankLink = {
   spaceId?: 'personal' | 'business';
   provider: string;
   bankName: string;
+  status?: "active" | "reauth_required";
+  lastSyncedAt?: string | null;
   createdAt: string;
   accounts: ApiBankAccount[];
 };

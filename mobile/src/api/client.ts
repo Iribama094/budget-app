@@ -248,6 +248,17 @@ export async function apiFetch(path: string, init?: RequestInit & { skipAuth?: b
     if (p === '/v1/auth/logout' && method === 'POST') {
       return {};
     }
+    if (p === '/v1/auth/forgot-password' && method === 'POST') {
+      return { ok: true, devCode: '123456' };
+    }
+    if (p === '/v1/auth/reset-password' && method === 'POST') {
+      const body = typeof init?.body === 'string' ? JSON.parse(init.body) : {};
+      if (body?.code !== '123456') throw new Error("That code isn't right. 4 tries left.");
+      return { user: makeUser(), accessToken: 'local-access-token', refreshToken: 'local-refresh-token' };
+    }
+    if (p === '/v1/auth/change-password' && method === 'POST') {
+      return {};
+    }
     if (p === '/v1/tax/rules' && method === 'GET') {
       const country = (urlObj?.searchParams.get('country') ?? 'NG').toUpperCase();
 

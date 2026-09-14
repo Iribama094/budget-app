@@ -1,170 +1,73 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Image, Text, Animated, Easing } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Image, Text, Animated, Easing, StyleSheet } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from '../contexts/ThemeContext';
-import { LinearGradient } from 'expo-linear-gradient';
+import { fonts } from '../theme/typography';
 
 export function SplashScreen() {
   const { theme } = useTheme();
-
-  // Entrance animations
-  const logoScale = useRef(new Animated.Value(0.8)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const titleTranslateY = useRef(new Animated.Value(14)).current;
-  const titleOpacity = useRef(new Animated.Value(0)).current;
-
-  // Soft background motion
-  const glowOffset = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.92)).current;
+  const sweep = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Run cinematic entrance once (1.6s total)
-    Animated.sequence([
-      Animated.parallel([
-        Animated.timing(logoOpacity, {
-          toValue: 1,
-          duration: 600,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true
-        }),
-        Animated.spring(logoScale, {
-          toValue: 1,
-          friction: 6,
-          tension: 90,
-          useNativeDriver: true
-        })
-      ]),
-      Animated.parallel([
-        Animated.timing(titleOpacity, {
-          toValue: 1,
-          duration: 550,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true
-        }),
-        Animated.timing(titleTranslateY, {
-          toValue: 0,
-          duration: 550,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true
-        })
-      ])
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 380, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, friction: 7, tension: 80, useNativeDriver: true })
     ]).start();
+    const loop = Animated.loop(Animated.timing(sweep, { toValue: 1, duration: 1300, easing: Easing.inOut(Easing.quad), useNativeDriver: true }));
+    loop.start();
+    return () => loop.stop();
+  }, [opacity, scale, sweep]);
 
-    // Gentle looping motion for background glow
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowOffset, {
-          toValue: 1,
-          duration: 2600,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true
-        }),
-        Animated.timing(glowOffset, {
-          toValue: 0,
-          duration: 2600,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true
-        })
-      ])
-    ).start();
-  }, [logoOpacity, logoScale, titleOpacity, titleTranslateY, glowOffset]);
-
-  const translateGlowUp = glowOffset.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
-  const translateGlowDown = glowOffset.interpolate({ inputRange: [0, 1], outputRange: [0, 12] });
+  const ground = theme.mode === 'dark' ? '#06110E' : '#0D2B26';
+  const inner = Array.from({ length: 12 }, (_, i) => 70 + i * 14);
+  const outer = Array.from({ length: 10 }, (_, i) => 90 + i * 18);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      {/* Soft animated gradient background */}
-      <LinearGradient
-        colors={
-          theme.mode === 'dark'
-            ? ['#020617', '#0f172a', '#111827']
-            : ['#ecfdf5', '#f5f3ff', '#eff6ff']
-        }
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ position: 'absolute', inset: 0 }}
-      />
+    <View style={[styles.fill, { backgroundColor: ground }]}>
+      <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
+        {inner.map((r, i) => (
+          <Circle key={`i${r}`} cx="50%" cy="41%" r={r} stroke="#E2B65C" strokeOpacity={0.11 - i * 0.007} strokeWidth={1} fill="none" />
+        ))}
+        {outer.map((r, i) => (
+          <Circle key={`o${r}`} cx="50%" cy="56%" r={r} stroke="#FFFFFF" strokeOpacity={0.05 - i * 0.004} strokeWidth={1} fill="none" />
+        ))}
+      </Svg>
 
-      {/* Glow blobs / waves */}
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          width: 260,
-          height: 260,
-          borderRadius: 260,
-          backgroundColor: theme.mode === 'dark' ? 'rgba(59,130,246,0.16)' : 'rgba(16,185,129,0.18)',
-          top: -40,
-          right: -40,
-          transform: [{ translateY: translateGlowUp }]
-        }}
-      />
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          width: 320,
-          height: 320,
-          borderRadius: 320,
-          backgroundColor: theme.mode === 'dark' ? 'rgba(147,51,234,0.16)' : 'rgba(59,130,246,0.16)',
-          bottom: -80,
-          left: -60,
-          transform: [{ translateY: translateGlowDown }]
-        }}
-      />
+      <Animated.View style={[styles.center, { opacity, transform: [{ scale }] }]}>
+        <View style={styles.tile}>
+          <Image source={require('../../assets/logo.png')} style={{ width: 94, height: 91 }} resizeMode="contain" />
+        </View>
+        <Text style={styles.word}>BudgetFriendly</Text>
+        <Text style={styles.tagline}>Give every naira a job.</Text>
+      </Animated.View>
 
-      <View
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingHorizontal: 32
-        }}
-      >
-        <Animated.View
-          style={{
-            marginBottom: 20,
-            transform: [{ scale: logoScale }],
-            opacity: logoOpacity
-          }}
-        >
-          <Image
-            source={require('../../assets/logo.png')}
-            style={{ width: 128, height: 128 }}
-            resizeMode="contain"
-          />
-        </Animated.View>
-
-        <Animated.View
-          style={{
-            alignItems: 'center',
-            transform: [{ translateY: titleTranslateY }],
-            opacity: titleOpacity
-          }}
-        >
-          <Text
-            style={{
-              color: theme.colors.text,
-              fontSize: 26,
-              fontWeight: '900',
-              marginBottom: 6
-            }}
-          >
-            BudgetFriendly
-          </Text>
-          <Text
-            style={{
-              color: theme.colors.textMuted,
-              fontSize: 14,
-              fontWeight: '600',
-              textAlign: 'center'
-            }}
-          >
-            Smarter budgeting, every day.
-          </Text>
-        </Animated.View>
-
+      <View style={styles.track} accessibilityLabel="Loading">
+        <Animated.View style={[styles.bar, { transform: [{ translateX: sweep.interpolate({ inputRange: [0, 1], outputRange: [-26, 64] }) }] }]} />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  fill: { flex: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  tile: {
+    width: 112,
+    height: 112,
+    borderRadius: 34,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 16 },
+    elevation: 10
+  },
+  word: { fontFamily: fonts.display, fontSize: 27, letterSpacing: -0.7, color: '#EAF4F1', marginTop: 26 },
+  tagline: { fontFamily: fonts.medium, fontSize: 15, color: 'rgba(234,244,241,0.72)', marginTop: 8 },
+  track: { position: 'absolute', bottom: 90, alignSelf: 'center', width: 64, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.14)', overflow: 'hidden' },
+  bar: { width: 26, height: 3, borderRadius: 2, backgroundColor: '#E2B65C' }
+});

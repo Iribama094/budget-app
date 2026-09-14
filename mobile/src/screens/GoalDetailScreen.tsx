@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, Switch, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ChevronLeft, Pencil } from 'lucide-react-native';
 
@@ -11,6 +11,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { formatMoney, formatNumberInput } from '../utils/format';
 import { tokens } from '../theme/tokens';
+import { type as typo } from '../theme/typography';
 
 function clamp01(n: number) {
   return Math.max(0, Math.min(1, n));
@@ -49,6 +50,23 @@ export default function GoalDetailScreen() {
   const [draftTargetDate, setDraftTargetDate] = useState('');
 
   const currency = user?.currency ?? '₦';
+
+  const saveAutoSave = async (percent: number | null) => {
+    if (!goal || isSaving) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const updated = spacesEnabled
+        ? await patchGoalInSpace(goal.id, { autoSavePercent: percent }, activeSpaceId)
+        : await patchGoal(goal.id, { autoSavePercent: percent });
+      setGoal(updated);
+      toast.show(percent ? `${percent}% of each income will go toward ${goal.name}` : 'Auto-save turned off', 'success');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not update auto-save');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const load = useCallback(async () => {
     if (!goalId) {
@@ -211,7 +229,7 @@ export default function GoalDetailScreen() {
         style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', opacity: pressed ? 0.8 : 1 })}
       >
         <ChevronLeft color={theme.colors.text} size={20} />
-        <Text style={{ color: theme.colors.text, fontWeight: '900', marginLeft: 6 }}>Back</Text>
+        <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginLeft: 6 }}>Back</Text>
       </Pressable>
 
       <View style={{ marginTop: 12 }}>
@@ -225,10 +243,10 @@ export default function GoalDetailScreen() {
             <View style={{ padding: 14, backgroundColor: theme.colors.surface }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.textMuted, fontWeight: '800', fontSize: 12 }}>
+                  <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>
                     Goal
                   </Text>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 20, marginTop: 6 }} numberOfLines={2}>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 20, marginTop: 6 }} numberOfLines={2}>
                     {goal.emoji ? `${goal.emoji} ` : ''}{goal.name}
                   </Text>
                   <Text style={{ color: theme.colors.textMuted, marginTop: 6 }}>
@@ -263,7 +281,7 @@ export default function GoalDetailScreen() {
                         justifyContent: 'center'
                       }}
                     >
-                      <Text style={{ color: theme.colors.error, fontWeight: '900' }}>Delete</Text>
+                      <Text style={{ color: theme.colors.error, fontFamily: 'Figtree_700Bold' }}>Delete</Text>
                     </View>
                   </Pressable>
                 </View>
@@ -307,8 +325,8 @@ export default function GoalDetailScreen() {
               ) : null}
 
               <View style={{ marginTop: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ color: theme.colors.textMuted, fontWeight: '800' }}>Progress</Text>
-                <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{Math.round(progress * 100)}%</Text>
+                <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Progress</Text>
+                <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{Math.round(progress * 100)}%</Text>
               </View>
 
               <View style={{ height: 10, backgroundColor: theme.colors.surfaceAlt, borderRadius: 999, overflow: 'hidden', marginTop: 8 }}>
@@ -323,24 +341,64 @@ export default function GoalDetailScreen() {
 
               <View style={{ marginTop: 12, flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.textMuted, fontWeight: '800', fontSize: 12 }}>Saved</Text>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 4 }}>
+                  <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Saved</Text>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginTop: 4 }}>
                     {formatMoney(goal.currentAmount, currency)}
                   </Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.textMuted, fontWeight: '800', fontSize: 12 }}>Remaining</Text>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 4 }}>
+                  <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Remaining</Text>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginTop: 4 }}>
                     {formatMoney(remaining, currency)}
                   </Text>
                 </View>
               </View>
 
-              {/* Goal progress updates come from transactions (manual or imported). */}
+              <View style={{ marginTop: 16, padding: 14, borderRadius: 16, backgroundColor: theme.colors.surfaceAlt }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[typo.bodyStrong, { color: theme.colors.text }]}>Auto-save from income</Text>
+                    <Text style={[typo.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>
+                      {goal.autoSavePercent
+                        ? `${goal.autoSavePercent}% of every income you record goes toward this goal`
+                        : 'Put a share of every income toward this goal automatically'}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={!!goal.autoSavePercent}
+                    disabled={isSaving || progress >= 1}
+                    onValueChange={(v) => void saveAutoSave(v ? 10 : null)}
+                    trackColor={{ true: theme.colors.primary, false: theme.colors.border }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+                {goal.autoSavePercent ? (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                    {[5, 10, 15, 20, 30].map((p) => {
+                      const selected = goal.autoSavePercent === p;
+                      return (
+                        <Pressable
+                          key={p}
+                          onPress={() => void saveAutoSave(p)}
+                          disabled={isSaving}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected }}
+                          style={{ paddingHorizontal: 14, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? theme.colors.primary : theme.colors.surface }}
+                        >
+                          <Text style={[typo.smallStrong, { color: selected ? theme.colors.onPrimary : theme.colors.text }]}>{p}%</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : null}
+                <Text style={[typo.caption, { color: theme.colors.textMuted, marginTop: 10 }]}>
+                  This tracks progress in BudgetFriendly. Move the money into your savings account yourself.
+                </Text>
+              </View>
 
               {progress >= 1 ? (
                 <View style={{ marginTop: 10, padding: 10, borderRadius: 14, backgroundColor: tokens.colors.success[50] }}>
-                  <Text style={{ color: tokens.colors.success[700], fontWeight: '900' }}>Goal completed</Text>
+                  <Text style={{ color: tokens.colors.success[700], fontFamily: 'Figtree_700Bold' }}>Goal completed</Text>
                   <Text style={{ color: tokens.colors.success[700], marginTop: 4 }}>
                     Nice work — you hit your target.
                   </Text>

@@ -10,7 +10,8 @@ interface NotificationBadgeContextValue {
 const NotificationBadgeContext = createContext<NotificationBadgeContextValue | undefined>(undefined);
 
 export function NotificationBadgeProvider({ children }: { children: React.ReactNode }) {
-  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(true); // show dot by default until user visits center
+  // Set from the server feed by AppServices.
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const [hasAssistantUnread, setHasAssistantUnread] = useState(false);
 
   return (
