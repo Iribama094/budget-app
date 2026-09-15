@@ -18,8 +18,12 @@ npx supabase migration new <name>      # then write the SQL in supabase/migratio
 npx supabase db push                   # apply migrations
 npx supabase db advisors --linked      # security and performance checks
 npx supabase functions deploy api --use-api --no-verify-jwt
+npx --yes deno check supabase/functions/api/index.ts
+node supabase/scripts/e2e.mjs .
 npx supabase config diff               # always review this before: npx supabase config push
 ```
+
+The end-to-end script exercises personal budgeting as well as invoices, bills, payroll, statement imports, confirmable goal savings and Money Wrapped against the linked live project. It creates and removes throwaway users.
 
 The database password and cron secret live only in the git-ignored `.env.supabase.local`. If you change `CRON_SECRET`, update both the function secret (`npx supabase secrets set`) and the Vault secret `bf_cron_secret`.
 
@@ -163,6 +167,7 @@ Set function secrets with `npx supabase secrets set NAME=value`.
 | Daily job: recurring transactions, bill reminders, bank sync | `CRON_SECRET` (already set), `APP_TZ_OFFSET_MINUTES` (default 60) | — |
 | Push notifications (pace alerts, bills, auto-save, security) | `EXPO_ACCESS_TOKEN` only if Expo enhanced push security is on | An EAS project id (`npx eas init`) and a development or store build |
 | Live bank connections (Mono) | `MONO_SECRET_KEY` | `EXPO_PUBLIC_MONO_PUBLIC_KEY` |
+| Business statement uploads | — | CSV upload works now for Paystack, Moniepoint and bank exports; live provider sync is deliberately not enabled yet |
 | Face ID, home-screen widgets | — | A development or store build. Widgets run `npx expo prebuild`; iOS needs `ios.appleTeamId` and the App Group `group.com.budgetfriendly.app` enabled for the app id |
 
 Without these, the app still works (Flux explains that it isn’t switched on yet): the in-app notification feed fills without push, the demo bank flow stays available, and bill reminders are scheduled on the phone.

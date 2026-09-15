@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
-import { ArrowLeft } from 'lucide-react-native';
+import { View, Text } from 'react-native';
+import { CalendarCheck } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 
-import { Screen, H1, P } from '../components/Common/ui';
+import { Amount, Chip, HeroCard, ListCard, ListRow, ProgressBar, Screen, ScreenHeader, SectionHeader } from '../components/Common/ui';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { useAuth } from '../contexts/AuthContext';
 import { listBudgets, listTransactions, type ApiBudget, type ApiTransaction } from '../api/endpoints';
-import { formatMoney, toIsoDate } from '../utils/format';
+import { currencySymbol, formatShortDate, toIsoDate } from '../utils/format';
+import { type } from '../theme/typography';
 
 export default function WeeklyCheckInDetailScreen() {
   const nav = useNavigation<any>();
@@ -148,7 +149,7 @@ export default function WeeklyCheckInDetailScreen() {
     })();
   }, [activeSpaceId, spacesEnabled, budgetEffectiveEndIso, isBudgetCurrent, weekInfo.start]);
 
-  const currency = user?.currency ?? '₦';
+  const glyph = currencySymbol(user?.currency);
 
   const dailySnapshots = useMemo(() => {
     const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -177,73 +178,57 @@ export default function WeeklyCheckInDetailScreen() {
     return Number(currentBudget.totalBudget ?? 0) - (Number(budgetExpenses) || 0);
   }, [budgetExpenses, currentBudget]);
 
+  const peakDay = dailySnapshots.reduce((m, d) => Math.max(m, d.amount), 0);
+  const inkText = theme.colors.inkText;
+
   return (
-    <Screen>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <Pressable
-          onPress={() => nav.goBack()}
-          style={({ pressed }) => [
-            {
-              width: 44,
-              height: 44,
-              borderRadius: 18,
-              backgroundColor: theme.colors.surface,
-              borderWidth: 1,
-              borderColor: theme.colors.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: pressed ? 0.92 : 1
-            }
-          ]}
-        >
-          <ArrowLeft color={theme.colors.text} size={20} />
-        </Pressable>
-        <View style={{ marginLeft: 12, flex: 1 }}>
-          <H1 style={{ marginBottom: 0 }}>Weekly check-in</H1>
-          <P style={{ marginTop: 4 }}>A quick pulse on your spending this week.</P>
-        </View>
-      </View>
+    <Screen bottomInset={48}>
+      <ScreenHeader title="Weekly check-in" subtitle={`${formatShortDate(toIsoDate(weekInfo.start))} – ${formatShortDate(toIsoDate(weekInfo.end))}`} onBack={() => nav.goBack()} />
 
-      <View style={{ marginTop: 16 }}>
-        <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Progress</Text>
-        <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 22, marginTop: 6 }}>
-          {weekInfo.elapsedDays} / 7 days
+      <HeroCard style={{ marginTop: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <CalendarCheck color="#E2B65C" size={16} />
+            <Text style={[type.eyebrow, { color: inkText, opacity: 0.72 }]}>Spent this week</Text>
+          </View>
+          <Chip tone="onInk" label={`Day ${weekInfo.elapsedDays} of 7`} />
+        </View>
+        <Amount value={weekExpenses} currency={glyph} size="hero" color={inkText} style={{ marginTop: 8 }} />
+        <Text style={[type.small, { color: inkText, opacity: 0.78 }]}>
+          {weekInfo.remainingDays > 0
+            ? `${weekInfo.remainingDays} day${weekInfo.remainingDays === 1 ? '' : 's'} left. Hold am tight, Boss 💪`
+            : 'Week don end today. How far, you try?'}
         </Text>
-        <View style={{ marginTop: 10, height: 10, backgroundColor: theme.colors.surfaceAlt, borderRadius: 999, overflow: 'hidden' }}>
-          <View style={{ height: 10, width: `${Math.round(weekInfo.progressPct)}%`, backgroundColor: theme.colors.primary }} />
+        <View style={{ marginTop: 14 }}>
+          <ProgressBar value={weekInfo.progressPct / 100} height={8} color="#E2B65C" trackColor="rgba(255,255,255,0.14)" />
         </View>
-        <Text style={{ color: theme.colors.textMuted, marginTop: 8 }}>
-          {weekInfo.remainingDays > 0 ? `${weekInfo.remainingDays} day${weekInfo.remainingDays === 1 ? '' : 's'} left` : 'Week ending today'}
-        </Text>
-      </View>
+      </HeroCard>
 
-      <View style={{ marginTop: 18 }}>
-        <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>This week so far</Text>
-        <View style={{ marginTop: 8, borderTopWidth: 1, borderTopColor: theme.colors.border }}>
-          {[
-            { label: 'Income', value: weekIncome ?? 0 },
-            { label: 'Expenses', value: weekExpenses ?? 0 },
-            { label: 'Remaining', value: remainingBudget ?? 0 }
-          ].map((row) => (
-            <View key={row.label} style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.border, flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ color: theme.colors.text }}>{row.label}</Text>
-              <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{formatMoney(row.value, currency)}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
+      <SectionHeader title="This week so far" />
+      <ListCard>
+        <ListRow title="Income" right={<Amount value={weekIncome} currency={glyph} size="sm" color={theme.colors.success} />} />
+        <ListRow title="Expenses" right={<Amount value={weekExpenses} currency={glyph} size="sm" />} />
+        <ListRow
+          title="Left in your budget"
+          subtitle={currentBudget ? undefined : 'Make a budget to see what’s left'}
+          right={<Amount value={remainingBudget} currency={glyph} size="sm" color={remainingBudget < 0 ? theme.colors.error : theme.colors.text} />}
+        />
+      </ListCard>
 
-      <View style={{ marginTop: 18 }}>
-        <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Daily snapshot</Text>
-        <View style={{ marginTop: 8, borderTopWidth: 1, borderTopColor: theme.colors.border }}>
-          {dailySnapshots.map((d) => (
-            <View key={d.label} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.colors.border, flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ color: d.isToday ? theme.colors.primary : theme.colors.text }}>{d.label}</Text>
-              <Text style={{ color: theme.colors.textMuted }}>{formatMoney(d.amount, currency)}</Text>
+      <SectionHeader title="Daily snapshot" />
+      <ListCard>
+        {dailySnapshots.map((d) => (
+          <View key={d.label} style={{ paddingVertical: 11 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Text style={[type.bodyStrong, { color: d.isToday ? theme.colors.primary : theme.colors.text, width: 44 }]}>{d.label}</Text>
+              <View style={{ flex: 1 }}>
+                <ProgressBar value={peakDay > 0 ? d.amount / peakDay : 0} color={d.isToday ? theme.colors.primary : theme.colors.textMuted} />
+              </View>
+              <Amount value={d.amount} currency={glyph} size="sm" color={d.amount > 0 ? theme.colors.text : theme.colors.textMuted} />
             </View>
-          ))}
-        </View>
-      </View>
+          </View>
+        ))}
+      </ListCard>
     </Screen>
   );
 }

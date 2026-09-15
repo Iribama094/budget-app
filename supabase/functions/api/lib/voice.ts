@@ -44,6 +44,41 @@ export const voice = {
     body: goalName ? `${amount} just went into ${goalName} from your ${income} income.` : `${amount} went into your goals from your ${income} income.`
   }),
 
+  autosaveReminder: (amount: string, goalName: string, income: string): Note => ({
+    title: pick([`Boss, time to feed ${goalName} 🌱`, `${amount} for ${goalName}? 💪`, `Small small, the goal dey grow 🌱`]),
+    body: `From your ${income} income. Move ${amount} to your savings, then tap “I moved it” so your goal and budget stay correct.`
+  }),
+
+  invoiceDueSoon: (customer: string, amount: string, number: string): Note => ({
+    title: `${customer} go pay tomorrow? 📅`,
+    body: `${number} for ${amount} is due tomorrow. A friendly reminder today helps.`
+  }),
+
+  invoiceOverdue: (customer: string, amount: string, days: number): Note => ({
+    title: pick([`${boss()}, ${customer} never pay o 👀`, `${customer} don owe you ${days} day${days === 1 ? '' : 's'}`]),
+    body: `${amount} is overdue. Send a gentle reminder from Invoices.`
+  }),
+
+  billDueSoon: (supplier: string, amount: string, when: string): Note => ({
+    title: `Heads up: ${supplier} bill is due ${when}`,
+    body: `${amount}. Make sure the money dey ground.`
+  }),
+
+  vatReminder: (month: string): Note => ({
+    title: `${boss()}, VAT season don reach 🧾`,
+    body: `Your VAT return for ${month} is usually due by the 21st. Confirm with your accountant.`
+  }),
+
+  payeReminder: (month: string, owed: string | null): Note => ({
+    title: 'PAYE reminder 🧾',
+    body: `${owed ? `${owed} of ` : ''}PAYE for ${month} is usually due by the 10th. Confirm with your accountant.`
+  }),
+
+  wrappedReady: (label: string): Note => ({
+    title: `Your ${label} Money Wrapped don land 🎁`,
+    body: 'See how your money moved, your top spots and your money personality.'
+  }),
+
   recurringRecorded: (name: string, amount: string, isIncome: boolean, times: number): Note => ({
     title: times === 1 ? pick([`Done ✅ ${name} don record`, `${name} don enter, no stress`]) : `${name} recorded ${times} times ✅`,
     body: `${amount} ${isIncome ? 'income' : 'expense'} added automatically from your schedule.`

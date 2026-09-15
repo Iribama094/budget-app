@@ -5,6 +5,7 @@ import { loadPlan } from './plan.ts';
 import { normalizeBucket, patternOf, type Bucket } from './categories.ts';
 import type { Space } from './http.ts';
 import { boss, pick } from './voice.ts';
+import { computeBusinessWarnings } from './business.ts';
 
 export type Insight = {
   key: string;
@@ -45,7 +46,7 @@ export async function computeInsights(userId: string, space: Space = 'personal',
     sql`select count(*)::int as goals from public.goals where user_id = ${userId} and space_id = ${space}`,
     options.includeDismissed ? Promise.resolve([]) : sql`select key from public.insight_dismissals where user_id = ${userId} and dismissed_at > now() - interval '14 days'`
   ]);
-  if (!txs.length) return [];
+  if (!txs.length && space !== 'business') return [];
 
   const money = (n: number) => formatMoney(n, profile?.currency);
   const month = today.slice(0, 7);
@@ -126,7 +127,7 @@ export async function computeInsights(userId: string, space: Space = 'personal',
   }
 
   // 2. A category costing much more than usual.
-  const oldest = ageDays(txs[txs.length - 1].occurredAt);
+  const oldest = txs.length ? ageDays(txs[txs.length - 1].occurredAt) : 0;
   if (oldest >= 45) {
     const windows = Math.max(1, Math.min(3, Math.floor((oldest - 30) / 30)));
     const current = new Map<string, number>();
@@ -250,7 +251,7 @@ export async function computeInsights(userId: string, space: Space = 'personal',
   }
 
   // 7. Nothing logged for a while.
-  const quietDays = Math.floor(ageDays(txs[0].occurredAt));
+  const quietDays = txs.length ? Math.floor(ageDays(txs[0].occurredAt)) : 0;
   if (quietDays >= 3) {
     out.push({
       key: `gap:${today}`,
@@ -286,6 +287,9 @@ export async function computeInsights(userId: string, space: Space = 'personal',
       }
     }
   }
+
+  // Business early warnings: cash runway, money owed, slow sales, costs and bills.
+  if (space === 'business') out.push(...(await computeBusinessWarnings(userId, today).catch(() => [] as Insight[])));
 
   const hidden = new Set((dismissed as any[]).map((d) => d.key));
   return out

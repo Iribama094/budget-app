@@ -22,6 +22,26 @@ import {
 import { assistantChat, insightDismiss, insightsIndex } from './routes/coach.ts';
 import { computeInsights } from './lib/insights.ts';
 import { notifyUser } from './lib/notify.ts';
+import {
+  billById,
+  billsIndex,
+  businessReport,
+  businessSettings,
+  businessSummaryRoute,
+  invoiceAction,
+  invoiceById,
+  invoicesIndex,
+  payYourself,
+  payrollIndex,
+  payrollRun,
+  staffById,
+  staffIndex,
+  statementImport,
+  wrappedRoute
+} from './routes/business.ts';
+import { goalAddMoney, goalContributionAction, goalContributionsIndex } from './routes/savings.ts';
+import { sendBusinessReminders } from './lib/business.ts';
+import { voice } from './lib/voice.ts';
 
 export type Ctx = {
   req: Request;
@@ -46,6 +66,7 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
   const summary: Record<string, unknown> = { today };
   summary.recurring = await runAllDueRecurring(today);
   summary.billReminders = await sendBillReminders(today);
+  summary.business = await sendBusinessReminders(today);
 
   if (monoConfigured()) {
     const stale = await sql<BankLinkRow[]>`
@@ -68,12 +89,12 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
 
   // On Sundays (or on demand with ?insights=1), push each active person's most useful insight.
   if (new Date(`${today}T12:00:00Z`).getUTCDay() === 0 || ctx.query.get('insights') === '1') {
-    const active = await sql`select distinct user_id from public.transactions where occurred_at > now() - interval '14 days' limit 1000`;
+    const active = await sql`select distinct user_id, space_id from public.transactions where occurred_at > now() - interval '14 days' limit 1000`;
     let sent = 0;
-    for (const { userId } of active) {
+    for (const { userId, spaceId } of active) {
       try {
         // The most useful nudge; when everything is going well, a word of encouragement instead.
-        const list = await computeInsights(userId, 'personal', today);
+        const list = await computeInsights(userId, spaceId, today);
         const top = list.find((i) => i.tone !== 'positive') ?? list[0];
         if (!top) continue;
         const delivered = await notifyUser(userId, {
@@ -90,6 +111,29 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
       }
     }
     summary.insights = { users: active.length, sent };
+  }
+
+  // Money Wrapped: the first half of the year on 1 July, the full year on 1 December.
+  if (today.endsWith('-07-01') || today.endsWith('-12-01')) {
+    const h1 = today.endsWith('-07-01');
+    const year = Number(today.slice(0, 4));
+    const people = await sql`select distinct user_id from public.transactions where occurred_at > now() - interval '60 days' limit 5000`;
+    let sent = 0;
+    for (const { userId } of people) {
+      try {
+        const delivered = await notifyUser(userId, {
+          kind: 'insight',
+          ...voice.wrappedReady(h1 ? `H1 ${year}` : `${year}`),
+          data: { screen: 'Wrapped', kind: h1 ? 'h1' : 'year', year },
+          dedupeKey: `wrapped:${today}`,
+          dedupeTtlSec: 30 * 86400
+        });
+        if (delivered) sent++;
+      } catch (err) {
+        console.error('[cron] wrapped failed', err);
+      }
+    }
+    summary.wrapped = { users: people.length, sent };
   }
 
   await sql`delete from public.rate_limits where expires_at < now()`;
@@ -129,6 +173,9 @@ function route(parts: string[]): Handler | null {
 
   if (a === 'goals' && n === 1) return goalsIndex;
   if (a === 'goals' && n === 2) return goalById;
+  if (a === 'goals' && n === 3 && c === 'contributions') return goalAddMoney;
+  if (a === 'goal-contributions' && n === 1) return goalContributionsIndex;
+  if (a === 'goal-contributions' && n === 3) return goalContributionAction;
 
   if (a === 'tax' && b === 'calc') return taxCalc;
   if (a === 'tax' && b === 'rules') return taxRules;
@@ -153,6 +200,22 @@ function route(parts: string[]): Handler | null {
   if (a === 'insights' && n === 1) return insightsIndex;
   if (a === 'insights' && n === 3 && c === 'dismiss') return insightDismiss;
   if (a === 'assistant' && b === 'chat') return assistantChat;
+
+  if (a === 'business' && b === 'settings' && n === 2) return businessSettings;
+  if (a === 'business' && b === 'summary' && n === 2) return businessSummaryRoute;
+  if (a === 'business' && b === 'pay-yourself' && n === 2) return payYourself;
+  if (a === 'business' && b === 'report' && n === 2) return businessReport;
+  if (a === 'invoices' && n === 1) return invoicesIndex;
+  if (a === 'invoices' && n === 2) return invoiceById;
+  if (a === 'invoices' && n === 3) return invoiceAction;
+  if (a === 'bills' && n === 1) return billsIndex;
+  if (a === 'bills' && (n === 2 || n === 3)) return billById;
+  if (a === 'staff' && n === 1) return staffIndex;
+  if (a === 'staff' && n === 2) return staffById;
+  if (a === 'payroll' && n === 1) return payrollIndex;
+  if (a === 'payroll' && b === 'runs' && n === 2) return payrollRun;
+  if (a === 'imports' && b === 'statement' && n === 2) return statementImport;
+  if (a === 'wrapped' && n === 1) return wrappedRoute;
 
   return null;
 }

@@ -158,7 +158,17 @@ try {
   r = await call(a.token, 'GET', `/budgets/${budgetId}`);
   check('deleting income reverses budget growth', r.data.budget.totalBudget === 300000 && r.data.budget.categories.Savings.budgeted === 50000, r.data?.budget);
   r = await call(a.token, 'GET', '/goals');
-  check('goals list shows auto-saved amount', r.status === 200 && r.data.items[0].currentAmount === 10000, r);
+  check('auto-save waits for "I moved it" before the goal grows', r.status === 200 && r.data.items[0].currentAmount === 0, r);
+  r = await call(a.token, 'POST', '/transactions', { type: 'income', amount: 50000, category: 'Salary', occurredAt: now(), budgetId, budgetCategory: 'Savings' });
+  check('new income suggests a pending auto-save', r.status === 201 && r.data.autoSaved?.[0]?.amount === 5000, r);
+  r = await call(a.token, 'GET', '/goal-contributions?status=pending');
+  const pendingSave = r.data?.items?.[0];
+  check('pending auto-save listed; one from deleted income hidden', r.status === 200 && r.data.items.length === 1 && pendingSave.amount === 5000 && pendingSave.goal.id === goalId, r);
+  r = await call(a.token, 'POST', `/goal-contributions/${pendingSave?.id}/confirm`, {});
+  check('confirming grows the goal and records a Savings entry', r.status === 200 && r.data.goal.currentAmount === 5000 && !!r.data.transactionId, r);
+  check('an answered auto-save cannot be confirmed twice', (await call(a.token, 'POST', `/goal-contributions/${pendingSave?.id}/confirm`, {})).status === 400);
+  r = await call(a.token, 'GET', `/transactions/${r.data?.transactionId}`);
+  check('Savings entry sits in the budget', r.status === 200 && r.data.transaction.category === 'Savings' && r.data.transaction.budgetId === budgetId && r.data.transaction.budgetCategory === 'Savings', r);
   r = await call(a.token, 'PATCH', `/goals/${goalId}`, { name: 'Rainy day fund' });
   check('patch goal', r.status === 200 && r.data.goal.name === 'Rainy day fund', r);
   check('get goal', (await call(a.token, 'GET', `/goals/${goalId}`)).status === 200);
@@ -192,8 +202,10 @@ try {
   r = await call(a.token, 'POST', `/budgets/${prevBudgetId}/rollover`, { destination: 'goal', goalId });
   check('move leftover into goal', r.status === 200 && r.data.moved === 200000, r);
   check('second rollover is refused', (await call(a.token, 'POST', `/budgets/${prevBudgetId}/rollover`, { destination: 'goal', goalId })).status === 409);
-  check('goal received the leftover', (await call(a.token, 'GET', `/goals/${goalId}`)).data?.goal?.currentAmount === 210000);
+  check('goal received the leftover', (await call(a.token, 'GET', `/goals/${goalId}`)).data?.goal?.currentAmount === 205000);
   check('running budget is not eligible', (await call(a.token, 'POST', `/budgets/${budgetId}/rollover`, { destination: 'next-budget' })).status === 400);
+  r = await call(a.token, 'POST', `/goals/${goalId}/contributions`, { amount: 10000 });
+  check('add money to a goal', r.status === 201 && r.data.goal.currentAmount === 215000 && !!r.data.transactionId, r);
 
   section('Shared household budget');
   r = await call(a.token, 'POST', `/budgets/${budgetId}/invites`);
@@ -307,6 +319,71 @@ try {
   console.log(`  (assistant responded with ${r.status}${r.status === 501 ? ': add ANTHROPIC_API_KEY to switch it on' : ''})`);
   check('assistant rejects empty questions', (await call(a.token, 'POST', '/assistant/chat', { message: '   ' })).status === 400);
 
+  section('Business tools');
+  const addDays = (n) => new Date(Date.parse(`${today}T12:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+  r = await call(a.token, 'PATCH', '/business/settings', { businessName: 'Ada Foods', vatRegistered: true });
+  check('business settings', r.status === 200 && r.data.settings.businessName === 'Ada Foods' && r.data.settings.vatRegistered === true && r.data.settings.vatRate === 7.5, r);
+  r = await call(a.token, 'POST', '/invoices', { customerName: 'Mama Put Ltd', customerPhone: '08030000000', dueDate: addDays(14), items: [{ description: 'Jollof trays', quantity: 5, unitPrice: 10000 }] });
+  check('create invoice with VAT', r.status === 201 && r.data.invoice.number === 'INV-0001' && r.data.invoice.total === 53750 && r.data.invoice.status === 'unpaid', r);
+  const inv1 = r.data?.invoice?.id;
+  r = await call(a.token, 'POST', `/invoices/${inv1}/payments`, { amount: 20000 });
+  check('part payment records Sales income', r.status === 201 && r.data.invoice.status === 'part_paid' && r.data.invoice.balance === 33750 && !!r.data.transactionId, r);
+  check('payment above balance is refused', (await call(a.token, 'POST', `/invoices/${inv1}/payments`, { amount: 99999 })).status === 400);
+  r = await call(a.token, 'POST', `/invoices/${inv1}/payments`, {});
+  check('pay the rest', r.status === 201 && r.data.invoice.status === 'paid', r);
+  check('paid invoice cannot be deleted', (await call(a.token, 'DELETE', `/invoices/${inv1}`)).status === 400);
+  r = await call(a.token, 'POST', '/invoices', { customerName: 'Chidi Stores', issueDate: addDays(-30), dueDate: addDays(-10), applyVat: false, items: [{ description: 'Small chops', quantity: 1, unitPrice: 15000 }] });
+  check('overdue invoice', r.status === 201 && r.data.invoice.number === 'INV-0002' && r.data.invoice.overdue === true && r.data.invoice.total === 15000, r);
+  r = await call(a.token, 'GET', '/invoices?status=open');
+  check('open invoices with totals', r.status === 200 && r.data.items.length === 1 && r.data.totals.owed === 15000 && r.data.totals.overdueCount === 1, r.data);
+  r = await call(a.token, 'GET', `/invoices/${inv1}`);
+  check('invoice detail with payments and business details', r.status === 200 && r.data.payments.length === 2 && r.data.business.businessName === 'Ada Foods', r);
+
+  r = await call(a.token, 'POST', '/bills', { supplierName: 'Golden Flour', amount: 40000, dueDate: addDays(2), category: 'Stock & supplies' });
+  check('record a supplier bill', r.status === 201 && r.data.bill.balance === 40000, r);
+  const billId = r.data?.bill?.id;
+  r = await call(a.token, 'POST', `/bills/${billId}/payments`, { amount: 15000 });
+  check('part pay a bill', r.status === 201 && r.data.bill.status === 'part_paid' && r.data.bill.balance === 25000, r);
+  r = await call(a.token, 'GET', '/bills?status=open');
+  check('bills list with what you owe', r.status === 200 && r.data.totals.owe === 25000 && r.data.totals.dueThisWeek === 25000, r.data);
+
+  r = await call(a.token, 'POST', '/staff', { name: 'Tunde', role: 'Chef', monthlyGross: 300000 });
+  check('add staff with PAYE estimate', r.status === 201 && r.data.staff.netEstimate + r.data.staff.payeEstimate === 300000, r);
+  r = await call(a.token, 'POST', '/payroll/runs', { period: today.slice(0, 7) });
+  const run = r.data?.run;
+  check('run payroll', r.status === 201 && run.totalGross === 300000 && Math.abs(run.totalNet + run.totalPaye - 300000) < 0.01 && (run.totalPaye === 0 || !!run.payeBillId), r);
+  check('same month cannot be paid twice', (await call(a.token, 'POST', '/payroll/runs', { period: today.slice(0, 7) })).status === 409);
+  r = await call(a.token, 'GET', '/payroll');
+  check('payroll history', r.status === 200 && r.data.runs.length === 1 && r.data.staff.length === 1, r.data);
+
+  r = await call(a.token, 'GET', '/business/summary');
+  const biz = r.data?.summary;
+  check('business summary', r.status === 200 && biz.current.revenue === 53750 && biz.receivables.overdueCount === 1 && biz.payables.openTotal >= 25000 && Array.isArray(biz.tax.deadlines), biz ?? r);
+  r = await call(a.token, 'GET', '/business/pay-yourself');
+  check('pay-yourself suggestion explains itself', r.status === 200 && typeof r.data.suggestion.suggested === 'number' && r.data.suggestion.suggested >= 0 && typeof r.data.suggestion.buffer === 'number', r.data);
+  r = await call(a.token, 'POST', '/business/pay-yourself', { amount: 5000 });
+  check('record owner pay in both spaces', r.status === 201 && !!r.data.businessTransactionId && !!r.data.personalTransactionId, r);
+  r = await call(a.token, 'GET', `/business/report?from=${monthStart}&to=${today}`);
+  check('profit and loss report', r.status === 200 && r.data.report.profitAndLoss.revenueTotal === 53750 && r.data.report.profitAndLoss.ownerPay === 5000 && r.data.report.business.name === 'Ada Foods', r.data?.report?.profitAndLoss ?? r);
+
+  const statementRows = [
+    { date: today, amount: 12500, direction: 'credit', description: 'Paystack payment from Ngozi', reference: `PSK-${stamp}-1` },
+    { date: today, amount: 250, direction: 'debit', description: 'Paystack fee', reference: `PSK-${stamp}-2` }
+  ];
+  r = await call(a.token, 'POST', '/imports/statement', { source: 'paystack', fileName: 'paystack.csv', rows: statementRows });
+  check('upload a Paystack statement', r.status === 201 && r.data.imported === 2 && r.data.duplicates === 0, r);
+  r = await call(a.token, 'POST', '/imports/statement', { source: 'paystack', fileName: 'paystack.csv', rows: statementRows });
+  check('re-uploading adds nothing twice', r.status === 201 && r.data.imported === 0 && r.data.duplicates === 2, r);
+  r = await call(a.token, 'GET', '/insights?spaceId=business');
+  check('business early warnings include overdue invoices', r.status === 200 && r.data.items.some((i) => i.key.startsWith('biz-overdue')), r.data?.items?.map((i) => i.key));
+
+  section('Money Wrapped');
+  r = await call(a.token, 'GET', `/wrapped?kind=year&year=${y}&spaceId=personal`);
+  check('personal Wrapped for the year', r.status === 200 && r.data.wrapped.hasData === true && r.data.wrapped.period.kind === 'year' && !!r.data.wrapped.persona, r.data?.wrapped?.period ?? r);
+  r = await call(a.token, 'GET', `/wrapped?kind=year&year=${y}&spaceId=business`);
+  check('business Wrapped names the top customer', r.status === 200 && r.data.wrapped.business?.topCustomer?.name === 'Mama Put Ltd', r.data?.wrapped?.business ?? r);
+  check('future Wrapped is refused', (await call(a.token, 'GET', '/wrapped?kind=h1&year=2099')).status === 400);
+
   section('Devices, passwords and recovery');
   r = await call(a.token, 'GET', '/auth/sessions');
   check('devices list names this phone', r.status === 200 && r.data.items.some((s) => s.current && s.deviceName === 'Test iPhone'), r);
@@ -341,7 +418,7 @@ try {
   section('Scheduled job');
   check('daily job rejects missing secret', (await call(null, 'POST', '/cron/daily')).status === 401);
   r = await call(null, 'POST', '/cron/daily?insights=1', {}, { 'x-cron-secret': CRON });
-  check('daily job runs with secret', r.status === 200 && r.data.today === today && typeof r.data.billReminders === 'number' && typeof r.data.insights?.sent === 'number', r);
+  check('daily job runs with secret', r.status === 200 && r.data.today === today && typeof r.data.billReminders === 'number' && typeof r.data.insights?.sent === 'number' && typeof r.data.business?.invoices === 'number', r);
 
   section('Clean up');
   const fresh = (await signIn(A.email, 'ResetPassw0rd-3')).data?.access_token ?? a.token;

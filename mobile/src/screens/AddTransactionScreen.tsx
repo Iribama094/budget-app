@@ -4,7 +4,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CalendarDays, ChevronLeft, ChevronRight, ClipboardPaste, Delete, PieChart, Plus, Receipt, Sparkles, Wallet, X } from 'lucide-react-native';
 
-import { createTransaction, listBudgets, listGoals, listMiniBudgets, listMiniBudgetsInSpace, listTransactions, patchGoal, patchGoalInSpace, type ApiBudget, type ApiGoal } from '../api/endpoints';
+import { createTransaction, listBudgets, listGoals, listMiniBudgets, listMiniBudgetsInSpace, listTransactions, type ApiBudget, type ApiGoal } from '../api/endpoints';
+import { addMoneyToGoal } from '../api/business';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
@@ -216,14 +217,9 @@ export function AddTransactionScreen() {
       });
 
       if (showGoalLink && selectedGoalId) {
-        const g = goals.find((x) => String(x.id) === String(selectedGoalId)) ?? null;
-        const next = Math.max(0, Number(g?.currentAmount ?? 0) + parsedAmount);
         try {
-          if (spacesEnabled) {
-            await patchGoalInSpace(String(selectedGoalId), { currentAmount: next }, activeSpaceId);
-          } else {
-            await patchGoal(String(selectedGoalId), { currentAmount: next });
-          }
+          // The expense above already records the Savings budget entry. This only links its goal progress.
+          await addMoneyToGoal(String(selectedGoalId), { amount: parsedAmount, occurredOn: date, recordInBudget: false });
         } catch (e) {
           toast.show(e instanceof Error ? e.message : 'Saved transaction but failed to update goal', 'error');
         }

@@ -150,10 +150,11 @@ export async function applyAutoSave(userId: string, spaceId: string, incomeAmoun
     const move = Math.min(remaining, Math.round(incomeAmount * pct) / 100);
     if (move <= 0) continue;
 
-    await sql`update public.goals set current_amount = current_amount + ${move} where id = ${g.id} and user_id = ${userId}`;
+    // Pending until the person confirms they actually moved the money; only then does the goal grow and a
+    // Savings entry land in the budget.
     await sql`
-      insert into public.goal_contributions (user_id, goal_id, amount, source, transaction_id)
-      values (${userId}, ${g.id}, ${move}, 'autosave', ${transactionId})
+      insert into public.goal_contributions (user_id, goal_id, amount, source, transaction_id, status)
+      values (${userId}, ${g.id}, ${move}, 'autosave', ${transactionId}, 'pending')
     `;
     out.push({ goalId: g.id, name: g.name, amount: move });
   }
@@ -163,8 +164,8 @@ export async function applyAutoSave(userId: string, spaceId: string, incomeAmoun
     const total = out.reduce((s, r) => s + r.amount, 0);
     await notifyUser(userId, {
       kind: 'autosave',
-      ...voice.autosave(formatMoney(total, currency), out.length === 1 ? out[0].name : null, formatMoney(incomeAmount, currency)),
-      data: { screen: out.length === 1 ? 'GoalDetail' : 'Goals', goalId: out[0].goalId }
+      ...voice.autosaveReminder(formatMoney(total, currency), out.length === 1 ? out[0].name : 'your goals', formatMoney(incomeAmount, currency)),
+      data: { screen: 'Goals' }
     });
   }
   return out;

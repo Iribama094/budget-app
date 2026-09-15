@@ -56,7 +56,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     (items: AutoSaved[]) => {
       if (!items.length) return;
       const total = items.reduce((s, x) => s + x.amount, 0);
-      toast.show(items.length === 1 ? `${formatAmount(total, glyph)} added to ${items[0].name}` : `${formatAmount(total, glyph)} added to your goals`, 'success');
+      toast.show(items.length === 1 ? `Did you move ${formatAmount(total, glyph)} to ${items[0].name}? Confirm it in Goals.` : `Did you move ${formatAmount(total, glyph)} to your goals? Confirm it in Goals.`, 'info');
     },
     [glyph, toast]
   );

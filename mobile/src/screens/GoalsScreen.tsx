@@ -14,6 +14,7 @@ import { SpaceSwitcher } from '../components/Common/SpaceSwitcher';
 import { useTour, useTourAnchor } from '../contexts/TourContext';
 import { useNudges } from '../contexts/NudgesContext';
 import { NudgeTooltip } from '../components/Common/NudgeTooltip';
+import { PendingSavingsCard } from '../components/Home/PendingSavingsCard';
 
 function formatDate(iso: string) {
   try {
@@ -180,6 +181,7 @@ export function GoalsScreen() {
                 <SpaceSwitcher />
               </View>
             ) : null}
+            {activeSpaceId === 'personal' ? <PendingSavingsCard onAnswered={() => void load()} /> : null}
             {error ? (
               <View style={{ marginTop: 12 }}>
                 <InlineError message={error} />

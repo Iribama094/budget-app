@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, Pressable, Image, Alert, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
-import { Briefcase, HeartHandshake, Lock, Smartphone, UserRound } from 'lucide-react-native';
+import { Briefcase, Gift, HeartHandshake, Lock, Smartphone, UserRound } from 'lucide-react-native';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -141,6 +141,7 @@ export function ProfileScreen() {
           chevron
         />
         <ListRow icon={tile(UserRound)} title="Personal details" subtitle="Name, photo and currency" onPress={() => nav.navigate('ProfileEdit')} chevron />
+        <ListRow icon={tile(Gift)} title="Money Wrapped" subtitle="Your money story, the fun way 🎁" onPress={() => nav.navigate('Wrapped')} chevron />
       </ListCard>
 
       {netWorth != null ? (

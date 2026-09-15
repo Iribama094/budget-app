@@ -63,6 +63,16 @@ import SetupPlanScreen from './src/screens/SetupPlanScreen';
 import IncomeBillsScreen from './src/screens/IncomeBillsScreen';
 import CategoriesScreen from './src/screens/CategoriesScreen';
 import { CategoriesProvider } from './src/contexts/CategoriesContext';
+import InvoicesScreen from './src/screens/InvoicesScreen';
+import InvoiceDetailScreen from './src/screens/InvoiceDetailScreen';
+import InvoiceEditScreen from './src/screens/InvoiceEditScreen';
+import BillsScreen from './src/screens/BillsScreen';
+import PayrollScreen from './src/screens/PayrollScreen';
+import BusinessTaxScreen from './src/screens/BusinessTaxScreen';
+import PayYourselfScreen from './src/screens/PayYourselfScreen';
+import BusinessReportsScreen from './src/screens/BusinessReportsScreen';
+import StatementImportScreen from './src/screens/StatementImportScreen';
+import WrappedScreen from './src/screens/WrappedScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -145,6 +155,16 @@ function AuthedStack() {
       <Stack.Screen name="BankAlertImport" component={BankAlertScreen} />
       <Stack.Screen name="MonoConnect" component={MonoConnectScreen} />
       <Stack.Screen name="ShareBudget" component={ShareBudgetScreen} />
+      <Stack.Screen name="Invoices" component={InvoicesScreen} />
+      <Stack.Screen name="InvoiceDetail" component={InvoiceDetailScreen} />
+      <Stack.Screen name="InvoiceEdit" component={InvoiceEditScreen} />
+      <Stack.Screen name="Bills" component={BillsScreen} />
+      <Stack.Screen name="Payroll" component={PayrollScreen} />
+      <Stack.Screen name="BusinessTax" component={BusinessTaxScreen} />
+      <Stack.Screen name="PayYourself" component={PayYourselfScreen} />
+      <Stack.Screen name="BusinessReports" component={BusinessReportsScreen} />
+      <Stack.Screen name="StatementImport" component={StatementImportScreen} />
+      <Stack.Screen name="Wrapped" component={WrappedScreen} />
     </Stack.Navigator>
   );
 }

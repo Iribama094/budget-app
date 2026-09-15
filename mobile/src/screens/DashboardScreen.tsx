@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator, Animated, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { ArrowDownLeft, ArrowUpRight, Bell, CalendarCheck, Check, Eye, EyeOff, Flame, Landmark, Settings as SettingsIcon, Sparkles, WifiOff } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Bell, CalendarCheck, Check, Eye, EyeOff, Flame, Gift, Landmark, Settings as SettingsIcon, Sparkles, WifiOff } from 'lucide-react-native';
 import { useSync } from '../contexts/SyncContext';
 import { publishWidgetSnapshot } from '../lib/widgetData';
 import { useAuth } from '../contexts/AuthContext';
@@ -37,6 +37,7 @@ import { useNudges } from '../contexts/NudgesContext';
 import { FirstWeekChecklist } from '../components/Home/FirstWeekChecklist';
 import { InsightCards } from '../components/Home/InsightCards';
 import { BusinessHome } from '../components/Home/BusinessHome';
+import { PendingSavingsCard } from '../components/Home/PendingSavingsCard';
 
 export function DashboardScreen() {
   const nav = useNavigation<any>();
@@ -71,6 +72,16 @@ export function DashboardScreen() {
   const hasBudget = !!currentBudget;
   const showGettingStarted = !isLoading && !error && !hasTransactions && !hasBudget;
   const showConnectBank = !isLoading && !error && (bankSummary?.banks ?? 0) === 0 && !!(user as any)?.premium;
+  /** Wrapped is seasonal: the half-year in Jul/Aug, the year so far in December, and last year's recap in January. */
+  const wrappedPromo = useMemo(() => {
+    const now = new Date();
+    const m = now.getMonth();
+    const y = now.getFullYear();
+    if (m === 6 || m === 7) return { kind: 'h1' as const, year: y, title: `Your ${y} half-year is ready 🎁`, line: 'See how Jan to Jun went. Tap to open am!' };
+    if (m === 11) return { kind: 'year' as const, year: y, title: `Your ${y} Money Wrapped 🎉`, line: 'The whole year in one story. Who you be with money?' };
+    if (m === 0) return { kind: 'year' as const, year: y - 1, title: `${y - 1} don wrap 🎁`, line: 'Look back at last year before you plan this one.' };
+    return null;
+  }, []);
   const summaryLabel = summaryRangeKey === 'today' ? 'Today' : summaryRangeKey === 'week' ? 'This week' : 'This month';
   const summaryLabelLower = summaryLabel.toLowerCase();
 
@@ -650,7 +661,25 @@ export function DashboardScreen() {
         ) : null}
       </ListCard>
 
+      {wrappedPromo ? (
+        <Pressable
+          onPress={() => nav.navigate('Wrapped', { kind: wrappedPromo.kind, year: wrappedPromo.year })}
+          accessibilityRole="button"
+          style={({ pressed }) => ({ marginTop: 14, opacity: pressed ? 0.92 : 1 })}
+        >
+          <HeroCard>
+            <View style={styles.inline}>
+              <Gift color="#E2B65C" size={16} />
+              <Text style={[type.eyebrow, { color: theme.colors.inkText, opacity: 0.72 }]}>Money Wrapped</Text>
+            </View>
+            <Text style={[type.h2, { color: theme.colors.inkText, marginTop: 6 }]}>{wrappedPromo.title}</Text>
+            <Text style={[type.small, { color: theme.colors.inkText, opacity: 0.78, marginTop: 2 }]}>{wrappedPromo.line}</Text>
+          </HeroCard>
+        </Pressable>
+      ) : null}
+
       <InsightCards spaceId={spacesEnabled ? activeSpaceId : 'personal'} />
+      {activeSpaceId === 'personal' ? <PendingSavingsCard /> : null}
 
       {showSpaceNudge ? (
         <Card style={{ marginTop: 10 }}>

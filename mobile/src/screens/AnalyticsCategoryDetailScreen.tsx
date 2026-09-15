@@ -1,15 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { ArrowLeft } from 'lucide-react-native';
+import { PieChart } from 'lucide-react-native';
 
-import { Screen, Card, H1, InlineError, P } from '../components/Common/ui';
+import { Amount, EmptyState, HeroCard, InlineError, ListCard, ProgressBar, Screen, ScreenHeader, SectionHeader } from '../components/Common/ui';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { getAnalyticsSummary, type AnalyticsSummary } from '../api/endpoints';
-import { categoryDotColor, formatMoney } from '../utils/format';
+import { categoryDotColor, currencySymbol, formatShortDate } from '../utils/format';
+import { type } from '../theme/typography';
 
 type RouteParams = {
   range: { start: string; end: string };
@@ -23,6 +24,8 @@ export default function AnalyticsCategoryDetailScreen() {
   const { user } = useAuth();
   const { showAmounts } = useAmountVisibility();
   const { spacesEnabled, activeSpaceId } = useSpace();
+  const glyph = currencySymbol(user?.currency);
+  const inkText = theme.colors.inkText;
 
   const params = (route.params ?? {}) as RouteParams;
   const range = params.range;
@@ -57,90 +60,53 @@ export default function AnalyticsCategoryDetailScreen() {
   }, [data?.spendingByCategory]);
 
   const total = useMemo(() => items.reduce((s, x) => s + x.amount, 0) || 0, [items]);
+  const top = items[0];
 
   return (
-    <Screen onRefresh={load} refreshing={isLoading}>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <Pressable
-          onPress={() => nav.goBack()}
-          style={({ pressed }) => [{
-            width: 44,
-            height: 44,
-            borderRadius: 18,
-            backgroundColor: theme.colors.surface,
-            borderWidth: 1,
-            borderColor: theme.colors.border,
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: pressed ? 0.92 : 1
-          }]}
-        >
-          <ArrowLeft color={theme.colors.text} size={20} />
-        </Pressable>
-        <View style={{ marginLeft: 12, flex: 1 }}>
-          <H1 style={{ marginBottom: 0 }}>Spending by Category</H1>
-          <P style={{ marginTop: 4 }}>Full breakdown for this period.</P>
+    <Screen bottomInset={48} onRefresh={load} refreshing={isLoading}>
+      <ScreenHeader title="Spending by category" subtitle={range ? `${formatShortDate(range.start)} – ${formatShortDate(range.end)}` : undefined} onBack={() => nav.goBack()} />
+
+      {error ? <InlineError message={error} /> : null}
+
+      <HeroCard style={{ marginTop: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <PieChart color="#E2B65C" size={16} />
+          <Text style={[type.eyebrow, { color: inkText, opacity: 0.72 }]}>Total spending</Text>
         </View>
-      </View>
+        <Amount value={total} currency={glyph} size="hero" color={inkText} hidden={!showAmounts} style={{ marginTop: 8 }} />
+        <Text style={[type.small, { color: inkText, opacity: 0.78 }]}>
+          {top && total > 0 ? `${top.category} carry the biggest share: ${Math.round((top.amount / total) * 100)}% of your spending.` : 'Where your money went this period.'}
+        </Text>
+      </HeroCard>
 
-      <View style={{ marginTop: 12 }}>
-        {error ? <InlineError message={error} /> : null}
-        {isLoading ? <ActivityIndicator color={theme.colors.primary} /> : null}
-      </View>
-
-      <View style={{ marginTop: 12 }}>
-        <Card>
-          <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Period</Text>
-          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 14, marginTop: 4 }}>
-            {String(range?.start ?? '')} → {String(range?.end ?? '')}
-          </Text>
-          <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12, marginTop: 10 }}>Total spending</Text>
-          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 22, marginTop: 4 }}>
-            {showAmounts ? formatMoney(total, user?.currency ?? '₦') : '••••'}
-          </Text>
-        </Card>
-      </View>
-
-      <View style={{ marginTop: 12 }}>
-        <Card>
-          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Categories</Text>
-          <View style={{ marginTop: 10 }}>
-            {items.length === 0 ? (
-              <P>No category spending data yet.</P>
-            ) : (
-              items.map(({ category, amount }) => {
-                const pct = total > 0 ? Math.round((amount / total) * 100) : 0;
-                const dot = categoryDotColor(category);
-                return (
-                  <View
-                    key={category}
-                    style={{
-                      paddingVertical: 10,
-                      borderBottomWidth: 1,
-                      borderBottomColor: theme.colors.border
-                    }}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 12 }}>
-                        <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: dot, marginRight: 10 }} />
-                        <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', flex: 1 }} numberOfLines={1}>
-                          {category}
-                        </Text>
-                      </View>
-                      <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>
-                        {showAmounts ? formatMoney(amount, user?.currency ?? '₦') : '••••'}
-                      </Text>
-                    </View>
-                    <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', marginTop: 6, fontSize: 12 }}>
-                      {pct}% of spending
-                    </Text>
-                  </View>
-                );
-              })
-            )}
-          </View>
-        </Card>
-      </View>
+      <SectionHeader title="Categories" />
+      {isLoading && !data ? (
+        <ActivityIndicator color={theme.colors.primary} />
+      ) : items.length === 0 ? (
+        <EmptyState title="Nothing to show yet" body="No spending in this period. Log an expense and your breakdown go show here." />
+      ) : (
+        <ListCard>
+          {items.map(({ category, amount }) => {
+            const share = total > 0 ? amount / total : 0;
+            const dot = categoryDotColor(category);
+            return (
+              <View key={category} style={{ paddingVertical: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: dot }} />
+                  <Text numberOfLines={1} style={[type.bodyStrong, { color: theme.colors.text, flex: 1 }]}>
+                    {category}
+                  </Text>
+                  <Amount value={amount} currency={glyph} size="sm" hidden={!showAmounts} />
+                </View>
+                <View style={{ marginTop: 8 }}>
+                  <ProgressBar value={share} color={dot} />
+                </View>
+                <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 4 }]}>{Math.round(share * 100)}% of spending</Text>
+              </View>
+            );
+          })}
+        </ListCard>
+      )}
     </Screen>
   );
 }

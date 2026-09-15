@@ -63,6 +63,9 @@ If Xcode reports a **signing / development team** error (the widget shares data 
 | **Signed-in devices** | Sign in to the same account in two simulators, then tap your initials on Home › **Profile** › **Your devices** and sign the other one out. |
 | **Different iPhone sizes** | **File › Open Simulator** and pick another model, e.g. iPhone SE or iPhone 16 Pro Max. |
 | **Dark mode** | Home › gear icon › **Appearance** › **Dark**, or **Features › Toggle Appearance** in the simulator. |
+| **Business tools** | Switch to **Business** on Home, then try invoices, bills, payroll, tax estimates, reports and a Paystack/Moniepoint CSV upload. The upload creates transactions for review; it does not connect a live provider. |
+| **Goal savings** | Add income with auto-save turned on for a goal, then answer "I moved it" or "Not this time" on Home or Goals. Adding money on a goal also records a Savings expense unless you switch that off. |
+| **Money Wrapped** | Profile › **Money Wrapped**, any time. Home also shows a Wrapped card in July/August (first half of the year), December (the year so far) and January (last year). |
 
 To capture what you see, press **⌘S** for a screenshot, or use **File › Record Screen** for a video. Both are saved to the Desktop.
 

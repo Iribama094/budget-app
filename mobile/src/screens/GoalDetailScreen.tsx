@@ -1,28 +1,40 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { ChevronLeft, Pencil } from 'lucide-react-native';
+import { CalendarClock, Pencil, PiggyBank, Plus, Repeat, Trash2 } from 'lucide-react-native';
 
 import { deleteGoal, deleteGoalInSpace, getGoal, getGoalInSpace, patchGoal, patchGoalInSpace, type ApiGoal } from '../api/endpoints';
-import { Screen, Card, InlineError, PrimaryButton, SecondaryButton, TextField } from '../components/Common/ui';
+import { addMoneyToGoal } from '../api/business';
+import {
+  Amount,
+  Card,
+  Chip,
+  HeroCard,
+  IconButton,
+  IconTile,
+  InlineError,
+  PrimaryButton,
+  ProgressBar,
+  Screen,
+  ScreenHeader,
+  SecondaryButton,
+  SectionHeader,
+  TextField,
+  formatAmount
+} from '../components/Common/ui';
+import { MoneyField, Sheet, parseMoney } from '../components/Business/parts';
+import { PendingSavingsCard } from '../components/Home/PendingSavingsCard';
 import { useToast } from '../components/Common/Toast';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useSpace } from '../contexts/SpaceContext';
-import { formatMoney, formatNumberInput } from '../utils/format';
-import { tokens } from '../theme/tokens';
+import { currencySymbol, formatNumberInput, formatShortDate } from '../utils/format';
 import { type as typo } from '../theme/typography';
+
+const AUTO_SAVE_OPTIONS = [5, 10, 15, 20, 30];
 
 function clamp01(n: number) {
   return Math.max(0, Math.min(1, n));
-}
-
-function formatDate(iso: string) {
-  try {
-    return new Date(iso).toLocaleDateString();
-  } catch {
-    return iso;
-  }
 }
 
 export default function GoalDetailScreen() {
@@ -32,6 +44,8 @@ export default function GoalDetailScreen() {
   const { user } = useAuth();
   const { spacesEnabled, activeSpaceId } = useSpace();
   const toast = useToast();
+  const glyph = currencySymbol(user?.currency);
+  const inkText = theme.colors.inkText;
 
   const goalId = String(route.params?.goalId ?? '');
   const initialGoal = (route.params?.goal ?? null) as ApiGoal | null;
@@ -39,34 +53,21 @@ export default function GoalDetailScreen() {
   const [goal, setGoal] = useState<ApiGoal | null>(initialGoal);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState('');
   const [draftEmoji, setDraftEmoji] = useState('');
   const [draftCategory, setDraftCategory] = useState('');
   const [draftTargetAmount, setDraftTargetAmount] = useState('');
   const [draftCurrentAmount, setDraftCurrentAmount] = useState('');
   const [draftTargetDate, setDraftTargetDate] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
 
-  const currency = user?.currency ?? '₦';
-
-  const saveAutoSave = async (percent: number | null) => {
-    if (!goal || isSaving) return;
-    setIsSaving(true);
-    setError(null);
-    try {
-      const updated = spacesEnabled
-        ? await patchGoalInSpace(goal.id, { autoSavePercent: percent }, activeSpaceId)
-        : await patchGoal(goal.id, { autoSavePercent: percent });
-      setGoal(updated);
-      toast.show(percent ? `${percent}% of each income will go toward ${goal.name}` : 'Auto-save turned off', 'success');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not update auto-save');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  const [isAdding, setIsAdding] = useState(false);
+  const [addAmount, setAddAmount] = useState('');
+  const [recordInBudget, setRecordInBudget] = useState(true);
+  const [addError, setAddError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!goalId) {
@@ -90,111 +91,113 @@ export default function GoalDetailScreen() {
     void load();
   }, [load]);
 
+  const saveAutoSave = async (percent: number | null) => {
+    if (!goal || isSaving) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const updated = spacesEnabled
+        ? await patchGoalInSpace(goal.id, { autoSavePercent: percent }, activeSpaceId)
+        : await patchGoal(goal.id, { autoSavePercent: percent });
+      setGoal(updated);
+      toast.show(percent ? `We go remind you to move ${percent}% of each income to ${goal.name} 🔔` : 'Auto-save reminder turned off', 'success');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not update auto-save');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const beginEdit = useCallback(() => {
     if (!goal) return;
     setDraftName(goal.name ?? '');
     setDraftEmoji(String(goal.emoji ?? ''));
     setDraftCategory(String(goal.category ?? ''));
-    setDraftTargetAmount(String(goal.targetAmount ?? 0));
-    setDraftCurrentAmount(String(goal.currentAmount ?? 0));
+    setDraftTargetAmount(formatNumberInput(String(goal.targetAmount ?? 0)));
+    setDraftCurrentAmount(formatNumberInput(String(goal.currentAmount ?? 0)));
     setDraftTargetDate(String(goal.targetDate ?? ''));
+    setEditError(null);
     setIsEditing(true);
   }, [goal]);
 
-  const cancelEdit = useCallback(() => {
-    setIsEditing(false);
-    setError(null);
-  }, []);
-
   const saveEdits = useCallback(async () => {
     if (!goal || isSaving) return;
-    setError(null);
+    setEditError(null);
 
     const name = draftName.trim();
     if (!name) {
-      setError('Name is required');
+      setEditError('Name is required');
       return;
     }
 
     const targetAmount = Number(String(draftTargetAmount).replace(/,/g, ''));
     const currentAmount = Number(String(draftCurrentAmount).replace(/,/g, ''));
     if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
-      setError('Target amount must be a positive number');
+      setEditError('Target amount must be a positive number');
       return;
     }
     if (!Number.isFinite(currentAmount) || currentAmount < 0) {
-      setError('Current amount must be 0 or more');
+      setEditError('Current amount must be 0 or more');
       return;
     }
 
     const targetDate = draftTargetDate.trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
-      setError('Target date must be YYYY-MM-DD');
+      setEditError('Target date must be YYYY-MM-DD');
       return;
     }
 
+    const patch = {
+      name,
+      targetAmount,
+      currentAmount,
+      targetDate,
+      emoji: draftEmoji.trim() || undefined,
+      category: draftCategory.trim() || undefined
+    };
+
     setIsSaving(true);
     try {
-      const updated = spacesEnabled
-        ? await patchGoalInSpace(
-            goal.id,
-            {
-              name,
-              targetAmount,
-              currentAmount,
-              targetDate,
-              emoji: draftEmoji.trim() || undefined,
-              category: draftCategory.trim() || undefined
-            },
-            activeSpaceId
-          )
-        : await patchGoal(goal.id, {
-            name,
-            targetAmount,
-            currentAmount,
-            targetDate,
-            emoji: draftEmoji.trim() || undefined,
-            category: draftCategory.trim() || undefined
-          });
+      const updated = spacesEnabled ? await patchGoalInSpace(goal.id, patch, activeSpaceId) : await patchGoal(goal.id, patch);
       setGoal(updated);
       setIsEditing(false);
+      toast.show('Goal updated ✅', 'success');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save goal');
+      setEditError(e instanceof Error ? e.message : 'Failed to save goal');
     } finally {
       setIsSaving(false);
     }
-  }, [activeSpaceId, draftCategory, draftCurrentAmount, draftEmoji, draftName, draftTargetAmount, draftTargetDate, goal, isSaving, spacesEnabled]);
+  }, [activeSpaceId, draftCategory, draftCurrentAmount, draftEmoji, draftName, draftTargetAmount, draftTargetDate, goal, isSaving, spacesEnabled, toast]);
 
-  const progress = useMemo(() => {
-    if (!goal || goal.targetAmount <= 0) return 0;
-    return clamp01(goal.currentAmount / goal.targetAmount);
-  }, [goal?.currentAmount, goal?.targetAmount]);
+  const openAddMoney = () => {
+    setAddAmount('');
+    setRecordInBudget(true);
+    setAddError(null);
+    setIsAdding(true);
+  };
 
-  const remaining = useMemo(() => {
-    if (!goal) return 0;
-    return Math.max(0, goal.targetAmount - goal.currentAmount);
-  }, [goal?.targetAmount, goal?.currentAmount]);
-
-  const daysRemaining = useMemo(() => {
-    if (!goal) return null;
-    const d = Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    if (!Number.isFinite(d)) return null;
-    return d;
-  }, [goal?.targetDate]);
-
-  const bumpProgress = async () => {
+  const addMoney = async () => {
     if (!goal || isSaving) return;
-    setError(null);
+    const amount = parseMoney(addAmount);
+    if (amount <= 0) {
+      setAddError('Enter an amount greater than zero');
+      return;
+    }
+    setAddError(null);
     setIsSaving(true);
     try {
-      const bump = Math.max(1, Math.round(goal.targetAmount * 0.05));
-      const next = Math.min(goal.targetAmount, (goal.currentAmount ?? 0) + bump);
-      const updated = spacesEnabled
-        ? await patchGoalInSpace(goal.id, { currentAmount: next }, activeSpaceId)
-        : await patchGoal(goal.id, { currentAmount: next });
-      setGoal(updated);
+      const result = await addMoneyToGoal(goal.id, { amount, recordInBudget });
+      setGoal((current) => (current ? { ...current, currentAmount: result.goal.currentAmount } : current));
+      setIsAdding(false);
+      toast.show(
+        recordInBudget
+          ? `Small small, e go full 🌱 ${formatAmount(result.amount, glyph)} added to ${goal.name} and counted under Savings.`
+          : `${formatAmount(result.amount, glyph)} added to ${goal.name} 💪`,
+        'success',
+        3500
+      );
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update goal');
+      setAddError(e instanceof Error ? e.message : 'Could not add money to this goal');
     } finally {
       setIsSaving(false);
     }
@@ -202,7 +205,7 @@ export default function GoalDetailScreen() {
 
   const confirmDelete = useCallback(() => {
     if (!goal) return;
-    Alert.alert('Delete goal?', 'This cannot be undone.', [
+    Alert.alert('Delete this goal?', 'Your progress on it goes too. This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -221,193 +224,200 @@ export default function GoalDetailScreen() {
     ]);
   }, [activeSpaceId, goal, nav, spacesEnabled, toast]);
 
-  return (
-    <Screen onRefresh={load} refreshing={isLoading || isSaving}>
-      <Pressable
-        onPress={() => nav.goBack()}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', opacity: pressed ? 0.8 : 1 })}
-      >
-        <ChevronLeft color={theme.colors.text} size={20} />
-        <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginLeft: 6 }}>Back</Text>
-      </Pressable>
+  const progress = useMemo(() => {
+    if (!goal || goal.targetAmount <= 0) return 0;
+    return clamp01(goal.currentAmount / goal.targetAmount);
+  }, [goal?.currentAmount, goal?.targetAmount]);
 
-      <View style={{ marginTop: 12 }}>
-        {error ? <InlineError message={error} /> : null}
-        {isLoading ? <ActivityIndicator color={theme.colors.primary} /> : null}
-      </View>
+  const remaining = useMemo(() => {
+    if (!goal) return 0;
+    return Math.max(0, goal.targetAmount - goal.currentAmount);
+  }, [goal?.targetAmount, goal?.currentAmount]);
+
+  const daysRemaining = useMemo(() => {
+    if (!goal) return null;
+    const d = Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    if (!Number.isFinite(d)) return null;
+    return d;
+  }, [goal?.targetDate]);
+
+  /** What to put away each month to land on the target date; the whole remainder once the date has passed. */
+  const perMonth = useMemo(() => {
+    if (remaining <= 0 || daysRemaining == null) return null;
+    const months = Math.max(1, Math.ceil(daysRemaining / 30.44));
+    return Math.ceil(remaining / months);
+  }, [daysRemaining, remaining]);
+
+  const done = progress >= 1;
+  const title = goal ? `${goal.emoji ? `${goal.emoji} ` : ''}${goal.name}` : 'Goal';
+
+  const headerActions = goal ? (
+    <View style={styles.row}>
+      <IconButton accessibilityLabel="Edit goal" onPress={beginEdit}>
+        <Pencil color={theme.colors.text} size={17} />
+      </IconButton>
+      <IconButton accessibilityLabel="Delete goal" onPress={confirmDelete}>
+        <Trash2 color={theme.colors.error} size={17} />
+      </IconButton>
+    </View>
+  ) : null;
+
+  return (
+    <Screen bottomInset={48} onRefresh={load} refreshing={isLoading}>
+      <ScreenHeader title={title} subtitle={goal?.category ? String(goal.category) : undefined} onBack={() => nav.goBack()} right={headerActions} />
+
+      {error ? <InlineError message={error} /> : null}
+      {!goal && isLoading ? <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 40 }} /> : null}
 
       {goal ? (
-        <View style={{ marginTop: 10 }}>
-          <Card style={{ padding: 0, overflow: 'hidden' }}>
-            <View style={{ padding: 14, backgroundColor: theme.colors.surface }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>
-                    Goal
-                  </Text>
-                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 20, marginTop: 6 }} numberOfLines={2}>
-                    {goal.emoji ? `${goal.emoji} ` : ''}{goal.name}
-                  </Text>
-                  <Text style={{ color: theme.colors.textMuted, marginTop: 6 }}>
-                    Target date: {formatDate(goal.targetDate)}
-                    {daysRemaining !== null ? ` • ${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left` : ''}
-                  </Text>
-                </View>
-
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Pressable
-                    onPress={() => (isEditing ? cancelEdit() : beginEdit())}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
-                  >
-                    <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: theme.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
-                      <Pencil color={theme.colors.textMuted} size={18} />
-                    </View>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={confirmDelete}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
-                  >
-                    <View
-                      style={{
-                        paddingHorizontal: 12,
-                        height: 44,
-                        borderRadius: 14,
-                        backgroundColor: theme.colors.surfaceAlt,
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      <Text style={{ color: theme.colors.error, fontFamily: 'Figtree_700Bold' }}>Delete</Text>
-                    </View>
-                  </Pressable>
-                </View>
+        <>
+          <HeroCard style={{ marginTop: 8 }}>
+            <View style={[styles.row, { justifyContent: 'space-between' }]}>
+              <View style={styles.row}>
+                <PiggyBank color="#E2B65C" size={16} />
+                <Text style={[typo.eyebrow, { color: inkText, opacity: 0.72 }]}>Saved so far</Text>
               </View>
+              <Chip tone="onInk" label={`${Math.round(progress * 100)}%`} />
+            </View>
+            <Amount value={goal.currentAmount} currency={glyph} size="hero" color={inkText} style={{ marginTop: 8 }} />
+            <Text style={[typo.small, { color: inkText, opacity: 0.78 }]}>of {formatAmount(goal.targetAmount, glyph)} target</Text>
 
-              {isEditing ? (
-                <View style={{ marginTop: 14 }}>
-                  <TextField label="Name" value={draftName} onChangeText={setDraftName} placeholder="e.g., Emergency fund" />
-                  <TextField label="Emoji (optional)" value={draftEmoji} onChangeText={setDraftEmoji} placeholder="e.g., 🏦" />
-                  <TextField label="Category (optional)" value={draftCategory} onChangeText={setDraftCategory} placeholder="e.g., Savings" />
-                  <TextField
-                    label={`Target amount${currency ? ` (${currency})` : ''}`}
-                    value={draftTargetAmount}
-                    onChangeText={(v) => setDraftTargetAmount(formatNumberInput(v))}
-                    placeholder="0"
-                    keyboardType="decimal-pad"
-                  />
-                  <TextField
-                    label={`Current amount${currency ? ` (${currency})` : ''}`}
-                    value={draftCurrentAmount}
-                    onChangeText={(v) => setDraftCurrentAmount(formatNumberInput(v))}
-                    placeholder="0"
-                    keyboardType="decimal-pad"
-                  />
-                  <TextField
-                    label="Target date (YYYY-MM-DD)"
-                    value={draftTargetDate}
-                    onChangeText={setDraftTargetDate}
-                    placeholder="YYYY-MM-DD"
-                  />
+            <View style={{ marginTop: 14 }}>
+              <ProgressBar value={progress} height={8} color="#E2B65C" trackColor="rgba(255,255,255,0.14)" />
+            </View>
 
-                  <View style={{ marginTop: 12, flexDirection: 'row', gap: 10 }}>
-                    <View style={{ flex: 1 }}>
-                      <SecondaryButton title="Cancel" onPress={cancelEdit} disabled={isSaving} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <PrimaryButton title={isSaving ? 'Saving…' : 'Save changes'} onPress={saveEdits} disabled={isSaving} />
-                    </View>
-                  </View>
-                </View>
-              ) : null}
-
-              <View style={{ marginTop: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Progress</Text>
-                <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{Math.round(progress * 100)}%</Text>
+            <View style={[styles.row, { marginTop: 14, alignItems: 'flex-start' }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[typo.caption, { color: inkText, opacity: 0.7 }]}>{done ? 'Target' : 'Still to go'}</Text>
+                <Text style={[typo.bodyStrong, { color: inkText, marginTop: 2 }]}>{formatAmount(done ? goal.targetAmount : remaining, glyph)}</Text>
               </View>
-
-              <View style={{ height: 10, backgroundColor: theme.colors.surfaceAlt, borderRadius: 999, overflow: 'hidden', marginTop: 8 }}>
-                <View
-                  style={{
-                    height: '100%',
-                    width: `${Math.round(progress * 100)}%`,
-                    backgroundColor: theme.colors.primary
-                  }}
-                />
-              </View>
-
-              <View style={{ marginTop: 12, flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Saved</Text>
-                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginTop: 4 }}>
-                    {formatMoney(goal.currentAmount, currency)}
-                  </Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Remaining</Text>
-                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginTop: 4 }}>
-                    {formatMoney(remaining, currency)}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={{ marginTop: 16, padding: 14, borderRadius: 16, backgroundColor: theme.colors.surfaceAlt }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[typo.bodyStrong, { color: theme.colors.text }]}>Auto-save from income</Text>
-                    <Text style={[typo.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>
-                      {goal.autoSavePercent
-                        ? `${goal.autoSavePercent}% of every income you record goes toward this goal`
-                        : 'Put a share of every income toward this goal automatically'}
-                    </Text>
-                  </View>
-                  <Switch
-                    value={!!goal.autoSavePercent}
-                    disabled={isSaving || progress >= 1}
-                    onValueChange={(v) => void saveAutoSave(v ? 10 : null)}
-                    trackColor={{ true: theme.colors.primary, false: theme.colors.border }}
-                    thumbColor="#FFFFFF"
-                  />
-                </View>
-                {goal.autoSavePercent ? (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-                    {[5, 10, 15, 20, 30].map((p) => {
-                      const selected = goal.autoSavePercent === p;
-                      return (
-                        <Pressable
-                          key={p}
-                          onPress={() => void saveAutoSave(p)}
-                          disabled={isSaving}
-                          accessibilityRole="button"
-                          accessibilityState={{ selected }}
-                          style={{ paddingHorizontal: 14, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? theme.colors.primary : theme.colors.surface }}
-                        >
-                          <Text style={[typo.smallStrong, { color: selected ? theme.colors.onPrimary : theme.colors.text }]}>{p}%</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ) : null}
-                <Text style={[typo.caption, { color: theme.colors.textMuted, marginTop: 10 }]}>
-                  This tracks progress in BudgetFriendly. Move the money into your savings account yourself.
+              <View style={{ flex: 1 }}>
+                <Text style={[typo.caption, { color: inkText, opacity: 0.7 }]}>{perMonth != null && daysRemaining != null && daysRemaining > 0 ? 'Needed per month' : 'Target date'}</Text>
+                <Text style={[typo.bodyStrong, { color: inkText, marginTop: 2 }]}>
+                  {perMonth != null && daysRemaining != null && daysRemaining > 0 ? formatAmount(perMonth, glyph) : formatShortDate(goal.targetDate)}
                 </Text>
               </View>
+            </View>
 
-              {progress >= 1 ? (
-                <View style={{ marginTop: 10, padding: 10, borderRadius: 14, backgroundColor: tokens.colors.success[50] }}>
-                  <Text style={{ color: tokens.colors.success[700], fontFamily: 'Figtree_700Bold' }}>Goal completed</Text>
-                  <Text style={{ color: tokens.colors.success[700], marginTop: 4 }}>
-                    Nice work — you hit your target.
-                  </Text>
-                </View>
-              ) : null}
+            <Text style={[typo.caption, { color: inkText, opacity: 0.7, marginTop: 12 }]}>
+              {done
+                ? 'Oga at the top 🎉 You hit your target. Enjoy am!'
+                : daysRemaining == null
+                  ? 'Keep adding small small, e go full.'
+                  : daysRemaining > 0
+                    ? `${formatShortDate(goal.targetDate)} · ${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left. You fit do am 💪`
+                    : `The target date (${formatShortDate(goal.targetDate)}) don pass. Tap the pencil to pick a new one.`}
+            </Text>
+          </HeroCard>
+
+          {!done ? <PrimaryButton title="Add money" onPress={openAddMoney} iconLeft={<Plus color={theme.colors.onPrimary} size={18} />} style={{ marginTop: 14 }} /> : null}
+
+          <PendingSavingsCard goalId={goal.id} onAnswered={load} />
+
+          <SectionHeader title="Auto-save reminder" />
+          <Card>
+            <View style={styles.row}>
+              <IconTile bg={theme.colors.brassSoft} size={38}>
+                <Repeat color={theme.colors.brass} size={18} />
+              </IconTile>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[typo.bodyStrong, { color: theme.colors.text }]}>Remind me when income lands</Text>
+                <Text style={[typo.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>
+                  {goal.autoSavePercent ? `We’ll suggest ${goal.autoSavePercent}% of every income you record` : 'Get a nudge to move a share of each income here'}
+                </Text>
+              </View>
+              <Switch
+                value={!!goal.autoSavePercent}
+                disabled={isSaving || done}
+                onValueChange={(v) => void saveAutoSave(v ? 10 : null)}
+                trackColor={{ true: theme.colors.primary, false: theme.colors.border }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+            {goal.autoSavePercent ? (
+              <View style={styles.chips}>
+                {AUTO_SAVE_OPTIONS.map((p) => {
+                  const selected = goal.autoSavePercent === p;
+                  return (
+                    <Pressable
+                      key={p}
+                      onPress={() => void saveAutoSave(p)}
+                      disabled={isSaving}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      style={[styles.percent, { backgroundColor: selected ? theme.colors.primary : theme.colors.surfaceAlt }]}
+                    >
+                      <Text style={[typo.smallStrong, { color: selected ? theme.colors.onPrimary : theme.colors.text }]}>{p}%</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+            <Text style={[typo.caption, { color: theme.colors.textMuted, marginTop: 12 }]}>
+              This is only a reminder. Nothing moves automatically: when you record income, we ask if you moved the money, and it only counts once you say “I moved it”.
+            </Text>
+          </Card>
+
+          <SectionHeader title="How this works with your budget" />
+          <Card>
+            <View style={[styles.row, { alignItems: 'flex-start' }]}>
+              <IconTile bg={theme.colors.primarySoft} size={34}>
+                <CalendarClock color={theme.colors.primary} size={16} />
+              </IconTile>
+              <Text style={[typo.small, { color: theme.colors.textMuted, flex: 1 }]}>
+                BudgetFriendly never debits your account. Move the money to your savings account yourself, then record it here.
+              </Text>
+            </View>
+            <View style={[styles.row, { alignItems: 'flex-start', marginTop: 12 }]}>
+              <IconTile bg={theme.colors.successSoft} size={34}>
+                <PiggyBank color={theme.colors.success} size={16} />
+              </IconTile>
+              <Text style={[typo.small, { color: theme.colors.textMuted, flex: 1 }]}>
+                What you record grows this goal and counts under Savings in your budget, so your plan stays true.
+              </Text>
             </View>
           </Card>
-        </View>
+        </>
       ) : null}
+
+      <Sheet visible={isAdding} onClose={() => setIsAdding(false)} title="Add money" subtitle={goal ? `Toward ${goal.name}` : undefined}>
+        {addError ? <InlineError message={addError} /> : null}
+        <MoneyField label="How much did you move?" value={addAmount} onChange={setAddAmount} glyph={glyph} autoFocus hint="Move it to your savings account first. We only record it." />
+        <View style={[styles.row, { marginBottom: 16 }]}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[typo.bodyStrong, { color: theme.colors.text }]}>Record in my Savings budget</Text>
+            <Text style={[typo.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>
+              {recordInBudget ? 'Also adds a Savings entry to this month’s budget.' : 'Only the goal grows. Use this if you already logged it as a transaction.'}
+            </Text>
+          </View>
+          <Switch value={recordInBudget} onValueChange={setRecordInBudget} trackColor={{ true: theme.colors.primary, false: theme.colors.border }} thumbColor="#FFFFFF" />
+        </View>
+        <PrimaryButton title="Add to goal" onPress={addMoney} loading={isSaving} />
+      </Sheet>
+
+      <Sheet visible={isEditing} onClose={() => setIsEditing(false)} title="Edit goal">
+        {editError ? <InlineError message={editError} /> : null}
+        <TextField label="Name" value={draftName} onChangeText={setDraftName} placeholder="e.g., Emergency fund" />
+        <TextField label="Emoji (optional)" value={draftEmoji} onChangeText={setDraftEmoji} placeholder="e.g., 🏦" />
+        <TextField label="Category (optional)" value={draftCategory} onChangeText={setDraftCategory} placeholder="e.g., Savings" />
+        <MoneyField label="Target amount" value={draftTargetAmount} onChange={setDraftTargetAmount} glyph={glyph} />
+        <MoneyField label="Saved so far" value={draftCurrentAmount} onChange={setDraftCurrentAmount} glyph={glyph} hint="Fixing a mistake? Changing this does not touch your budget." />
+        <TextField label="Target date (YYYY-MM-DD)" value={draftTargetDate} onChangeText={setDraftTargetDate} placeholder="YYYY-MM-DD" autoCapitalize="none" />
+        <View style={[styles.row, { marginTop: 4 }]}>
+          <View style={{ flex: 1 }}>
+            <SecondaryButton title="Cancel" onPress={() => setIsEditing(false)} disabled={isSaving} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <PrimaryButton title="Save" onPress={saveEdits} loading={isSaving} />
+          </View>
+        </View>
+      </Sheet>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  percent: { paddingHorizontal: 14, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' }
+});
