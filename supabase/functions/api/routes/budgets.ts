@@ -5,6 +5,7 @@ import { budgetBounds, effectiveEndIso, ISO_DATE, todayIso } from '../lib/dates.
 import { budgetLabel, budgetMemberIds, findOwnBudget, findVisibleBudget, selectBudgets, toApiBudget, type BudgetRow } from '../lib/budgets.ts';
 import { currencyFor, formatMoney, notifyUser } from '../lib/notify.ts';
 import { enforceRateLimit } from '../lib/rateLimit.ts';
+import { voice } from '../lib/voice.ts';
 import type { Ctx } from '../index.ts';
 
 const CategoriesSchema = z.record(z.string().min(1).max(60), z.object({ budgeted: z.number().finite().nonnegative() }).passthrough());
@@ -260,8 +261,7 @@ export async function rollover(ctx: Ctx) {
   const currency = await currencyFor(userId);
   await notifyUser(userId, {
     kind: 'rollover',
-    title: `${formatMoney(unspent, currency)} moved from ${budgetLabel(b.name)}`,
-    body: input.destination === 'goal' ? `Added to ${goalName}.` : `Added to Savings in ${budgetLabel(nextBudget!.name)}.`,
+    ...voice.rollover(formatMoney(unspent, currency), budgetLabel(b.name), input.destination === 'goal' ? goalName : `Savings in ${budgetLabel(nextBudget!.name)}`),
     data: input.destination === 'goal' ? { screen: 'GoalDetail', goalId: input.goalId } : { screen: 'BudgetDetail', budgetId: nextBudget!.id }
   }).catch(() => undefined);
 
@@ -361,8 +361,7 @@ export async function acceptInvite(ctx: Ctx) {
   const [me] = await sql`select name, email from public.profiles where id = ${userId}`;
   await notifyUser(budget.userId, {
     kind: 'shared',
-    title: `${me?.name || me?.email || 'Someone'} joined ${budgetLabel(budget.name)}`,
-    body: 'Their spending in this budget now counts toward it.',
+    ...voice.memberJoined(me?.name || me?.email || 'Someone', budgetLabel(budget.name)),
     data: { screen: 'BudgetDetail', budgetId: budget.id }
   }).catch(() => undefined);
 

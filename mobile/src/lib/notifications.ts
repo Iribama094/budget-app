@@ -66,8 +66,8 @@ export async function scheduleWeeklyCheckIn(enabled: boolean): Promise<void> {
   await Notifications.scheduleNotificationAsync({
     identifier: WEEKLY_ID,
     content: {
-      title: 'Your weekly check-in is ready',
-      body: 'Two minutes to see how the week went and set up the next one.',
+      title: 'Your week in money is ready, Boss 📊',
+      body: 'Two minutes to see how you did and set up next week.',
       data: { screen: 'WeeklyCheckInDetail' }
     },
     trigger: { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: 1, hour: 18, minute: 0 }
@@ -88,23 +88,35 @@ export async function getDailyReminder(): Promise<DailyReminder> {
   }
 }
 
+// A different nudge for each day of the week (index 0 = Sunday), so the daily reminder never feels stale.
+const DAILY_COPY: Array<{ title: string; body: string }> = [
+  { title: 'Sunday check-in, Boss 🙌', body: 'How the week go? Log anything you missed before the new week starts.' },
+  { title: 'New week, new money moves 💼', body: 'Log today’s spending so your plan stays on point.' },
+  { title: 'Boss, quick one 👋', body: 'Wetin you spend today? Two minutes to log am.' },
+  { title: 'Midweek check ✨', body: 'Log today’s spending and see what’s still safe to spend.' },
+  { title: 'Chief, no forget o', body: 'Log today’s spending before e slip your mind.' },
+  { title: 'Na Friday o 🎉', body: 'Enjoy yourself, but log am so weekend no scatter the budget.' },
+  { title: 'Saturday vibes 😎', body: 'Spent anything today? Log it quick, then relax.' }
+];
+
 /** A daily nudge to log spending, on this phone's clock. Returns false if notifications aren't allowed. */
 export async function setDailyReminder(time: DailyReminder): Promise<boolean> {
-  await Notifications.cancelScheduledNotificationAsync(DAILY_ID).catch(() => undefined);
+  await Promise.all(
+    [DAILY_ID, ...DAILY_COPY.map((_, i) => `${DAILY_ID}-${i}`)].map((id) => Notifications.cancelScheduledNotificationAsync(id).catch(() => undefined))
+  );
   if (!time) {
     await AsyncStorage.removeItem(DAILY_KEY);
     return true;
   }
   if (!(await ensureNotificationPermission(true))) return false;
-  await Notifications.scheduleNotificationAsync({
-    identifier: DAILY_ID,
-    content: {
-      title: 'Two minutes for your money',
-      body: 'Log today’s spending so your safe-to-spend number stays right.',
-      data: { screen: 'AddTransaction' }
-    },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour: time.hour, minute: time.minute }
-  });
+  for (let i = 0; i < DAILY_COPY.length; i++) {
+    await Notifications.scheduleNotificationAsync({
+      identifier: `${DAILY_ID}-${i}`,
+      content: { ...DAILY_COPY[i], data: { screen: 'AddTransaction' } },
+      // Expo weekdays run 1 (Sunday) to 7 (Saturday).
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: i + 1, hour: time.hour, minute: time.minute }
+    });
+  }
   await AsyncStorage.setItem(DAILY_KEY, JSON.stringify(time));
   return true;
 }
@@ -141,8 +153,8 @@ export async function scheduleLocalBillReminders(items: ReminderItem[], enabled:
     await Notifications.scheduleNotificationAsync({
       identifier: `${BILL_PREFIX}${item.id}`,
       content: {
-        title: `${item.name} is due ${days === 1 ? 'tomorrow' : `in ${days} days`}`,
-        body: `${item.amountLabel} is due. Make sure the money is ready.`,
+        title: `Heads up, Boss: ${item.name} is due ${days === 1 ? 'tomorrow' : `in ${days} days`}`,
+        body: `${item.amountLabel}. Make sure the money dey ground.`,
         data: { screen: 'Recurring' }
       },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when }

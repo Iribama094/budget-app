@@ -72,7 +72,9 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
     let sent = 0;
     for (const { userId } of active) {
       try {
-        const top = (await computeInsights(userId, 'personal', today)).find((i) => i.tone !== 'positive');
+        // The most useful nudge; when everything is going well, a word of encouragement instead.
+        const list = await computeInsights(userId, 'personal', today);
+        const top = list.find((i) => i.tone !== 'positive') ?? list[0];
         if (!top) continue;
         const delivered = await notifyUser(userId, {
           kind: 'insight',

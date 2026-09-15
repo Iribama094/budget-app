@@ -36,6 +36,7 @@ import { useTour, useTourAnchor } from '../contexts/TourContext';
 import { useNudges } from '../contexts/NudgesContext';
 import { FirstWeekChecklist } from '../components/Home/FirstWeekChecklist';
 import { InsightCards } from '../components/Home/InsightCards';
+import { BusinessHome } from '../components/Home/BusinessHome';
 
 export function DashboardScreen() {
   const nav = useNavigation<any>();
@@ -430,6 +431,9 @@ export function DashboardScreen() {
         : { status: 'none', safeToday: '', left: '', daysLeft: 0, label: '', updatedAt: new Date().toISOString() }
     ).catch(() => undefined);
   }, [currentBudget, glyph, isLoading, pace, showAmounts]);
+
+  // The Business space has its own home: profit, costs, cash runway and tax set-aside.
+  if (spacesEnabled && activeSpaceId === 'business') return <BusinessHome />;
 
   return (
     <Screen onRefresh={handleRefresh} refreshing={isLoading}>

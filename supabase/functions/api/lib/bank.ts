@@ -1,5 +1,6 @@
 import { sql } from './db.ts';
 import { notifyUser } from './notify.ts';
+import { voice } from './voice.ts';
 
 /**
  * Minimal Mono (https://mono.co) v2 client for Nigerian bank account data.
@@ -122,8 +123,7 @@ export async function syncBankLink(link: BankLinkRow): Promise<{ imported: numbe
       await sql`update public.bank_links set status = 'reauth_required' where id = ${link.id}`;
       await notifyUser(link.userId, {
         kind: 'bank',
-        title: `Reconnect ${link.bankName}`,
-        body: 'We can no longer read this account. Reconnect it to keep importing transactions.',
+        ...voice.bankReauth(link.bankName),
         data: { screen: 'BankConnections' }
       });
     }
@@ -166,8 +166,7 @@ export async function syncBankLink(link: BankLinkRow): Promise<{ imported: numbe
   if (imported > 0) {
     await notifyUser(link.userId, {
       kind: 'bank',
-      title: `${imported} new transaction${imported === 1 ? '' : 's'} from ${link.bankName}`,
-      body: 'Review them and add them to your budget in a couple of taps.',
+      ...voice.bankImported(imported, link.bankName),
       data: { screen: 'PendingTransactions' }
     });
   }

@@ -3,6 +3,7 @@ import { addDaysIso, formatIsoDateUtc, parseIsoDateUtcNoon, todayIso } from './d
 import { budgetCovering } from './budgets.ts';
 import { afterTransactionCreated } from './effects.ts';
 import { currencyFor, formatMoney, notifyUser } from './notify.ts';
+import { voice } from './voice.ts';
 import type { Space } from './http.ts';
 
 // Catch up at most this many missed occurrences per run (e.g. after a long outage).
@@ -107,8 +108,7 @@ export async function materializeDue(rec: RecurringRow, today = todayIso()): Pro
     const name = rec.description || rec.category;
     await notifyUser(rec.userId, {
       kind: 'recurring',
-      title: created === 1 ? `${name} recorded` : `${name} recorded ${created} times`,
-      body: `${formatMoney(lastAmount, currency)} ${rec.type === 'income' ? 'income' : 'expense'} was added automatically from your recurring schedule.`,
+      ...voice.recurringRecorded(name, formatMoney(lastAmount, currency), rec.type === 'income', created),
       data: { screen: 'Recurring', recurringId: rec.id }
     });
   }
@@ -163,10 +163,7 @@ export async function sendBillReminders(today = todayIso()): Promise<number> {
     const name = rec.description || rec.category;
     await notifyUser(rec.userId, {
       kind: 'bill',
-      title: `${name} is due ${describeDue(rec.nextDueDate, today)}`,
-      body: rec.autoCreate
-        ? `${formatMoney(Number(rec.amount), currency)} will be recorded automatically on the due date.`
-        : `${formatMoney(Number(rec.amount), currency)} is due. Make sure the money is ready.`,
+      ...voice.billDue(name, describeDue(rec.nextDueDate, today), formatMoney(Number(rec.amount), currency), rec.autoCreate),
       data: { screen: 'Recurring', recurringId: rec.id }
     });
     sent++;

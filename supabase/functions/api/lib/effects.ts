@@ -2,6 +2,7 @@ import { sql } from './db.ts';
 import { budgetBounds, effectiveEndIso, parseIsoDateUtcNoon, todayIso } from './dates.ts';
 import { budgetLabel, budgetMemberIds, findVisibleBudget } from './budgets.ts';
 import { currencyFor, formatMoney, notifyUser } from './notify.ts';
+import { voice } from './voice.ts';
 
 const DAY = 24 * 60 * 60;
 export const MAX_AUTOSAVE_PERCENT = 50;
@@ -16,6 +17,7 @@ export type CreatedTx = {
   amount: number;
   budgetId: string | null;
   budgetCategory: string | null;
+  occurredAt?: Date | string | null;
 };
 
 /**
@@ -59,8 +61,7 @@ export async function checkBudgetPace(budgetId: string, bucket?: string | null):
     if (total > 0 && totalSpent > total) {
       await notifyUser(userId, {
         kind: 'over',
-        title: `${label} is over budget`,
-        body: `${money(totalSpent)} spent of ${money(total)}. Adjusting a bucket now keeps next month on track.`,
+        ...voice.budgetOver(label, money(totalSpent), money(total)),
         data,
         dedupeKey: `over:${budgetId}`,
         dedupeTtlSec: 40 * DAY
@@ -76,8 +77,7 @@ export async function checkBudgetPace(budgetId: string, bucket?: string | null):
     if (ratio > 1) {
       await notifyUser(userId, {
         kind: 'over',
-        title: `${bucket} is over budget`,
-        body: `${money(spent)} spent of ${money(budgeted)} in ${label}.`,
+        ...voice.bucketOver(bucket, label, money(spent), money(budgeted)),
         data,
         dedupeKey: `bucket-over:${budgetId}:${bucket}`,
         dedupeTtlSec: 40 * DAY
@@ -86,14 +86,51 @@ export async function checkBudgetPace(budgetId: string, bucket?: string | null):
       const perDay = Math.max(0, budgeted - spent) / daysLeft;
       await notifyUser(userId, {
         kind: 'pace',
-        title: `${bucket} is running hot`,
-        body: `${Math.round(ratio * 100)}% used with ${Math.round(timeRatio * 100)}% of ${label} gone. Around ${money(perDay)} a day keeps it on track.`,
+        ...voice.runningHot(bucket, label, Math.round(ratio * 100), Math.round(timeRatio * 100), money(perDay)),
         data,
         dedupeKey: `hot:${budgetId}:${bucket}`,
         dedupeTtlSec: 7 * DAY
       });
     }
   }
+}
+
+/**
+ * A gentle check-in when today's spending is far above the person's usual day (at least three times their
+ * 30-day average, and a meaningful amount). Sent at most once a day.
+ */
+export async function checkDailySpend(tx: CreatedTx): Promise<void> {
+  if (tx.type !== 'expense' || !tx.occurredAt) return;
+  const today = todayIso();
+  const offset = Number(Deno.env.get('APP_TZ_OFFSET_MINUTES') ?? 60);
+  const dayStart = new Date(Date.parse(`${today}T00:00:00Z`) - (Number.isFinite(offset) ? offset : 60) * 60000);
+  if (new Date(tx.occurredAt).getTime() < dayStart.getTime()) return;
+
+  const space = tx.spaceId ?? 'personal';
+  const since = new Date(dayStart.getTime() - 30 * DAY * 1000);
+  const [row] = await sql`
+    select
+      coalesce(sum(amount) filter (where occurred_at >= ${dayStart}), 0) as today,
+      coalesce(sum(amount) filter (where occurred_at < ${dayStart}), 0) as before,
+      min(occurred_at) as first
+    from public.transactions
+    where user_id = ${tx.userId} and space_id = ${space} and type = 'expense' and occurred_at >= ${since}
+  `;
+  const spentToday = Number(row?.today ?? 0);
+  if (!row?.first || spentToday < 5000) return;
+  const historyDays = Math.min(30, Math.floor((dayStart.getTime() - new Date(row.first).getTime()) / (DAY * 1000)));
+  if (historyDays < 7) return;
+  const usual = Number(row.before) / historyDays;
+  if (usual <= 0 || spentToday < usual * 3) return;
+
+  const currency = await currencyFor(tx.userId);
+  await notifyUser(tx.userId, {
+    kind: 'pace',
+    ...voice.dailySpend(formatMoney(spentToday, currency), Math.round(spentToday / usual)),
+    data: { screen: 'Transactions' },
+    dedupeKey: `daily-spend:${space}:${today}`,
+    dedupeTtlSec: 36 * 3600
+  });
 }
 
 /**
@@ -126,8 +163,7 @@ export async function applyAutoSave(userId: string, spaceId: string, incomeAmoun
     const total = out.reduce((s, r) => s + r.amount, 0);
     await notifyUser(userId, {
       kind: 'autosave',
-      title: out.length === 1 ? `${formatMoney(total, currency)} added to ${out[0].name}` : `${formatMoney(total, currency)} added to your goals`,
-      body: `Set aside automatically from your ${formatMoney(incomeAmount, currency)} income.`,
+      ...voice.autosave(formatMoney(total, currency), out.length === 1 ? out[0].name : null, formatMoney(incomeAmount, currency)),
       data: { screen: out.length === 1 ? 'GoalDetail' : 'Goals', goalId: out[0].goalId }
     });
   }
@@ -142,6 +178,7 @@ export async function afterTransactionCreated(tx: CreatedTx): Promise<{ autoSave
   let autoSaved: AutoSaveResult[] = [];
   try {
     if (tx.type === 'expense' && tx.budgetId) await checkBudgetPace(tx.budgetId, tx.budgetCategory);
+    if (tx.type === 'expense') await checkDailySpend(tx);
     if (tx.type === 'income') autoSaved = await applyAutoSave(tx.userId, tx.spaceId ?? 'personal', Number(tx.amount), tx.id);
   } catch (err) {
     console.error('[transaction effects] failed', err);

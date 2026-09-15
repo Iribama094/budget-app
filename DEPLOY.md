@@ -157,7 +157,7 @@ Set function secrets with `npx supabase secrets set NAME=value`.
 
 | Feature | Function secret | App / build |
 | --- | --- | --- |
-| Flux, the AI money coach | `ANTHROPIC_API_KEY` (from console.anthropic.com); optional `ASSISTANT_MODEL` (default `claude-sonnet-5`) | — |
+| Flux, the AI money coach | `ANTHROPIC_API_KEY` (Claude, used first when set) or `GROQ_API_KEY` (console.groq.com); optional `ASSISTANT_MODEL` / `GROQ_MODEL` | — |
 | Password reset emails | `RESEND_API_KEY`, `EMAIL_FROM` (a sender on a domain verified in Resend) | — |
 | Reset codes shown in the app (test projects only, never with real users) | `AUTH_DEV_EXPOSE_RESET_CODE=1` | — |
 | Daily job: recurring transactions, bill reminders, bank sync | `CRON_SECRET` (already set), `APP_TZ_OFFSET_MINUTES` (default 60) | — |
