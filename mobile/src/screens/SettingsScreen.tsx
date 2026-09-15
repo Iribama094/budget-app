@@ -136,8 +136,8 @@ export default function SettingsScreen() {
   };
 
   return (
-    <Screen>
-      <ScreenHeader title="Settings" />
+    <Screen bottomInset={48}>
+      <ScreenHeader title="Settings" onBack={() => nav.goBack()} />
 
       <Text style={[type.eyebrow, styles.groupLabel, { color: theme.colors.textMuted }]}>Money</Text>
       <ListCard>

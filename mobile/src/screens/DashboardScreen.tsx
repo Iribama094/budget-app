@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator, Animated, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { ArrowDownLeft, ArrowUpRight, Bell, CalendarCheck, Check, Eye, EyeOff, Flame, Landmark, Sparkles, WifiOff } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Bell, CalendarCheck, Check, Eye, EyeOff, Flame, Landmark, Settings as SettingsIcon, Sparkles, WifiOff } from 'lucide-react-native';
 import { useSync } from '../contexts/SyncContext';
 import { publishWidgetSnapshot } from '../lib/widgetData';
 import { useAuth } from '../contexts/AuthContext';
@@ -58,7 +58,7 @@ export function DashboardScreen() {
   const { showAmounts, toggleShowAmounts } = useAmountVisibility();
   const { isOnline, queued } = useSync();
   const notifAnim = useRef(new Animated.Value(0)).current;
-  const { hasUnreadNotifications, hasAssistantUnread } = useNotificationBadges();
+  const { hasUnreadNotifications } = useNotificationBadges();
 
   const addTxAnchorRef = useTourAnchor('dashboard.addTx');
   const spaceSwitcherAnchorRef = useTourAnchor('space.switcher');
@@ -454,11 +454,11 @@ export function DashboardScreen() {
             <Text style={[type.caption, { color: theme.colors.textMuted }]}>{formatLongToday()}</Text>
           )}
         </View>
-        <IconButton round accessibilityLabel="Ask the assistant" badge={hasAssistantUnread} onPress={() => nav.navigate('AssistantModal' as never)}>
-          <Sparkles color={theme.colors.text} size={19} />
-        </IconButton>
         <IconButton round accessibilityLabel="Notifications" badge={hasUnreadNotifications} onPress={() => nav.navigate('Notifications')}>
           <Bell color={theme.colors.text} size={19} />
+        </IconButton>
+        <IconButton round accessibilityLabel="Settings" onPress={() => nav.navigate('Settings')}>
+          <SettingsIcon color={theme.colors.text} size={19} />
         </IconButton>
       </View>
 

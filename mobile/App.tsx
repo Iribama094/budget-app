@@ -87,7 +87,6 @@ function MainTabs() {
       <Tab.Screen name="Budget" component={BudgetScreen} />
       <Tab.Screen name="Analytics" component={AnalyticsScreen} />
       <Tab.Screen name="Goals" component={GoalsScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );
 }
@@ -117,6 +116,7 @@ function AuthedStack() {
       <Stack.Screen name="SetupPlan" component={SetupPlanScreen} options={{ gestureEnabled: false }} />
       <Stack.Screen name="IncomeBills" component={IncomeBillsScreen} />
       <Stack.Screen name="Categories" component={CategoriesScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="ProfileEdit" component={require('./src/screens/ProfileEditScreen').default} />
       <Stack.Screen name="ChangePassword" component={require('./src/screens/ChangePasswordScreen').default} />
       <Stack.Screen name="TaxSettings" component={TaxSettingsScreen} />

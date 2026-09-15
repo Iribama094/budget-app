@@ -55,14 +55,14 @@ If Xcode reports a **signing / development team** error (the widget shares data 
 | **Face ID sign-in** | Menu bar: **Features › Face ID › Enrolled**. Sign in once with a password and accept "Sign in with Face ID?". Close and reopen the app, then use **Features › Face ID › Matching Face** when prompted. |
 | **Home-screen widget** | Press **⌘⇧H** to go home. Long-press the home screen, tap **+**, search for **BudgetFriendly**, then add **Safe to spend**. |
 | **Your plan** | Tap your initials on Home › **Profile** › **Income & bills**. Change income or switch between payday-to-payday and calendar-month budgets. |
-| **Categories** | **Settings** tab › **Categories** › add one, like "Generator fuel". Add an expense with the note "Shoprite", then start another with the same note and watch the category get suggested. |
+| **Categories** | Home › gear icon (top right) › **Categories** › add one, like "Generator fuel". Add an expense with the note "Shoprite", then start another with the same note and watch the category get suggested. |
 | **Flux, the AI coach** | Home › sparkle icon. It answers once the app owner adds the AI key; until then it says it isn't switched on. |
 | **Offline mode** | Turn off the Mac's Wi-Fi, add a transaction (it's saved on the phone), then turn Wi-Fi back on and watch it sync. |
 | **Paste a bank alert** | Copy a bank SMS on the Mac, then in the app go to **Add transaction › clipboard icon › Paste**. |
 | **Shared budget** | Create a second account in another simulator (**File › Open Simulator**). On the first, open a budget and tap **Share** to get a code; on the second, join with that code. |
 | **Signed-in devices** | Sign in to the same account in two simulators, then tap your initials on Home › **Profile** › **Your devices** and sign the other one out. |
 | **Different iPhone sizes** | **File › Open Simulator** and pick another model, e.g. iPhone SE or iPhone 16 Pro Max. |
-| **Dark mode** | **Settings** tab › **Appearance** › **Dark**, or **Features › Toggle Appearance** in the simulator. |
+| **Dark mode** | Home › gear icon › **Appearance** › **Dark**, or **Features › Toggle Appearance** in the simulator. |
 
 To capture what you see, press **⌘S** for a screenshot, or use **File › Record Screen** for a video. Both are saved to the Desktop.
 
