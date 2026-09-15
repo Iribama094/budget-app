@@ -9,6 +9,7 @@ import * as SecureStore from 'expo-secure-store';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
 import { Screen, Card, H1, P, PrimaryButton, SecondaryButton } from '../components/Common/ui';
+import { SelectField } from '../components/Common/SelectField';
 import {
   listImportedTransactions,
   reconcileImportedTransaction,
@@ -701,58 +702,43 @@ export default function PendingTransactionsScreen() {
 
                   {/* Current step options (only one appears at a time) */}
                   {draft.step === 1 ? (
-                    <View style={{ marginTop: 10 }}>
-                      <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginBottom: 6 }}>Choose a category</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                        {categoryOptions.map((c) => {
-                          const selected = draft.category === c;
-                          return (
-                            <Pressable
-                              key={c}
-                              onPress={() => {
-                                const next: PendingStep = draft.budgetId ? 3 : 2;
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [item.id]: { ...draft, category: c, step: next }
-                                }));
-                              }}
-                              style={pillStyle(theme, selected)}
-                            >
-                              <Text style={pillTextStyle(theme, selected)}>{c}</Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </View>
+                    <SelectField
+                      label="Category"
+                      placeholder="Choose a category"
+                      value={draft.category || null}
+                      options={categoryOptions.map((c) => ({ value: c, label: c }))}
+                      onChange={(c) => {
+                        if (!c) return;
+                        const next: PendingStep = draft.budgetId ? 3 : 2;
+                        setDrafts((prev) => ({
+                          ...prev,
+                          [item.id]: { ...draft, category: c, step: next }
+                        }));
+                      }}
+                      style={{ marginTop: 10, marginBottom: 0 }}
+                    />
                   ) : null}
 
                   {draft.step === 2 ? (
-                    <View style={{ marginTop: 10 }}>
-                      <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginBottom: 6 }}>Choose a budget</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                        {budgetOptions.map((b) => {
-                          const selected = draft.budgetId === b.id;
-                          const label = currentBudget?.id === b.id ? `${b.name} (current)` : b.name;
-                          return (
-                            <Pressable
-                              key={b.id}
-                              onPress={() => {
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [item.id]: { ...draft, budgetId: String(b.id), miniBudgetId: null, step: 3 }
-                                }));
-                                void loadMiniBudgetsForBudget(String(b.id));
-                              }}
-                              style={pillStyle(theme, selected)}
-                            >
-                              <Text style={pillTextStyle(theme, selected)} numberOfLines={1}>
-                                {label}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </View>
+                    <SelectField
+                      label="Budget"
+                      placeholder="Choose a budget"
+                      value={draft.budgetId ? String(draft.budgetId) : null}
+                      options={budgetOptions.map((b) => ({
+                        value: String(b.id),
+                        label: b.name.replace(/^My Budget \((.*)\)$/, '$1'),
+                        subtitle: [currentBudget?.id === b.id ? 'Current' : null, (b as { isShared?: boolean }).isShared ? 'Shared' : null].filter(Boolean).join(' · ') || undefined
+                      }))}
+                      onChange={(id) => {
+                        if (!id) return;
+                        setDrafts((prev) => ({
+                          ...prev,
+                          [item.id]: { ...draft, budgetId: id, miniBudgetId: null, step: 3 }
+                        }));
+                        void loadMiniBudgetsForBudget(id);
+                      }}
+                      style={{ marginTop: 10, marginBottom: 0 }}
+                    />
                   ) : null}
 
                   {draft.step === 3 ? (
@@ -782,83 +768,46 @@ export default function PendingTransactionsScreen() {
 
                   {draft.step === 4 ? (
                     <View style={{ marginTop: 10 }}>
-                      <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginBottom: 6 }}>Pick a mini budget (optional)</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                        <Pressable
-                          onPress={() => {
+                      {miniBudgetsForBucket.length ? (
+                        <SelectField
+                          label="Mini budget (optional)"
+                          value={draft.miniBudgetId ? String(draft.miniBudgetId) : null}
+                          options={[{ value: null, label: 'None' }, ...miniBudgetsForBucket.map((m) => ({ value: String(m.id), label: m.name }))]}
+                          onChange={(id) =>
                             setDrafts((prev) => ({
                               ...prev,
-                                  [item.id]: { ...draft, miniBudgetId: null, step: draft.budgetCategory === 'Savings' ? 5 : 6 }
-                            }));
-                          }}
-                          style={pillStyle(theme, draft.miniBudgetId === null)}
-                        >
-                          <Text style={pillTextStyle(theme, draft.miniBudgetId === null)}>NIL</Text>
-                        </Pressable>
-                        {miniBudgetsForBucket.map((m) => {
-                          const selected = draft.miniBudgetId === m.id;
-                          return (
-                            <Pressable
-                              key={m.id}
-                              onPress={() => {
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [item.id]: { ...draft, miniBudgetId: String(m.id), step: draft.budgetCategory === 'Savings' ? 5 : 6 }
-                                }));
-                              }}
-                              style={pillStyle(theme, selected)}
-                            >
-                              <Text style={pillTextStyle(theme, selected)} numberOfLines={1}>
-                                {m.name}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                      {draft.budgetId && miniBudgetsByBudget[draft.budgetId] && miniBudgetsForBucket.length === 0 ? (
-                        <Text style={{ color: theme.colors.textMuted, marginTop: 8, fontSize: 12 }}>
-                          No mini budgets under {bucketLabel(draft.budgetCategory)}.
-                        </Text>
-                      ) : null}
+                              [item.id]: { ...draft, miniBudgetId: id, step: draft.budgetCategory === 'Savings' ? 5 : 6 }
+                            }))
+                          }
+                          style={{ marginBottom: 0 }}
+                        />
+                      ) : (
+                        <>
+                          {draft.budgetId && miniBudgetsByBudget[draft.budgetId] ? (
+                            <Text style={{ color: theme.colors.textMuted, marginBottom: 8, fontSize: 12 }}>No mini budgets under {bucketLabel(draft.budgetCategory)}.</Text>
+                          ) : null}
+                          <SecondaryButton
+                            title="Continue"
+                            onPress={() =>
+                              setDrafts((prev) => ({
+                                ...prev,
+                                [item.id]: { ...draft, miniBudgetId: null, step: draft.budgetCategory === 'Savings' ? 5 : 6 }
+                              }))
+                            }
+                          />
+                        </>
+                      )}
                     </View>
                   ) : null}
 
                   {draft.step === 5 && draft.budgetCategory === 'Savings' ? (
-                    <View style={{ marginTop: 10 }}>
-                      <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginBottom: 6 }}>Add to existing goals? (optional)</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                        <Pressable
-                          onPress={() => {
-                            setDrafts((prev) => ({
-                              ...prev,
-                              [item.id]: { ...draft, goalId: null, step: 6 }
-                            }));
-                          }}
-                          style={pillStyle(theme, draft.goalId === null)}
-                        >
-                          <Text style={pillTextStyle(theme, draft.goalId === null)}>None</Text>
-                        </Pressable>
-                        {goals.map((g) => {
-                          const selected = String(draft.goalId ?? '') === String(g.id);
-                          return (
-                            <Pressable
-                              key={String(g.id)}
-                              onPress={() => {
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [item.id]: { ...draft, goalId: String(g.id), step: 6 }
-                                }));
-                              }}
-                              style={pillStyle(theme, selected)}
-                            >
-                              <Text style={pillTextStyle(theme, selected)} numberOfLines={1}>
-                                {g.emoji ? `${g.emoji} ` : ''}{g.name}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </View>
+                    <SelectField
+                      label="Add to a goal? (optional)"
+                      value={draft.goalId ? String(draft.goalId) : null}
+                      options={[{ value: null, label: 'No goal' }, ...goals.map((g) => ({ value: String(g.id), label: `${g.emoji ? `${g.emoji} ` : ''}${g.name}` }))]}
+                      onChange={(id) => setDrafts((prev) => ({ ...prev, [item.id]: { ...draft, goalId: id, step: 6 } }))}
+                      style={{ marginTop: 10, marginBottom: 0 }}
+                    />
                   ) : null}
 
                   {/* Actions */}

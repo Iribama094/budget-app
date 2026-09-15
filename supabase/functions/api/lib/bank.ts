@@ -124,6 +124,7 @@ export async function syncBankLink(link: BankLinkRow): Promise<{ imported: numbe
       await notifyUser(link.userId, {
         kind: 'bank',
         ...voice.bankReauth(link.bankName),
+        spaceId: link.spaceId === 'business' ? 'business' : 'personal',
         data: { screen: 'BankConnections' }
       });
     }

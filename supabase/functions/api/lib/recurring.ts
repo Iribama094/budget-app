@@ -109,6 +109,7 @@ export async function materializeDue(rec: RecurringRow, today = todayIso()): Pro
     await notifyUser(rec.userId, {
       kind: 'recurring',
       ...voice.recurringRecorded(name, formatMoney(lastAmount, currency), rec.type === 'income', created),
+      spaceId: rec.spaceId === 'business' ? 'business' : 'personal',
       data: { screen: 'Recurring', recurringId: rec.id }
     });
   }

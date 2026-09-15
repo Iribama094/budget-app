@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator, Animated, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { ArrowDownLeft, ArrowUpRight, Bell, CalendarCheck, Check, Eye, EyeOff, Flame, Gift, Landmark, Settings as SettingsIcon, Sparkles, WifiOff } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Bell, CalendarCheck, Check, ChevronRight, Eye, EyeOff, Flame, Gift, Landmark, PartyPopper, Settings as SettingsIcon, Sparkles, Users, WifiOff } from 'lucide-react-native';
 import { useSync } from '../contexts/SyncContext';
 import { publishWidgetSnapshot } from '../lib/widgetData';
 import { useAuth } from '../contexts/AuthContext';
@@ -50,6 +50,11 @@ export function DashboardScreen() {
   const [data, setData] = useState<AnalyticsSummary | null>(null);
   const [recent, setRecent] = useState<ApiTransaction[]>([]);
   const [currentBudget, setCurrentBudget] = useState<ApiBudget | null>(null);
+  // Other budgets running now (a shared one, an event), shown as one-tap links under the main card.
+  const [alsoRunning, setAlsoRunning] = useState<ApiBudget[]>([]);
+  // Read inside load without making it reload on every profile refresh; Home reloads on focus anyway.
+  const homeBudgetRef = useRef(user?.homeBudget);
+  homeBudgetRef.current = user?.homeBudget;
   const [currentBudgetSpent, setCurrentBudgetSpent] = useState(0);
   const [currentBudgetTopSpend, setCurrentBudgetTopSpend] = useState<{ category: string; amount: number } | null>(null);
   const [bankSummary, setBankSummary] = useState<{ banks: number; accounts: number } | null>(null);
@@ -200,8 +205,14 @@ export function DashboardScreen() {
       const budgets = spacesEnabled
         ? rawBudgets.filter((b) => ((b.spaceId ?? 'personal') as 'personal' | 'business') === activeSpaceId)
         : rawBudgets;
-      const picked = budgets.find((b) => isBudgetCurrent(b)) ?? budgets[0] ?? null;
+      // Home shows one budget: your own plan, or the shared one if that's what you chose.
+      const running = budgets.filter((b) => isBudgetCurrent(b));
+      const own = running.filter((b) => b.role !== 'member' && (b.purpose ?? 'personal') === 'personal');
+      const shared = running.filter((b) => b.purpose === 'household' || b.isShared);
+      const preferred = homeBudgetRef.current === 'shared' ? shared[0] ?? own[0] : own[0] ?? shared[0];
+      const picked = preferred ?? running.find((b) => b.purpose !== 'event') ?? running[0] ?? budgets[0] ?? null;
       setCurrentBudget(picked);
+      setAlsoRunning(running.filter((b) => b.id !== picked?.id));
 
       // Compute actual spend for the current budget from transactions.
       if (picked) {
@@ -559,6 +570,26 @@ export function DashboardScreen() {
         </HeroCard>
       )}
 
+      {currentBudget && alsoRunning.length ? (
+        <View style={{ marginTop: 10, gap: 8 }}>
+          {alsoRunning.slice(0, 2).map((b) => (
+            <Pressable
+              key={String(b.id)}
+              onPress={() => nav.navigate('BudgetDetail', { budgetId: String(b.id) })}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.alsoRow, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface, opacity: pressed ? 0.85 : 1 }]}
+            >
+              {b.purpose === 'event' ? <PartyPopper color={theme.colors.brass} size={16} /> : <Users color={theme.colors.primary} size={16} />}
+              <Text numberOfLines={1} style={[type.smallStrong, { color: theme.colors.text, flex: 1 }]}>
+                {b.purpose === 'event' ? 'Also running: ' : b.role === 'member' ? 'Shared with you: ' : 'Shared budget: '}
+                {b.name.replace(/^My Budget \((.*)\)$/, '$1')}
+              </Text>
+              <ChevronRight color={theme.colors.textMuted} size={16} />
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
       <FirstWeekChecklist hasTransactions={hasTransactions} hasBudget={hasBudget} loading={isLoading && !data} />
 
       <View style={styles.quick}>
@@ -738,6 +769,7 @@ export function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
+  alsoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 56 },
   offline: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14 },
   avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },

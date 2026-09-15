@@ -29,6 +29,7 @@ import {
   SegmentedControl,
   formatAmount
 } from '../components/Common/ui';
+import { SelectField } from '../components/Common/SelectField';
 import { getRememberedPushToken, scheduleLocalBillReminders } from '../lib/notifications';
 import { currencySymbol, formatNumberInput, formatShortDate, parseNumberInput, toIsoDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
@@ -352,10 +353,13 @@ export default function RecurringScreen() {
                   />
                 </View>
 
-                <Text style={[type.smallStrong, styles.label, { color: theme.colors.text }]}>Category</Text>
-                <View style={styles.wrap}>
-                  {(draft.type === 'income' ? incomeCats : expenseCats).map((x) => x.name).map((c) => chip(c, draft.category === c, () => setDraft({ ...draft, category: c })))}
-                </View>
+                <SelectField
+                  label="Category"
+                  value={draft.category}
+                  options={(draft.type === 'income' ? incomeCats : expenseCats).map((x) => ({ value: x.name, label: x.name }))}
+                  onChange={(c) => setDraft({ ...draft, category: c })}
+                  style={{ marginTop: 16, marginBottom: 0 }}
+                />
 
                 <Text style={[type.smallStrong, styles.label, { color: theme.colors.text }]}>How often</Text>
                 <SegmentedControl
@@ -399,15 +403,18 @@ export default function RecurringScreen() {
 
                 {draft.type === 'expense' ? (
                   <>
-                    <Text style={[type.smallStrong, styles.label, { color: theme.colors.text }]}>Remind me</Text>
-                    <View style={styles.wrap}>
-                      {[
-                        [0, 'Off'],
-                        [1, '1 day before'],
-                        [3, '3 days before'],
-                        [7, 'A week before']
-                      ].map(([days, label]) => chip(label as string, draft.remindDaysBefore === days, () => setDraft({ ...draft, remindDaysBefore: days as number })))}
-                    </View>
+                    <SelectField
+                      label="Remind me"
+                      value={draft.remindDaysBefore}
+                      options={[
+                        { value: 0, label: 'Off' },
+                        { value: 1, label: '1 day before' },
+                        { value: 3, label: '3 days before' },
+                        { value: 7, label: 'A week before' }
+                      ]}
+                      onChange={(days) => setDraft({ ...draft, remindDaysBefore: days })}
+                      style={{ marginTop: 16, marginBottom: 0 }}
+                    />
                     <Text style={[type.smallStrong, styles.label, { color: theme.colors.text }]}>Budget bucket</Text>
                     <View style={styles.wrap}>{BUCKETS.map((b) => chip(b, draft.budgetCategory === b, () => setDraft({ ...draft, budgetCategory: b })))}</View>
                   </>

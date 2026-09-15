@@ -2,12 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BellRing, Check, ChevronLeft, CircleDollarSign, ListChecks, Plus, Receipt, Sparkles, X } from 'lucide-react-native';
+import { BellRing, Check, ChevronLeft, CircleDollarSign, Layers, ListChecks, Plus, Receipt, Sparkles, UserRound, Users, X } from 'lucide-react-native';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
-import { Amount, Card, Chip, HeroCard, IconTile, InlineError, PrimaryButton, SecondaryButton, SegmentedControl, TextButton } from '../components/Common/ui';
+import { Amount, Card, Chip, HeroCard, IconTile, InlineError, PrimaryButton, SecondaryButton, SegmentedControl, TextButton, TextField } from '../components/Common/ui';
 import { ChoiceChip } from '../components/Plan/ChoiceChip';
 import { IncomeEditor } from '../components/Plan/IncomeEditor';
 import { PlanSplit } from '../components/Plan/PlanSplit';
@@ -18,6 +18,7 @@ import {
   skipOnboarding,
   type ApiPlan,
   type BillInput,
+  type BudgetMode,
   type IncomeInput,
   type PainPoint,
   type PlanInputs
@@ -35,6 +36,12 @@ const PAIN_OPTIONS: Array<{ key: PainPoint; title: string; body: string }> = [
   { key: 'irregular', title: 'My income isn’t steady', body: 'We’ll plan around a safe estimate.' }
 ];
 
+const MODE_OPTIONS: Array<{ key: BudgetMode; title: string; body: string; Icon: typeof Users }> = [
+  { key: 'solo', title: 'Just me', body: 'My own budget for my own money.', Icon: UserRound },
+  { key: 'shared', title: 'Together with someone', body: 'One budget for the home, with a partner, family or housemates.', Icon: Users },
+  { key: 'both', title: 'My own, plus a shared one', body: 'Keep your own plan and share a household budget too. Yours shows on Home.', Icon: Layers }
+];
+
 const REMINDERS = [
   { key: 'morning', label: 'Morning', time: '8:00 am', hour: 8 },
   { key: 'lunch', label: 'Lunchtime', time: '1:00 pm', hour: 13 },
@@ -43,12 +50,13 @@ const REMINDERS = [
 ] as const;
 
 type ReminderKey = (typeof REMINDERS)[number]['key'];
+type StepKey = 'welcome' | 'who' | 'pain' | 'income' | 'bills' | 'plan' | 'reminder';
 
-const LAST_STEP = 5;
+const cleanCode = (t: string) => t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 
 /**
- * The first-run plan: what's hard right now, income and payday, regular bills, the plan itself, and a daily
- * reminder. Every step can be skipped, and everything can be changed later from the profile.
+ * The first-run plan: who the budget is for, what's hard right now, income and payday, regular bills, the plan
+ * itself, and a daily reminder. Every step can be skipped, and everything can be changed later.
  */
 export default function SetupPlanScreen() {
   const nav = useNavigation<any>();
@@ -61,7 +69,13 @@ export default function SetupPlanScreen() {
   const glyph = currencySymbol(user?.currency);
   const firstName = (user?.name ?? '').trim().split(/\s+/)[0] || null;
 
+  // Updating an existing plan skips "who is this for"; that lives in Settings.
+  const order: StepKey[] = fromHome ? ['welcome', 'pain', 'income', 'bills', 'plan', 'reminder'] : ['welcome', 'who', 'pain', 'income', 'bills', 'plan', 'reminder'];
+  const LAST_STEP = order.length - 1;
+
   const [step, setStep] = useState(0);
+  const [mode, setMode] = useState<BudgetMode>(user?.budgetMode ?? 'solo');
+  const [inviteCode, setInviteCode] = useState('');
   const [pains, setPains] = useState<PainPoint[]>((user?.onboarding?.painPoints as PainPoint[] | undefined) ?? []);
   const [incomes, setIncomes] = useState<DraftIncome[]>([blankIncome('salary')]);
   const [bills, setBills] = useState<DraftBill[]>([]);
@@ -72,6 +86,7 @@ export default function SetupPlanScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fade = useRef(new Animated.Value(1)).current;
+  const key = order[step];
 
   // Updating an existing plan starts from what's saved.
   useEffect(() => {
@@ -89,7 +104,7 @@ export default function SetupPlanScreen() {
   });
 
   useEffect(() => {
-    if (step !== 4) return;
+    if (key !== 'plan') return;
     let cancelled = false;
     setPlanLoading(true);
     setError(null);
@@ -101,7 +116,7 @@ export default function SetupPlanScreen() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, payday]);
+  }, [key, payday]);
 
   const go = (next: number) => {
     setError(null);
@@ -133,8 +148,9 @@ export default function SetupPlanScreen() {
   const finish = async () => {
     setBusy(true);
     setError(null);
+    const code = mode === 'solo' ? '' : inviteCode.trim();
     try {
-      await completeOnboarding({ ...inputs(), createBudget: true });
+      const res = await completeOnboarding({ ...inputs(), createBudget: true, mode, inviteCode: code || undefined });
       const choice = REMINDERS.find((r) => r.key === reminder)!;
       if (choice.hour >= 0) {
         const ok = await setDailyReminder({ hour: choice.hour, minute: 0 }).catch(() => false);
@@ -143,10 +159,30 @@ export default function SetupPlanScreen() {
         await setDailyReminder(null).catch(() => undefined);
       }
       await refreshUser();
-      toast.show('Your plan is ready', 'success');
+
+      if (fromHome) {
+        toast.show('Your plan is updated', 'success');
+        leave();
+        return;
+      }
+      if (mode === 'shared' && !code && res.sharedBudget) {
+        // Configured for a shared household: the budget exists, so the next step is inviting people.
+        toast.show('Your household budget is ready. Now invite your people 👇', 'success', 4000);
+        nav.reset({ index: 1, routes: [{ name: 'Main' }, { name: 'ShareBudget', params: { budgetId: res.sharedBudget.id, budgetName: res.sharedBudget.name } }] });
+        return;
+      }
+      if (mode === 'both' && !code) {
+        toast.show('Your plan is ready. Next, set up the budget you’ll share.', 'success', 4000);
+        nav.reset({ index: 0, routes: [{ name: 'Main', params: { screen: 'Budget', params: { startNew: true, purpose: 'household' } } }] });
+        return;
+      }
+      toast.show(res.sharedBudget && code ? `You’re in! ${res.sharedBudget.name.replace(/^My Budget \((.*)\)$/, '$1')} is ready 🎉` : 'Your plan is ready', 'success');
       leave();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save your plan. Check your connection and try again.');
+      const message = e instanceof Error ? e.message : 'Could not save your plan. Check your connection and try again.';
+      setError(message);
+      // A bad code is fixed on the "who" step.
+      if (code && /code/i.test(message)) go(order.indexOf('who'));
     } finally {
       setBusy(false);
     }
@@ -169,6 +205,7 @@ export default function SetupPlanScreen() {
         </Text>
       </HeroCard>
       {[
+        { Icon: Users, title: 'Solo or together', body: 'Budget on your own, with your partner or housemates, or both.' },
         { Icon: CircleDollarSign, title: 'What you earn and when', body: 'So your budget runs from payday to payday.' },
         { Icon: Receipt, title: 'What you must pay', body: 'Rent, school fees, tithe, family support and more.' },
         { Icon: ListChecks, title: 'A plan you can follow', body: 'Split into Needs, Wants and Savings in plain numbers.' }
@@ -183,6 +220,58 @@ export default function SetupPlanScreen() {
           </View>
         </View>
       ))}
+    </View>
+  );
+
+  const whoStep = (
+    <View>
+      <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Who it’s for</Text>
+      <Text style={[type.h2, { color: theme.colors.text, marginTop: 6 }]}>Who are you budgeting for?</Text>
+      <Text style={[type.body, { color: theme.colors.textMuted, marginTop: 6, marginBottom: 12 }]}>We’ll set the app up to match. You can change this later in Settings.</Text>
+      {MODE_OPTIONS.map((o) => {
+        const active = mode === o.key;
+        return (
+          <Pressable
+            key={o.key}
+            onPress={() => setMode(o.key)}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: active }}
+            style={[styles.option, { borderColor: active ? theme.colors.primary : theme.colors.border, backgroundColor: active ? theme.colors.primarySoft : theme.colors.surface }]}
+          >
+            <IconTile bg={active ? theme.colors.surface : theme.colors.surfaceAlt} size={40}>
+              <o.Icon color={active ? theme.colors.primary : theme.colors.textMuted} size={19} />
+            </IconTile>
+            <View style={{ flex: 1 }}>
+              <Text style={[type.bodyStrong, { color: theme.colors.text }]}>{o.title}</Text>
+              <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>{o.body}</Text>
+            </View>
+            {active ? <Check color={theme.colors.primary} size={18} strokeWidth={3} /> : null}
+          </Pressable>
+        );
+      })}
+
+      {mode !== 'solo' ? (
+        <Card style={{ marginTop: 14 }}>
+          <Text style={[type.bodyStrong, { color: theme.colors.text }]}>Got an invite code?</Text>
+          <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 4, marginBottom: 12 }]}>
+            {mode === 'shared'
+              ? 'If someone already started the budget, enter their code to join it. If not, leave this empty: we’ll create the household budget and you can invite them next.'
+              : 'Joining someone’s budget? Enter their code. If not, leave it empty and you can start a shared budget right after setup.'}
+          </Text>
+          <TextField
+            label="Invite code (optional)"
+            value={inviteCode}
+            onChangeText={(t) => setInviteCode(cleanCode(t))}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            placeholder="e.g. K7PQ2M"
+            style={{ fontFamily: fonts.display, letterSpacing: 4, fontSize: 18 }}
+          />
+          {mode === 'shared' ? (
+            <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: -4 }]}>Your income and bills still help us suggest what you can put in.</Text>
+          ) : null}
+        </Card>
+      ) : null}
     </View>
   );
 
@@ -305,14 +394,14 @@ export default function SetupPlanScreen() {
   const planStep = (
     <View>
       <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Your plan</Text>
-      <Text style={[type.h2, { color: theme.colors.text, marginTop: 6 }]}>Here’s a plan built around you</Text>
+      <Text style={[type.h2, { color: theme.colors.text, marginTop: 6 }]}>{mode === 'shared' ? 'Here’s what you can bring to the household' : 'Here’s a plan built around you'}</Text>
       {planLoading || !plan ? (
         <View style={{ paddingVertical: 48, alignItems: 'center' }}>{planLoading ? <ActivityIndicator color={theme.colors.primary} /> : null}</View>
       ) : plan.status === 'no_income' ? (
         <Card style={{ marginTop: 14 }}>
           <Text style={[type.bodyStrong, { color: theme.colors.text }]}>Add your income to see a plan</Text>
           <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 4 }]}>{plan.tips[0]}</Text>
-          <TextButton title="Add income" onPress={() => go(2)} style={{ alignItems: 'flex-start' }} />
+          <TextButton title="Add income" onPress={() => go(order.indexOf('income'))} style={{ alignItems: 'flex-start' }} />
         </Card>
       ) : (
         <>
@@ -395,7 +484,7 @@ export default function SetupPlanScreen() {
     </View>
   );
 
-  const content = [welcome, painStep, incomeStep, billsStep, planStep, reminderStep][step];
+  const content = { welcome, who: whoStep, pain: painStep, income: incomeStep, bills: billsStep, plan: planStep, reminder: reminderStep }[key];
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]} edges={['top', 'left', 'right']}>
@@ -432,10 +521,10 @@ export default function SetupPlanScreen() {
             <>
               <SecondaryButton title="Back" onPress={() => go(step - 1)} style={{ flex: 1 }} />
               <PrimaryButton
-                title={step === LAST_STEP ? 'Finish' : step === 3 && bills.length === 0 ? 'No bills, continue' : 'Continue'}
+                title={step === LAST_STEP ? 'Finish' : key === 'bills' && bills.length === 0 ? 'No bills, continue' : 'Continue'}
                 onPress={() => (step === LAST_STEP ? finish() : go(step + 1))}
                 loading={busy}
-                disabled={step === 4 && planLoading}
+                disabled={key === 'plan' && planLoading}
                 style={{ flex: 2 }}
               />
             </>

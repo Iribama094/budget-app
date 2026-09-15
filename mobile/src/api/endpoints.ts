@@ -15,13 +15,24 @@ export type ApiUser = {
     incomeType?: 'gross' | 'net';
     residentType?: string;
     dependents?: number;
+    /** Monthly */
     pensionContribution?: number;
+    nhfContribution?: number;
+    nhisContribution?: number;
+    /** Yearly */
+    annualRent?: number;
+    lifeInsurancePremium?: number;
+    mortgageInterest?: number;
     optInTaxFeature?: boolean;
   } | null;
   netWorth?: number | null;
   /** Answers from the first-run plan. */
   onboarding?: { completedAt: string | null; skippedAt: string | null; painPoints: string[] };
   budgetPeriod?: 'payday' | 'monthly';
+  /** solo: own budget · shared: one budget with others · both: own plus shared */
+  budgetMode?: 'solo' | 'shared' | 'both';
+  /** Which budget Home shows when there's an own budget and a shared one. */
+  homeBudget?: 'own' | 'shared';
   createdAt: string;
   updatedAt: string;
 };
@@ -32,7 +43,7 @@ export async function getMe(): Promise<ApiUser> {
 }
 
 export async function patchMe(
-  patch: Partial<Pick<ApiUser, 'name' | 'currency' | 'locale' | 'monthlyIncome' | 'budgetPeriod'>> & { taxProfile?: any; painPoints?: string[] }
+  patch: Partial<Pick<ApiUser, 'name' | 'currency' | 'locale' | 'monthlyIncome' | 'budgetPeriod' | 'budgetMode' | 'homeBudget'>> & { taxProfile?: any; painPoints?: string[] }
 ): Promise<ApiUser> {
   const data = await apiFetch('/v1/users/me', { method: 'PATCH', body: JSON.stringify(patch) });
   return (data as any).user as ApiUser;
@@ -326,6 +337,8 @@ export type ApiBudget = {
   id: string;
   spaceId?: 'personal' | 'business';
   name: string;
+  /** personal: someone's own plan · household: shared and run every period · event: a one-off like a wedding or trip */
+  purpose?: BudgetPurpose;
   totalBudget: number;
   period: 'monthly' | 'weekly';
   startDate: string;
@@ -363,6 +376,8 @@ export async function getBudgetInSpace(id: string, spaceId?: 'personal' | 'busin
   return (data as any).budget as ApiBudget;
 }
 
+export type BudgetPurpose = 'personal' | 'household' | 'event';
+
 export async function createBudget(input: {
   name: string;
   totalBudget: number;
@@ -371,9 +386,15 @@ export async function createBudget(input: {
   endDate?: string;
   categories: Record<string, { budgeted: number }>;
   spaceId?: 'personal' | 'business';
+  purpose?: BudgetPurpose;
 }): Promise<ApiBudget> {
   const data = await apiFetch('/v1/budgets', { method: 'POST', body: JSON.stringify(input) });
   return (data as any).budget as ApiBudget;
+}
+
+/** Starts the next period of a budget with the same plan (and people, if shared). Returns the existing one if it's already there. */
+export async function startNextBudget(id: string): Promise<{ budget: ApiBudget; existed: boolean }> {
+  return apiFetch(`/v1/budgets/${encodeURIComponent(id)}/next`, { method: 'POST' });
 }
 
 export type ApiBankAccount = {

@@ -9,6 +9,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { Amount, Card, IconTile, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader } from '../components/Common/ui';
 import { PlanSplit } from '../components/Plan/PlanSplit';
+import { BusinessProfile } from '../components/Profile/BusinessProfile';
 import { getAnalyticsSummary } from '../api/endpoints';
 import { getPlan, type ApiPlan } from '../api/personal';
 import { currencySymbol } from '../utils/format';
@@ -22,13 +23,14 @@ const PAIN_LABELS: Record<string, string> = {
   irregular: 'Planning with changing income'
 };
 
-/** The person behind the account: their details, plan, income and security. App settings are in the Settings tab. */
+/** The person behind the account: their details, plan, income and security. In the Business space it shows the business profile. */
 export function ProfileScreen() {
   const nav = useNavigation<any>();
   const { user, logout } = useAuth();
   const { theme } = useTheme();
   const { spacesEnabled, activeSpaceId } = useSpace();
   const glyph = currencySymbol(user?.currency);
+  const isBusiness = spacesEnabled && activeSpaceId === 'business';
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [plan, setPlan] = useState<ApiPlan | null>(null);
@@ -36,13 +38,14 @@ export function ProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (isBusiness) return;
       SecureStore.getItemAsync('bf_avatar_uri_v1').then((v) => v && setAvatarUri(v)).catch(() => undefined);
       getPlan().then(setPlan).catch(() => setPlan(null));
       const now = new Date();
       getAnalyticsSummary(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10), now.toISOString().slice(0, 10), spacesEnabled ? { spaceId: activeSpaceId } : undefined)
         .then((s) => Number.isFinite(Number(s?.totalBalance)) && setNetWorth(Number(s.totalBalance)))
         .catch(() => undefined);
-    }, [activeSpaceId, spacesEnabled])
+    }, [activeSpaceId, isBusiness, spacesEnabled])
   );
 
   const displayName = user?.name || user?.email || 'You';
@@ -68,9 +71,11 @@ export function ProfileScreen() {
     ]);
   };
 
+  if (isBusiness) return <BusinessProfile onLogout={confirmLogout} />;
+
   return (
     <Screen bottomInset={48}>
-      <ScreenHeader title="Profile" onBack={() => nav.goBack()} />
+      <ScreenHeader title="Profile" subtitle={spacesEnabled ? 'Personal space' : undefined} onBack={() => nav.goBack()} />
 
       <View style={styles.profile}>
         {avatarUri ? (
@@ -141,7 +146,7 @@ export function ProfileScreen() {
           chevron
         />
         <ListRow icon={tile(UserRound)} title="Personal details" subtitle="Name, photo and currency" onPress={() => nav.navigate('ProfileEdit')} chevron />
-        <ListRow icon={tile(Gift)} title="Money Wrapped" subtitle="Your money story, the fun way 🎁" onPress={() => nav.navigate('Wrapped')} chevron />
+        <ListRow icon={tile(Gift)} title="Money Wrapped" subtitle="Your money story, the fun way 🎁" onPress={() => nav.navigate('Wrapped', { spaceId: 'personal' })} chevron />
       </ListCard>
 
       {netWorth != null ? (

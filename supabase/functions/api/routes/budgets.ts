@@ -1,14 +1,25 @@
 import { iso, isUniqueViolation, isUuid, sql } from '../lib/db.ts';
 import { requireAuth } from '../lib/auth.ts';
 import { badRequest, body, HttpError, json, methodNotAllowed, noContent, notFound, spaceParam, z } from '../lib/http.ts';
-import { budgetBounds, effectiveEndIso, ISO_DATE, todayIso } from '../lib/dates.ts';
-import { budgetLabel, budgetMemberIds, findOwnBudget, findVisibleBudget, selectBudgets, toApiBudget, type BudgetRow } from '../lib/budgets.ts';
+import { addDaysIso, budgetBounds, effectiveEndIso, formatIsoDateUtc, ISO_DATE, parseIsoDateUtcNoon, todayIso } from '../lib/dates.ts';
+import {
+  budgetLabel,
+  budgetMemberIds,
+  carryMembers,
+  findOwnBudget,
+  findVisibleBudget,
+  selectBudgets,
+  toApiBudget,
+  type BudgetPurpose,
+  type BudgetRow
+} from '../lib/budgets.ts';
 import { currencyFor, formatMoney, notifyUser } from '../lib/notify.ts';
 import { enforceRateLimit } from '../lib/rateLimit.ts';
 import { voice } from '../lib/voice.ts';
 import type { Ctx } from '../index.ts';
 
 const CategoriesSchema = z.record(z.string().min(1).max(60), z.object({ budgeted: z.number().finite().nonnegative() }).passthrough());
+const PurposeSchema = z.enum(['personal', 'household', 'event']);
 
 const CreateSchema = z.object({
   name: z.string().min(1).max(80),
@@ -17,7 +28,8 @@ const CreateSchema = z.object({
   startDate: z.string().regex(ISO_DATE),
   endDate: z.string().regex(ISO_DATE).optional(),
   categories: CategoriesSchema,
-  spaceId: z.enum(['personal', 'business']).optional()
+  spaceId: z.enum(['personal', 'business']).optional(),
+  purpose: PurposeSchema.optional()
 });
 
 const PatchSchema = z
@@ -27,21 +39,35 @@ const PatchSchema = z
     period: z.enum(['monthly', 'weekly']).optional(),
     startDate: z.string().regex(ISO_DATE).optional(),
     endDate: z.string().regex(ISO_DATE).optional(),
-    categories: CategoriesSchema.optional()
+    categories: CategoriesSchema.optional(),
+    purpose: PurposeSchema.optional()
   })
   .strict();
 
-/** Only one budget can cover a given day per space. */
-async function assertNoOverlap(userId: string, space: string, start: string, end: string, exceptId?: string) {
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Business budgets are always the business's own plan; sharing and one-off budgets live in Personal. */
+const purposeFor = (space: string, requested: BudgetPurpose | undefined | null): BudgetPurpose => (space === 'business' ? 'personal' : requested ?? 'personal');
+
+/** One own plan and one household budget can cover a day per space. Events (weddings, trips) can overlap anything. */
+async function assertNoOverlap(userId: string, space: string, purpose: BudgetPurpose, start: string, end: string, exceptId?: string) {
+  if (purpose === 'event') return;
   const [clash] = await sql`
     select id from public.budgets
-    where user_id = ${userId} and space_id = ${space} ${exceptId ? sql`and id <> ${exceptId}` : sql``}
+    where user_id = ${userId} and space_id = ${space} and purpose = ${purpose} ${exceptId ? sql`and id <> ${exceptId}` : sql``}
       and start_date <= ${end}::date
       and coalesce(end_date, case when period = 'weekly' then start_date + 6
                                   else (date_trunc('month', start_date) + interval '1 month - 1 day')::date end) >= ${start}::date
     limit 1
   `;
-  if (clash) badRequest('Budget dates overlap an existing budget');
+  if (clash) badRequest(purpose === 'household' ? 'A shared budget already covers those dates' : 'Budget dates overlap an existing budget');
+}
+
+/** Tells people who were carried into a new household budget that it's ready. */
+async function announceNextPeriod(memberIds: string[], b: { id: string; name: string }) {
+  for (const id of memberIds) {
+    await notifyUser(id, { kind: 'shared', ...voice.nextPeriodReady(budgetLabel(b.name)), spaceId: 'personal', data: { screen: 'BudgetDetail', budgetId: b.id } }).catch(() => undefined);
+  }
 }
 
 /** GET/POST /v1/budgets */
@@ -52,16 +78,19 @@ export async function budgetsIndex(ctx: Ctx) {
   if (ctx.method === 'POST') {
     const input = await body(ctx.req, CreateSchema);
     const space = input.spaceId ?? 'personal';
+    const purpose = purposeFor(space, input.purpose);
     const end = effectiveEndIso({ startDate: input.startDate, endDate: input.endDate ?? null, period: input.period });
     if (input.startDate > end) badRequest('Invalid budget date range');
-    await assertNoOverlap(userId, space, input.startDate, end);
+    await assertNoOverlap(userId, space, purpose, input.startDate, end);
 
     const [row] = await sql`
-      insert into public.budgets (user_id, space_id, name, total_budget, period, start_date, end_date, categories)
+      insert into public.budgets (user_id, space_id, name, total_budget, period, start_date, end_date, categories, purpose)
       values (${userId}, ${space}, ${input.name}, ${input.totalBudget}, ${input.period}, ${input.startDate}::date,
-              ${input.endDate ?? null}::date, ${sql.json(input.categories as any)})
+              ${input.endDate ?? null}::date, ${sql.json(input.categories as any)}, ${purpose})
       returning id
     `;
+    // A new household budget keeps the people from the last one.
+    if (purpose === 'household') await announceNextPeriod(await carryMembers(userId, row.id), { id: row.id, name: input.name });
     const b = await findOwnBudget(userId, row.id);
     return json(201, { budget: toApiBudget(b!, userId) });
   }
@@ -102,6 +131,10 @@ export async function budgetById(ctx: Ctx) {
   const current = await findOwnBudget(userId, id, space);
   if (!current) notFound('Budget not found');
 
+  let purpose = purposeFor(current.spaceId, patch.purpose ?? current.purpose);
+  // People are still in it, so it stays shared.
+  if (purpose === 'personal' && current.members.length) purpose = 'household';
+
   const next = {
     startDate: patch.startDate ?? current.startDate,
     period: patch.period ?? current.period,
@@ -109,7 +142,7 @@ export async function budgetById(ctx: Ctx) {
   };
   const nextEnd = effectiveEndIso(next);
   if (next.startDate > nextEnd) badRequest('Invalid budget date range');
-  await assertNoOverlap(userId, current.spaceId, next.startDate, nextEnd, id);
+  await assertNoOverlap(userId, current.spaceId, purpose, next.startDate, nextEnd, id);
 
   await sql`
     update public.budgets set
@@ -118,12 +151,83 @@ export async function budgetById(ctx: Ctx) {
       period = ${next.period},
       start_date = ${next.startDate}::date,
       end_date = ${next.endDate}::date,
-      categories = ${sql.json((patch.categories ?? current.categories) as any)}
+      categories = ${sql.json((patch.categories ?? current.categories) as any)},
+      purpose = ${purpose}
     where id = ${id} and user_id = ${userId}
   `;
   const b = await findOwnBudget(userId, id);
   return json(200, { budget: toApiBudget(b!, userId) });
 }
+
+/* ------------------------------------------------------------ next period */
+
+function addMonthsIso(isoDate: string, months: number): string {
+  const d = parseIsoDateUtcNoon(isoDate);
+  const day = d.getUTCDate();
+  const target = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + months, 1, 12));
+  const last = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0, 12)).getUTCDate();
+  target.setUTCDate(Math.min(day, last));
+  return formatIsoDateUtc(target);
+}
+
+/** The period straight after a budget: whole months stay whole months (payday to payday too); anything else keeps its length. */
+export function nextPeriodDates(b: { startDate: string; endDate?: string | null; period: string }): { start: string; end: string } {
+  const end = effectiveEndIso(b);
+  const nextStart = addDaysIso(end, 1);
+  const s = parseIsoDateUtcNoon(b.startDate);
+  const n = parseIsoDateUtcNoon(nextStart);
+  const months = (n.getUTCFullYear() - s.getUTCFullYear()) * 12 + (n.getUTCMonth() - s.getUTCMonth());
+  if (months >= 1 && n.getUTCDate() === s.getUTCDate()) return { start: nextStart, end: addDaysIso(addMonthsIso(nextStart, months), -1) };
+  const days = Math.round((parseIsoDateUtcNoon(end).getTime() - s.getTime()) / 86400000) + 1;
+  return { start: nextStart, end: addDaysIso(nextStart, days - 1) };
+}
+
+function periodLabel(start: string, end: string): string {
+  const s = parseIsoDateUtcNoon(start);
+  const e = parseIsoDateUtcNoon(end);
+  const wholeMonth = s.getUTCDate() === 1 && addDaysIso(end, 1).endsWith('-01') && s.getUTCMonth() === e.getUTCMonth() && s.getUTCFullYear() === e.getUTCFullYear();
+  if (wholeMonth) return `${MONTHS[s.getUTCMonth()]} ${s.getUTCFullYear()}`;
+  return `${s.getUTCDate()} ${MONTHS[s.getUTCMonth()]} – ${e.getUTCDate()} ${MONTHS[e.getUTCMonth()]}`;
+}
+
+/**
+ * POST /v1/budgets/:id/next — start the next period with the same plan, and for a shared budget the same people.
+ * Owner only. If the next one already exists it is returned instead of creating another.
+ */
+export async function nextPeriod(ctx: Ctx) {
+  if (ctx.method !== 'POST') methodNotAllowed(['POST']);
+  const { userId } = await requireAuth(ctx.req);
+  const b = await findVisibleBudget(userId, ctx.parts[1]);
+  if (!b) notFound('Budget not found');
+  if (b.userId !== userId) throw new HttpError(403, 'FORBIDDEN', 'Only the person who created this budget can start the next one.');
+  const purpose = b.purpose ?? 'personal';
+  if (purpose === 'event') badRequest('One-off budgets don’t repeat. Create a new one instead.');
+
+  const dates = nextPeriodDates(b);
+  const [existing] = await sql`
+    select id from public.budgets
+    where user_id = ${userId} and space_id = ${b.spaceId} and purpose = ${purpose} and start_date > ${b.startDate}::date
+    order by start_date asc limit 1
+  `;
+  if (existing) {
+    const found = await findOwnBudget(userId, existing.id);
+    return json(200, { budget: toApiBudget(found!, userId), existed: true });
+  }
+  await assertNoOverlap(userId, b.spaceId, purpose, dates.start, dates.end);
+
+  const categories = Object.fromEntries(Object.entries(b.categories ?? {}).map(([k, c]) => [k, { budgeted: Number(c?.budgeted) || 0 }]));
+  const name = /^My Budget \(.*\)$/.test(b.name) ? `My Budget (${periodLabel(dates.start, dates.end)})` : b.name;
+  const [row] = await sql`
+    insert into public.budgets (user_id, space_id, name, total_budget, period, start_date, end_date, categories, purpose)
+    values (${userId}, ${b.spaceId}, ${name}, ${b.totalBudget}, ${b.period}, ${dates.start}::date, ${dates.end}::date, ${sql.json(categories)}, ${purpose})
+    returning id
+  `;
+  if (purpose === 'household') await announceNextPeriod(await carryMembers(userId, row.id, b.id), { id: row.id, name });
+  const created = await findOwnBudget(userId, row.id);
+  return json(201, { budget: toApiBudget(created!, userId), existed: false });
+}
+
+/* ------------------------------------------------------------ mini budgets */
 
 const MiniSchema = z.object({ name: z.string().min(1).max(80), amount: z.number().finite().nonnegative(), category: z.string().min(1).max(60).optional() });
 
@@ -158,6 +262,8 @@ export async function miniBudgets(ctx: Ctx) {
   const items = await sql`select * from public.mini_budgets where user_id = ${userId} and budget_id = ${budgetId} order by created_at desc, id desc`;
   return json(200, { items: items.map(toApiMini) });
 }
+
+/* ------------------------------------------------------------ rollover */
 
 async function unspentByBucket(b: BudgetRow) {
   const { start, end } = budgetBounds(b);
@@ -200,9 +306,10 @@ export async function rollover(ctx: Ctx) {
   const endIso = effectiveEndIso(b);
   const ended = todayIso() > endIso;
   const { buckets, totalSpent, unspent } = await unspentByBucket(b);
+  // Leftovers go to the next budget of the same kind: plan to plan, household to household.
   const [nextBudget] = await sql`
     select id, name, start_date from public.budgets
-    where user_id = ${userId} and space_id = ${b.spaceId} and start_date > ${endIso}::date
+    where user_id = ${userId} and space_id = ${b.spaceId} and purpose = ${b.purpose ?? 'personal'} and start_date > ${endIso}::date
     order by start_date asc limit 1
   `;
 
@@ -268,6 +375,8 @@ export async function rollover(ctx: Ctx) {
   return json(200, { moved: unspent, destination: input.destination });
 }
 
+/* ------------------------------------------------------------ sharing */
+
 // No 0/O or 1/I so codes are easy to read out loud.
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const INVITE_TTL_DAYS = 7;
@@ -277,6 +386,9 @@ function newInviteCode(length = 6): string {
   const bytes = crypto.getRandomValues(new Uint8Array(length));
   return Array.from(bytes, (x) => CODE_ALPHABET[x % CODE_ALPHABET.length]).join('');
 }
+
+const shortName = (p: { name?: string | null; email?: string | null } | undefined) =>
+  (p?.name ?? '').trim().split(/\s+/)[0] || (p?.email ?? '').split('@')[0] || 'Someone';
 
 /**
  * GET    /v1/budgets/:id/members             owner + members
@@ -296,6 +408,7 @@ export async function sharing(ctx: Ctx) {
     const [owner] = await sql`select name, email from public.profiles where id = ${budget.userId}`;
     return json(200, {
       role: isOwner ? 'owner' : 'member',
+      purpose: budget.purpose ?? 'personal',
       items: [
         { userId: budget.userId, role: 'owner', name: owner?.name ?? null, email: owner?.email ?? '', joinedAt: iso(budget.createdAt) },
         ...budget.members.map((m) => ({ userId: m.userId, role: 'member', name: m.name ?? null, email: m.email, joinedAt: iso(m.joinedAt) }))
@@ -310,7 +423,14 @@ export async function sharing(ctx: Ctx) {
     if (!removed.length) notFound('Member not found');
     await sql`update public.budgets set updated_at = now() where id = ${budget.id}`;
     if (memberId !== userId) {
-      await notifyUser(memberId, { kind: 'shared', title: `You were removed from ${label}`, body: 'You no longer have access to this shared budget.' }).catch(() => undefined);
+      await notifyUser(memberId, { kind: 'shared', title: `You were removed from ${label}`, body: 'You no longer have access to this shared budget.', spaceId: 'personal' }).catch(() => undefined);
+    } else {
+      // Someone left: tell the owner and everyone still in it.
+      const leaver = budget.members.find((m) => m.userId === memberId);
+      const stillIn = budgetMemberIds({ userId: budget.userId, members: budget.members.filter((m) => m.userId !== memberId) });
+      for (const id of stillIn) {
+        await notifyUser(id, { kind: 'shared', ...voice.memberLeft(shortName(leaver), label), spaceId: 'personal', data: { screen: 'BudgetDetail', budgetId: budget.id } }).catch(() => undefined);
+      }
     }
     return json(200, { ok: true });
   }
@@ -319,6 +439,12 @@ export async function sharing(ctx: Ctx) {
     if (!isOwner) throw new HttpError(403, 'FORBIDDEN', 'Only the owner can invite people.');
     if (budget.spaceId === 'business') badRequest('Business budgets can’t be shared yet.');
     if (budget.members.length >= MAX_MEMBERS) badRequest(`A budget can have up to ${MAX_MEMBERS} members.`);
+
+    // Sharing your own plan turns it into a household budget, which then carries its people into each new period.
+    if ((budget.purpose ?? 'personal') === 'personal') {
+      await assertNoOverlap(userId, budget.spaceId, 'household', budget.startDate, effectiveEndIso(budget), budget.id);
+      await sql`update public.budgets set purpose = 'household' where id = ${budget.id}`;
+    }
 
     const expiresAt = new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -336,35 +462,44 @@ export async function sharing(ctx: Ctx) {
   methodNotAllowed(['GET', 'POST', 'DELETE']);
 }
 
+/** Joins a shared budget with an invite code and tells everyone already in it. Used by the join screen and by setup. */
+export async function joinBudgetWithCode(userId: string, rawCode: string): Promise<BudgetRow> {
+  const code = rawCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  await enforceRateLimit({ key: `invite-accept:${userId}`, limit: 10, windowSec: 15 * 60 });
+
+  const [invite] = code ? await sql`select * from public.budget_invites where code = ${code}` : [];
+  if (!invite || new Date(invite.expiresAt) <= new Date() || invite.acceptedBy) {
+    badRequest('That code has expired or was already used. Ask for a new one.', 'INVALID_CODE');
+  }
+  const before = await selectBudgets(sql`b.id = ${invite.budgetId}`).then((rows) => rows[0] ?? null);
+  if (!before) badRequest('That budget no longer exists.', 'INVALID_CODE');
+  if (before.userId === userId) badRequest('This is your own budget.');
+
+  await sql`insert into public.budget_members (budget_id, user_id) values (${before.id}, ${userId}) on conflict do nothing`;
+  await sql`update public.budget_invites set accepted_by = ${userId}, accepted_at = now() where code = ${code}`;
+  await sql`update public.budgets set updated_at = now(), purpose = case when purpose = 'personal' then 'household' else purpose end where id = ${before.id}`;
+
+  const [me] = await sql`select name, email from public.profiles where id = ${userId}`;
+  for (const id of budgetMemberIds(before)) {
+    if (id === userId) continue;
+    await notifyUser(id, {
+      kind: 'shared',
+      ...voice.memberJoined(me?.name || me?.email || 'Someone', budgetLabel(before.name)),
+      spaceId: 'personal',
+      data: { screen: 'BudgetDetail', budgetId: before.id }
+    }).catch(() => undefined);
+  }
+
+  return (await findVisibleBudget(userId, before.id))!;
+}
+
 const AcceptSchema = z.object({ code: z.string().trim().min(4).max(12) });
 
 /** POST /v1/budget-invites/accept — join a household budget with a code. */
 export async function acceptInvite(ctx: Ctx) {
   if (ctx.method !== 'POST') methodNotAllowed(['POST']);
   const { userId } = await requireAuth(ctx.req);
-  const { code: raw } = await body(ctx.req, AcceptSchema, 'Enter the code you were sent');
-  const code = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  await enforceRateLimit({ key: `invite-accept:${userId}`, limit: 10, windowSec: 15 * 60 });
-
-  const [invite] = await sql`select * from public.budget_invites where code = ${code}`;
-  if (!invite || new Date(invite.expiresAt) <= new Date() || invite.acceptedBy) {
-    badRequest('That code has expired or was already used. Ask for a new one.', 'INVALID_CODE');
-  }
-  const [budget] = await sql`select id, user_id, name from public.budgets where id = ${invite.budgetId}`;
-  if (!budget) badRequest('That budget no longer exists.', 'INVALID_CODE');
-  if (budget.userId === userId) badRequest('This is your own budget.');
-
-  await sql`insert into public.budget_members (budget_id, user_id) values (${budget.id}, ${userId}) on conflict do nothing`;
-  await sql`update public.budget_invites set accepted_by = ${userId}, accepted_at = now() where code = ${code}`;
-  await sql`update public.budgets set updated_at = now() where id = ${budget.id}`;
-
-  const [me] = await sql`select name, email from public.profiles where id = ${userId}`;
-  await notifyUser(budget.userId, {
-    kind: 'shared',
-    ...voice.memberJoined(me?.name || me?.email || 'Someone', budgetLabel(budget.name)),
-    data: { screen: 'BudgetDetail', budgetId: budget.id }
-  }).catch(() => undefined);
-
-  const updated = await findVisibleBudget(userId, budget.id);
-  return json(200, { budget: toApiBudget(updated!, userId) });
+  const { code } = await body(ctx.req, AcceptSchema, 'Enter the code you were sent');
+  const budget = await joinBudgetWithCode(userId, code);
+  return json(200, { budget: toApiBudget(budget, userId) });
 }

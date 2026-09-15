@@ -161,6 +161,7 @@ function AuthedStack() {
       <Stack.Screen name="Bills" component={BillsScreen} />
       <Stack.Screen name="Payroll" component={PayrollScreen} />
       <Stack.Screen name="BusinessTax" component={BusinessTaxScreen} />
+      <Stack.Screen name="BusinessDetails" component={require('./src/screens/BusinessDetailsScreen').default} />
       <Stack.Screen name="PayYourself" component={PayYourselfScreen} />
       <Stack.Screen name="BusinessReports" component={BusinessReportsScreen} />
       <Stack.Screen name="StatementImport" component={StatementImportScreen} />
@@ -288,7 +289,11 @@ export default function App() {
                       <ToastProvider>
                         <CategoriesProvider>
                         <SyncProvider>
-                        <NavigationContainer ref={navigationRef}>
+                        <NavigationContainer
+                          ref={navigationRef}
+                          // budgetfriendly://join/CODE opens the join screen with the code filled in (in installed builds).
+                          linking={{ prefixes: ['budgetfriendly://'], config: { screens: { ShareBudget: 'join/:code' } } } as any}
+                        >
                           <TourProvider>
                             <NudgesProvider>
                               <View style={styles.container}>

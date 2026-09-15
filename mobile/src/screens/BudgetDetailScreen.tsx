@@ -2,12 +2,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { bucketDisplayName } from '../theme/buckets';
 import { View, Text, Pressable, ActivityIndicator, Animated, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Amount as UiAmount, HeroCard, ProgressBar } from '../components/Common/ui';
+import { Amount as UiAmount, Card, Chip, HeroCard, PrimaryButton, ProgressBar, SectionHeader, TextButton } from '../components/Common/ui';
 import { type } from '../theme/typography';
 import { currencySymbol } from '../utils/format';
-import { ChevronLeft } from 'lucide-react-native';
+import { CalendarPlus, ChevronLeft } from 'lucide-react-native';
 
-import { calcTax, deleteBudget, deleteBudgetInSpace, getBudget, getBudgetInSpace, listTransactions, type ApiBudget, type ApiTransaction } from '../api/endpoints';
+import { calcTax, deleteBudget, deleteBudgetInSpace, getBudget, getBudgetInSpace, listTransactions, patchMe, startNextBudget, type ApiBudget, type ApiTransaction } from '../api/endpoints';
+import { listBudgetMembers, type ApiBudgetMember } from '../api/features';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
@@ -58,7 +59,7 @@ export default function BudgetDetailScreen() {
   const route = useRoute<any>();
   const budgetId = String(route.params?.budgetId ?? '');
 
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { theme } = useTheme();
   const { spacesEnabled, activeSpaceId } = useSpace();
   const { showAmounts } = useAmountVisibility();
@@ -72,6 +73,9 @@ export default function BudgetDetailScreen() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [people, setPeople] = useState<ApiBudgetMember[]>([]);
+  const [spentByPerson, setSpentByPerson] = useState<Record<string, number>>({});
+  const [startingNext, setStartingNext] = useState(false);
 
   const [timeframe, setTimeframe] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
 
@@ -143,6 +147,8 @@ export default function BudgetDetailScreen() {
           end: toIsoDateTime(end),
           limit: 200,
           cursor: cursor ?? undefined,
+          // Filtering by budget returns every member's transactions when the budget is shared.
+          budgetId,
           spaceId: spacesEnabled ? activeSpaceId : undefined
         });
         all.push(...(res.items || []));
@@ -150,6 +156,7 @@ export default function BudgetDetailScreen() {
       } while (cursor);
 
       const summary = { income: 0, expenses: 0, spentByCategory: {} as Record<string, number> };
+      const byPerson: Record<string, number> = {};
       for (const t of all) {
         if (String(t.budgetId ?? '') !== String(budgetId)) continue;
 
@@ -159,11 +166,15 @@ export default function BudgetDetailScreen() {
         }
 
         summary.expenses += t.amount;
+        const who = String((t as { userId?: string }).userId ?? '');
+        if (who) byPerson[who] = (byPerson[who] ?? 0) + t.amount;
         const key = (t.budgetCategory || (t as any).category || '').trim();
         if (key) summary.spentByCategory[key] = (summary.spentByCategory[key] ?? 0) + t.amount;
       }
 
       setTxSummary(summary);
+      setSpentByPerson(byPerson);
+      setPeople(b.isShared ? (await listBudgetMembers(budgetId).catch(() => ({ items: [] as ApiBudgetMember[] }))).items : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load budget');
     } finally {
@@ -207,9 +218,70 @@ export default function BudgetDetailScreen() {
   const remaining = effectiveTotal - used;
   const progress = effectiveTotal > 0 ? Math.min(1, Math.max(0, used / effectiveTotal)) : 0;
 
+  const isSharedBudget = !!budget && (!!budget.isShared || budget.purpose === 'household');
+  const isOwnPlan = !!budget && budget.role !== 'member' && (budget.purpose ?? 'personal') === 'personal';
+  const isCurrent = !!budgetRange && Date.now() >= budgetRange.start.getTime() && Date.now() <= budgetRange.end.getTime() + 86400000;
+  const homeBudget = user?.homeBudget ?? 'own';
+  // Offer to put this budget on Home when it's running and Home shows the other kind.
+  const showOnHome = isCurrent && ((isSharedBudget && homeBudget !== 'shared') || (isOwnPlan && homeBudget === 'shared'));
+  const daysLeft = budgetRange ? Math.ceil((budgetRange.end.getTime() - Date.now()) / 86400000) : 99;
+  const canStartNext = !!budget && budget.role !== 'member' && budget.purpose !== 'event' && daysLeft <= 5;
+
+  const putOnHome = async () => {
+    try {
+      await patchMe({ homeBudget: isSharedBudget ? 'shared' : 'own' });
+      await refreshUser();
+      toast.show('Home now shows this budget 🏠', 'success');
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not change Home', 'error');
+    }
+  };
+
+  const startNext = async () => {
+    if (!budget) return;
+    setStartingNext(true);
+    try {
+      const r = await startNextBudget(budget.id);
+      toast.show(r.existed ? 'The next one is already set up' : isSharedBudget ? 'Next period started. Everyone’s in 🎉' : 'Next period started 🎉', 'success');
+      nav.replace('BudgetDetail', { budgetId: r.budget.id });
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not start the next budget', 'error');
+    } finally {
+      setStartingNext(false);
+    }
+  };
+
+  // Who spent what in a shared budget, and the fewest transfers to even it out if everyone pays an equal share.
+  const split = (() => {
+    if (!isSharedBudget || people.length < 2) return null;
+    const rows = people.map((p) => ({
+      id: p.userId,
+      name: (p.name ?? '').trim().split(/\s+/)[0] || p.email.split('@')[0],
+      spent: spentByPerson[p.userId] ?? 0,
+      me: p.userId === user?.id
+    }));
+    const total = rows.reduce((s, r) => s + r.spent, 0);
+    const share = total / rows.length;
+    const debtors = rows.map((r) => ({ ...r, bal: r.spent - share })).filter((r) => r.bal < -1).sort((a, c) => a.bal - c.bal);
+    const creditors = rows.map((r) => ({ ...r, bal: r.spent - share })).filter((r) => r.bal > 1).sort((a, c) => c.bal - a.bal);
+    const transfers: Array<{ from: string; to: string; amount: number; fromMe: boolean }> = [];
+    let i = 0;
+    let j = 0;
+    while (i < debtors.length && j < creditors.length) {
+      const amount = Math.min(-debtors[i].bal, creditors[j].bal);
+      transfers.push({ from: debtors[i].me ? 'You' : debtors[i].name, to: creditors[j].me ? 'you' : creditors[j].name, amount: Math.round(amount), fromMe: debtors[i].me });
+      debtors[i].bal += amount;
+      creditors[j].bal -= amount;
+      if (debtors[i].bal >= -1) i++;
+      if (creditors[j].bal <= 1) j++;
+    }
+    return { rows, total, share, transfers };
+  })();
+
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const title = useMemo(() => {
     if (!budgetRange || !budget) return budget?.name ?? 'Budget';
+    if (!/^My Budget \(/.test(budget.name)) return budget.name;
     const s = budgetRange.start;
     const e = budgetRange.end;
     const sameYear = s.getFullYear() === e.getFullYear();
@@ -305,6 +377,59 @@ export default function BudgetDetailScreen() {
               <ProgressBar value={progress} height={8} color={remaining < 0 ? '#F07565' : '#8FD6C3'} trackColor="rgba(255,255,255,0.14)" />
             </View>
           </HeroCard>
+
+          {budget.purpose === 'event' || isSharedBudget ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+              {budget.purpose === 'event' ? <Chip tone="brass" label="One-off" /> : null}
+              {isSharedBudget ? <Chip tone="primary" label={budget.role === 'member' ? 'Shared with you' : `Shared with ${budget.members?.length ?? 0}`} /> : null}
+            </View>
+          ) : null}
+
+          {canStartNext || showOnHome ? (
+            <Card style={{ marginTop: 12 }}>
+              {canStartNext ? (
+                <>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <CalendarPlus color={theme.colors.primary} size={18} />
+                    <Text style={[type.bodyStrong, { color: theme.colors.text, flex: 1 }]}>
+                      {daysLeft < 0 ? 'This budget has ended' : `${Math.max(0, daysLeft)} day${daysLeft === 1 ? '' : 's'} left in this budget`}
+                    </Text>
+                  </View>
+                  <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 4 }]}>
+                    {isSharedBudget ? 'Start the next one with the same plan. Everyone sharing it comes along.' : 'Start the next one with the same plan and fresh numbers.'}
+                  </Text>
+                  <PrimaryButton title="Start next period" onPress={startNext} loading={startingNext} style={{ marginTop: 10 }} />
+                </>
+              ) : null}
+              {showOnHome ? <TextButton title="Show this budget on Home" onPress={() => void putOnHome()} style={{ alignItems: 'flex-start', marginTop: canStartNext ? 6 : 0 }} /> : null}
+            </Card>
+          ) : null}
+
+          {split ? (
+            <>
+              <SectionHeader title="Who spent what" />
+              <Card>
+                {split.rows.map((r) => (
+                  <View key={r.id} style={{ marginBottom: 10 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={[type.bodyStrong, { color: theme.colors.text }]}>{r.me ? 'You' : r.name}</Text>
+                      <Text style={[type.bodyStrong, { color: theme.colors.text }]}>{showAmounts ? formatMoney(r.spent, currency) : '••••'}</Text>
+                    </View>
+                    <View style={{ marginTop: 6 }}>
+                      <ProgressBar value={split.total > 0 ? r.spent / split.total : 0} color={theme.colors.primary} />
+                    </View>
+                  </View>
+                ))}
+                <Text style={[type.caption, { color: theme.colors.textMuted }]}>
+                  {split.transfers.length
+                    ? `To split it equally (${showAmounts ? formatMoney(Math.round(split.share), currency) : '••••'} each): ${split.transfers
+                        .map((t) => `${t.from} send${t.fromMe ? '' : 's'} ${t.to} ${showAmounts ? formatMoney(t.amount, currency) : '••••'}`)
+                        .join('; ')}.`
+                    : 'Everyone has spent about the same so far. Nothing to settle.'}
+                </Text>
+              </Card>
+            </>
+          ) : null}
 
           {/* Monthly overview when budget spans multiple months */}
           {budgetRange && budgetRange.months > 1 ? (

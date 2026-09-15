@@ -5,16 +5,21 @@ import {
   AlertTriangle,
   ArrowRightLeft,
   Bell,
+  Briefcase,
   CalendarCheck,
   CalendarClock,
+  FileText,
   Landmark,
+  Lightbulb,
   PiggyBank,
+  Receipt,
   Repeat,
   Settings2,
   ShieldCheck,
   TrendingUp,
   Users,
-  type LucideIcon, Lightbulb } from 'lucide-react-native';
+  type LucideIcon
+} from 'lucide-react-native';
 
 import {
   getNotificationPrefs,
@@ -25,7 +30,9 @@ import {
   type NotificationKind,
   type NotificationPrefs
 } from '../api/features';
+import { getBusinessSettings, updateBusinessSettings } from '../api/business';
 import { useTheme } from '../contexts/ThemeContext';
+import { SPACE_LOOK, useSpace } from '../contexts/SpaceContext';
 import { useNotificationBadges } from '../contexts/NotificationBadgeContext';
 import { EmptyState, IconButton, IconTile, InlineError, ListCard, Screen, ScreenHeader, TextButton } from '../components/Common/ui';
 import { scheduleWeeklyCheckIn } from '../lib/notifications';
@@ -43,16 +50,32 @@ const KIND_ICON: Record<NotificationKind, LucideIcon> = {
   security: ShieldCheck,
   bank: Landmark,
   rollover: ArrowRightLeft,
-  insight: Lightbulb
+  insight: Lightbulb,
+  invoice: FileText,
+  tax: Receipt,
+  household: Users
 };
 
 const TAB_SCREENS: Record<string, string> = { Dashboard: 'Dashboard', Budget: 'Budget', Analytics: 'Analytics', Goals: 'Goals' };
 
-const PREF_ROWS: Array<{ key: keyof NotificationPrefs; title: string; body: string }> = [
-  { key: 'paceAlerts', title: 'Budget pace alerts', body: 'When a bucket spends faster than the month or goes over' },
+/** filingReminders lives in the business settings; the rest are account notification preferences. */
+type PrefKey = keyof NotificationPrefs | 'filingReminders';
+type PrefRow = { key: PrefKey; title: string; body: string };
+
+const PERSONAL_PREFS: PrefRow[] = [
+  { key: 'paceAlerts', title: 'Budget pace alerts', body: 'When part of your budget spends faster than the month or goes over' },
   { key: 'billReminders', title: 'Bills and recurring', body: 'Before bills are due and when payments are recorded' },
-  { key: 'weeklyCheckIn', title: 'Weekly check-in', body: 'Sunday evening, on this phone' },
-  { key: 'autoSave', title: 'Auto-save updates', body: 'When income tops up a goal' }
+  { key: 'autoSave', title: 'Goal savings reminders', body: 'A nudge to move money to your goals when income lands' },
+  { key: 'sharedActivity', title: 'Shared budget activity', body: 'A morning summary of what others spent in budgets you share' },
+  { key: 'weeklyCheckIn', title: 'Weekly check-in and tips', body: 'Sunday evening, plus the occasional money tip' }
+];
+
+const BUSINESS_PREFS: PrefRow[] = [
+  { key: 'invoiceReminders', title: 'Customers who owe you', body: 'Before an invoice is due and when it goes overdue' },
+  { key: 'billReminders', title: 'Supplier bills and regular costs', body: 'Before a bill is due and when a recurring cost is recorded' },
+  { key: 'filingReminders', title: 'VAT and PAYE dates', body: 'A nudge before filing deadlines' },
+  { key: 'paceAlerts', title: 'Cost alerts', body: 'When business spending runs ahead of plan or goes over' },
+  { key: 'weeklyCheckIn', title: 'Business tips', body: 'Cash, runway and profit insights, at most once a week' }
 ];
 
 function sameDay(iso: string) {
@@ -64,7 +87,11 @@ function sameDay(iso: string) {
 export default function NotificationsScreen() {
   const nav = useNavigation<any>();
   const { theme } = useTheme();
+  const { spacesEnabled, activeSpaceId } = useSpace();
   const { setHasUnreadNotifications } = useNotificationBadges();
+  const isBusiness = spacesEnabled && activeSpaceId === 'business';
+  const spaceId = spacesEnabled ? activeSpaceId : undefined;
+  const look = SPACE_LOOK.business;
 
   const [items, setItems] = useState<ApiNotification[]>([]);
   const [unread, setUnread] = useState(0);
@@ -72,12 +99,13 @@ export default function NotificationsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showPrefs, setShowPrefs] = useState(false);
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
+  const [filing, setFiling] = useState<boolean | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await listNotifications();
+      const res = await listNotifications({ spaceId });
       setItems(res.items);
       setUnread(res.unread);
       setHasUnreadNotifications(res.unread > 0);
@@ -86,7 +114,7 @@ export default function NotificationsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [setHasUnreadNotifications]);
+  }, [setHasUnreadNotifications, spaceId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -97,10 +125,22 @@ export default function NotificationsScreen() {
   const togglePrefs = async () => {
     const next = !showPrefs;
     setShowPrefs(next);
-    if (next && !prefs) setPrefs(await getNotificationPrefs().catch(() => null));
+    if (!next) return;
+    if (!prefs) setPrefs(await getNotificationPrefs().catch(() => null));
+    if (isBusiness && filing === null) setFiling(await getBusinessSettings().then((s) => s.filingReminders).catch(() => null));
   };
 
-  const setPref = async (key: keyof NotificationPrefs, value: boolean) => {
+  const setPref = async (key: PrefKey, value: boolean) => {
+    if (key === 'filingReminders') {
+      const previous = filing;
+      setFiling(value);
+      try {
+        setFiling((await updateBusinessSettings({ filingReminders: value })).filingReminders);
+      } catch {
+        setFiling(previous);
+      }
+      return;
+    }
     if (!prefs) return;
     const previous = prefs;
     setPrefs({ ...prefs, [key]: value });
@@ -117,7 +157,7 @@ export default function NotificationsScreen() {
     setItems((list) => list.map((n) => ({ ...n, read: true })));
     setUnread(0);
     setHasUnreadNotifications(false);
-    await markNotificationsRead().catch(() => undefined);
+    await markNotificationsRead(undefined, spaceId).catch(() => undefined);
   };
 
   const open = async (n: ApiNotification) => {
@@ -129,8 +169,11 @@ export default function NotificationsScreen() {
     const screen = typeof n.data?.screen === 'string' ? n.data.screen : null;
     if (!screen) return;
     if (TAB_SCREENS[screen]) nav.navigate('Main', { screen: TAB_SCREENS[screen] });
-    else nav.navigate(screen, { budgetId: n.data?.budgetId, goalId: n.data?.goalId });
+    else nav.navigate(screen, { ...(n.data ?? {}) });
   };
+
+  const rows = isBusiness ? BUSINESS_PREFS : PERSONAL_PREFS;
+  const valueFor = (key: PrefKey): boolean | null => (key === 'filingReminders' ? filing : prefs ? prefs[key] : null);
 
   const sections = [
     { title: 'Today', data: items.filter((n) => sameDay(n.createdAt)) },
@@ -150,7 +193,8 @@ export default function NotificationsScreen() {
         ListHeaderComponent={
           <View>
             <ScreenHeader
-              title="Notifications"
+              title={isBusiness ? 'Business alerts' : 'Notifications'}
+              subtitle={isBusiness ? 'Invoices, bills, tax dates and cost alerts' : spacesEnabled ? 'Your personal money alerts' : undefined}
               onBack={() => nav.goBack()}
               right={
                 <IconButton accessibilityLabel={showPrefs ? 'Hide notification settings' : 'Notification settings'} onPress={() => void togglePrefs()}>
@@ -158,28 +202,52 @@ export default function NotificationsScreen() {
                 </IconButton>
               }
             />
-            {showPrefs ? (
-              <ListCard style={{ marginTop: 12 }}>
-                {prefs ? (
-                  PREF_ROWS.map((row) => (
-                    <View key={row.key} style={styles.prefRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[type.bodyStrong, { color: theme.colors.text }]}>{row.title}</Text>
-                        <Text style={[type.caption, { color: theme.colors.textMuted }]}>{row.body}</Text>
-                      </View>
-                      <Switch
-                        value={prefs[row.key]}
-                        onValueChange={(v) => void setPref(row.key, v)}
-                        trackColor={{ true: theme.colors.primary, false: theme.colors.border }}
-                        thumbColor="#FFFFFF"
-                      />
-                    </View>
-                  ))
-                ) : (
-                  <ActivityIndicator color={theme.colors.primary} style={{ marginVertical: 16 }} />
-                )}
-              </ListCard>
+
+            {isBusiness ? (
+              <View style={[styles.banner, { backgroundColor: look.bg }]}>
+                <IconTile bg={look.soft} size={34}>
+                  <Briefcase color={look.accent} size={17} />
+                </IconTile>
+                <Text style={[type.small, { color: look.onBg, flex: 1 }]}>Showing alerts for your business. Switch to Personal on Home to see your personal ones.</Text>
+              </View>
             ) : null}
+
+            {showPrefs ? (
+              <>
+                <ListCard style={{ marginTop: 12 }}>
+                  {prefs ? (
+                    rows.map((row) => {
+                      const value = valueFor(row.key);
+                      return (
+                        <View key={row.key} style={styles.prefRow}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[type.bodyStrong, { color: theme.colors.text }]}>{row.title}</Text>
+                            <Text style={[type.caption, { color: theme.colors.textMuted }]}>{row.body}</Text>
+                          </View>
+                          <Switch
+                            value={!!value}
+                            disabled={value === null}
+                            onValueChange={(v) => void setPref(row.key, v)}
+                            trackColor={{ true: isBusiness ? look.accent : theme.colors.primary, false: theme.colors.border }}
+                            thumbColor="#FFFFFF"
+                          />
+                        </View>
+                      );
+                    })
+                  ) : (
+                    <ActivityIndicator color={theme.colors.primary} style={{ marginVertical: 16 }} />
+                  )}
+                </ListCard>
+                {spacesEnabled ? (
+                  <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 6, marginLeft: 4 }]}>
+                    {isBusiness
+                      ? 'Bill reminders, cost alerts and tips share one switch with your Personal space.'
+                      : 'Customer invoice, VAT and PAYE reminders are set in the Business space.'}
+                  </Text>
+                ) : null}
+              </>
+            ) : null}
+
             {error ? (
               <View style={{ marginTop: 12 }}>
                 <InlineError message={error} />
@@ -194,6 +262,7 @@ export default function NotificationsScreen() {
         renderItem={({ item, index, section }) => {
           const Icon = KIND_ICON[item.kind] ?? Bell;
           const warn = item.kind === 'over' || item.kind === 'security';
+          const brass = item.kind === 'pace' || item.kind === 'invoice' || item.kind === 'tax';
           const first = index === 0;
           const last = index === section.data.length - 1;
           return (
@@ -204,7 +273,7 @@ export default function NotificationsScreen() {
               style={({ pressed }) => [
                 styles.item,
                 {
-                  backgroundColor: item.read ? theme.colors.surface : theme.colors.primarySoft,
+                  backgroundColor: item.read ? theme.colors.surface : isBusiness ? theme.colors.brassSoft : theme.colors.primarySoft,
                   borderColor: theme.colors.border,
                   borderTopLeftRadius: first ? 20 : 0,
                   borderTopRightRadius: first ? 20 : 0,
@@ -215,8 +284,8 @@ export default function NotificationsScreen() {
                 }
               ]}
             >
-              <IconTile bg={warn ? theme.colors.errorSoft : item.kind === 'pace' ? theme.colors.brassSoft : theme.colors.surfaceAlt} size={38}>
-                <Icon color={warn ? theme.colors.error : item.kind === 'pace' ? theme.colors.brass : theme.colors.primary} size={18} />
+              <IconTile bg={warn ? theme.colors.errorSoft : brass ? theme.colors.brassSoft : theme.colors.surfaceAlt} size={38}>
+                <Icon color={warn ? theme.colors.error : brass ? theme.colors.brass : theme.colors.primary} size={18} />
               </IconTile>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <View style={styles.titleRow}>
@@ -227,7 +296,7 @@ export default function NotificationsScreen() {
                 </View>
                 <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 2 }]}>{item.body}</Text>
               </View>
-              {!item.read ? <View style={[styles.dot, { backgroundColor: theme.colors.primary }]} /> : null}
+              {!item.read ? <View style={[styles.dot, { backgroundColor: isBusiness ? theme.colors.brass : theme.colors.primary }]} /> : null}
             </Pressable>
           );
         }}
@@ -236,7 +305,11 @@ export default function NotificationsScreen() {
             <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 32 }} />
           ) : (
             <View style={{ marginTop: 18 }}>
-              <EmptyState title="You’re all caught up" body="Budget alerts, bill reminders and goal updates will show up here." />
+              {isBusiness ? (
+                <EmptyState title="No business alerts yet" body="Invoice reminders, supplier bills, VAT and PAYE dates and cost alerts will show up here." />
+              ) : (
+                <EmptyState title="You’re all caught up" body="Budget alerts, bill reminders and goal updates will show up here." />
+              )}
             </View>
           )
         }
@@ -246,6 +319,7 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
+  banner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 16, marginTop: 12 },
   prefRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   item: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 14, borderLeftWidth: StyleSheet.hairlineWidth, borderRightWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },

@@ -4,7 +4,8 @@ import { todayIso } from './lib/dates.ts';
 import { runAllDueRecurring, sendBillReminders } from './lib/recurring.ts';
 import { monoConfigured, syncBankLink, type BankLinkRow } from './lib/bank.ts';
 import { authMe, changePassword, forgotPassword, notifications, pushTokens, sessions, usersMe } from './routes/account.ts';
-import { acceptInvite, budgetById, budgetsIndex, miniBudgets, rollover, sharing } from './routes/budgets.ts';
+import { acceptInvite, budgetById, budgetsIndex, miniBudgets, nextPeriod, rollover, sharing } from './routes/budgets.ts';
+import { sendPeriodEndingReminders, sendSharedDigests } from './lib/shared.ts';
 import { analyticsSummary, transactionById, transactionsIndex } from './routes/transactions.ts';
 import { goalById, goalsIndex, recurringById, recurringIndex, taxCalc, taxRules } from './routes/planning.ts';
 import { bankLinkById, bankLinksIndex, bankSync, importedAction, importedIndex, monoConnect } from './routes/banks.ts';
@@ -67,6 +68,7 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
   summary.recurring = await runAllDueRecurring(today);
   summary.billReminders = await sendBillReminders(today);
   summary.business = await sendBusinessReminders(today);
+  summary.shared = { ...(await sendSharedDigests(today)), periodEnding: await sendPeriodEndingReminders(today) };
 
   if (monoConfigured()) {
     const stale = await sql<BankLinkRow[]>`
@@ -102,7 +104,8 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
           title: top.title,
           body: top.body,
           data: top.action ? { screen: top.action.screen } : undefined,
-          dedupeKey: `insight:${top.key}`,
+          spaceId: spaceId === 'business' ? 'business' : 'personal',
+          dedupeKey: `insight:${spaceId}:${top.key}`,
           dedupeTtlSec: 7 * 86400
         });
         if (delivered) sent++;
@@ -164,6 +167,7 @@ function route(parts: string[]): Handler | null {
   if (a === 'budgets' && n === 1) return budgetsIndex;
   if (a === 'budgets' && n === 2) return budgetById;
   if (a === 'budgets' && n === 3 && c === 'rollover') return rollover;
+  if (a === 'budgets' && n === 3 && c === 'next') return nextPeriod;
   if (a === 'budgets' && n === 3 && c === 'mini-budgets') return miniBudgets;
   if (a === 'budgets' && (c === 'members' || c === 'invites') && n <= 4) return sharing;
 

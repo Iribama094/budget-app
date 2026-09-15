@@ -8,7 +8,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
 import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
 import { Amount, EmptyState, HeroCard, IconTile, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SecondaryButton, SegmentedControl, TextField, formatAmount } from '../components/Common/ui';
-import { ChoiceChip } from '../components/Plan/ChoiceChip';
+import { SelectField } from '../components/Common/SelectField';
 import { DateChoice, LineItem, MoneyField, Sheet, StatusChip, addDaysIso, dueText, isIsoDate, moneyText, parseMoney, todayIso } from '../components/Business/parts';
 import { createBill, deleteBill, listBills, payBill, updateBill, type SupplierBill } from '../api/business';
 import { currencySymbol, formatShortDate } from '../utils/format';
@@ -216,13 +216,8 @@ export default function BillsScreen() {
             <TextField label="From" value={draft.supplierName} onChangeText={(v) => setDraft({ ...draft, supplierName: v })} placeholder="e.g. Golden Flour Mills" />
             <TextField label="What for (optional)" value={draft.description} onChangeText={(v) => setDraft({ ...draft, description: v })} placeholder="e.g. 20 bags of flour" />
             <MoneyField label="Amount" value={draft.amount} onChange={(v) => setDraft({ ...draft, amount: v })} glyph={glyph} />
-            <Text style={[type.smallStrong, { color: theme.colors.text, marginBottom: 8 }]}>Category</Text>
-            <View style={styles.wrap}>
-              {CATEGORIES.map((c) => (
-                <ChoiceChip key={c} label={c} active={draft.category === c} onPress={() => setDraft({ ...draft, category: c })} />
-              ))}
-            </View>
-            <View style={{ marginTop: 14 }}>
+            <SelectField label="Category" value={draft.category} options={CATEGORIES.map((c) => ({ value: c, label: c }))} onChange={(c) => setDraft({ ...draft, category: c })} />
+            <View>
               <DateChoice
                 label="Due"
                 value={draft.dueDate}

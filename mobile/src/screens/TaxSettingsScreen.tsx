@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, Switch, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Briefcase, Check, Globe, Receipt } from 'lucide-react-native';
+import { Briefcase, Check, Globe, House, Receipt } from 'lucide-react-native';
 
 import { Card, HeroCard, IconTile, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SectionHeader, SegmentedControl, TextField } from '../components/Common/ui';
 import { Sheet } from '../components/Business/parts';
@@ -13,24 +13,44 @@ import { COUNTRIES } from '../utils/countries';
 import { formatMoney, formatNumberInput, parseNumberInput } from '../utils/format';
 import { type } from '../theme/typography';
 
+/** Nigeria Tax Act 2025: rent relief is 20% of annual rent, capped at ₦500,000. */
+const RENT_RELIEF_RATE = 0.2;
+const RENT_RELIEF_CAP = 500000;
+
+const moneyText = (n?: number) => (typeof n === 'number' && n > 0 ? formatNumberInput(String(n)) : '');
+const moneyValue = (s: string) => {
+  const n = parseNumberInput(s.trim());
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
 export default function TaxSettingsScreen() {
   const nav = useNavigation<any>();
   const { user, refreshUser } = useAuth();
   const { theme } = useTheme();
   const toast = useToast();
   const inkText = theme.colors.inkText;
+  const tp = user?.taxProfile;
 
-  const [country, setCountry] = useState(user?.taxProfile?.country ?? 'NG');
-  const [withheldByEmployer, setWithheldByEmployer] = useState<boolean>(user?.taxProfile?.withheldByEmployer ?? false);
-  const [netMonthlyIncomeTax, setNetMonthlyIncomeTax] = useState(user?.taxProfile?.netMonthlyIncome != null ? String(user.taxProfile.netMonthlyIncome) : '');
-  const [grossMonthlyIncomeTax, setGrossMonthlyIncomeTax] = useState(user?.taxProfile?.grossMonthlyIncome != null ? String(user.taxProfile.grossMonthlyIncome) : '');
-  const [incomeType, setIncomeType] = useState<'gross' | 'net'>(user?.taxProfile?.incomeType ?? 'gross');
-  const [optInTaxFeature, setOptInTaxFeature] = useState<boolean>(user?.taxProfile?.optInTaxFeature ?? false);
+  const [country, setCountry] = useState(tp?.country ?? 'NG');
+  const [withheldByEmployer, setWithheldByEmployer] = useState<boolean>(tp?.withheldByEmployer ?? false);
+  const [netMonthlyIncomeTax, setNetMonthlyIncomeTax] = useState(tp?.netMonthlyIncome != null ? String(tp.netMonthlyIncome) : '');
+  const [grossMonthlyIncomeTax, setGrossMonthlyIncomeTax] = useState(tp?.grossMonthlyIncome != null ? String(tp.grossMonthlyIncome) : '');
+  const [incomeType, setIncomeType] = useState<'gross' | 'net'>(tp?.incomeType ?? 'gross');
+  const [optInTaxFeature, setOptInTaxFeature] = useState<boolean>(tp?.optInTaxFeature ?? false);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [isSavingTax, setIsSavingTax] = useState(false);
   const [mode, setMode] = useState<'current' | 'whatIf'>('current');
 
+  // Reliefs and deductions
+  const [annualRent, setAnnualRent] = useState(moneyText(tp?.annualRent));
+  const [pensionMonthly, setPensionMonthly] = useState(moneyText(tp?.pensionContribution));
+  const [nhfMonthly, setNhfMonthly] = useState(moneyText(tp?.nhfContribution));
+  const [nhisMonthly, setNhisMonthly] = useState(moneyText(tp?.nhisContribution));
+  const [lifeInsuranceYearly, setLifeInsuranceYearly] = useState(moneyText(tp?.lifeInsurancePremium));
+  const [mortgageInterestYearly, setMortgageInterestYearly] = useState(moneyText(tp?.mortgageInterest));
+
   const currency = user?.currency ?? '₦';
+  const isNigeria = country.toUpperCase() === 'NG';
 
   const sanitizeMoney = (v: string) => formatNumberInput(v);
 
@@ -38,6 +58,24 @@ export default function TaxSettingsScreen() {
     const found = COUNTRIES.find((c) => c.code === country);
     return found ? `${found.name} (${found.code})` : country;
   }, [country]);
+
+  /** Annual amounts sent to the tax calculator. Keys match the backend rule's deductions. */
+  const deductions = useMemo(() => {
+    const d: Record<string, number> = {};
+    if (!isNigeria) return d;
+    const add = (key: string, value: number) => {
+      if (value > 0) d[key] = Math.round(value);
+    };
+    add('annualRent', moneyValue(annualRent));
+    add('pension', moneyValue(pensionMonthly) * 12);
+    add('nhf', moneyValue(nhfMonthly) * 12);
+    add('nhis', moneyValue(nhisMonthly) * 12);
+    add('lifeInsurance', moneyValue(lifeInsuranceYearly));
+    add('mortgageInterest', moneyValue(mortgageInterestYearly));
+    return d;
+  }, [annualRent, isNigeria, lifeInsuranceYearly, mortgageInterestYearly, nhfMonthly, nhisMonthly, pensionMonthly]);
+  const deductionsKey = JSON.stringify(deductions);
+  const rentRelief = Math.min((deductions.annualRent ?? 0) * RENT_RELIEF_RATE, RENT_RELIEF_CAP);
 
   const effectiveRateInfo = useMemo(() => {
     const gross = Number(grossMonthlyIncomeTax.replace(/,/g, ''));
@@ -54,7 +92,7 @@ export default function TaxSettingsScreen() {
     return { pct, bracket };
   }, [grossMonthlyIncomeTax, netMonthlyIncomeTax, optInTaxFeature, withheldByEmployer]);
 
-  const baselineNet = user?.taxProfile?.netMonthlyIncome;
+  const baselineNet = tp?.netMonthlyIncome;
   const scenarioNet = useMemo(() => {
     const n = Number(netMonthlyIncomeTax.replace(/,/g, ''));
     return Number.isFinite(n) && n > 0 ? n : undefined;
@@ -154,11 +192,11 @@ export default function TaxSettingsScreen() {
     }
 
     const computePreviewFromGrossAnnual = async (grossAnnual: number) => {
-      const res = await calcTax({ country, grossAnnual });
+      const res = await calcTax({ country, grossAnnual, deductions });
       const r = (res as any)?.result ?? res;
       return {
         grossAnnual: Number(r?.grossAnnual ?? grossAnnual) || grossAnnual,
-        taxableIncome: Number(r?.taxableIncome ?? grossAnnual) || grossAnnual,
+        taxableIncome: Number(r?.taxableIncome ?? grossAnnual) || 0,
         totalTax: Number(r?.totalTax ?? 0) || 0,
         netAnnual: Number(r?.netAnnual ?? 0) || 0,
         netMonthly: Number(r?.netMonthly ?? 0) || 0
@@ -223,7 +261,9 @@ export default function TaxSettingsScreen() {
     }, 450);
 
     return () => clearTimeout(timer);
-  }, [country, grossValue, netValue, optInTaxFeature, withheldByEmployer]);
+    // deductionsKey stands in for the deductions object so typing the same value doesn't refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [country, grossValue, netValue, optInTaxFeature, withheldByEmployer, deductionsKey]);
 
   const saveTax = async () => {
     if (!user) return;
@@ -231,6 +271,7 @@ export default function TaxSettingsScreen() {
     try {
       const gross = grossMonthlyIncomeTax.trim() ? Number(grossMonthlyIncomeTax.replace(/,/g, '')) : undefined;
       const net = netMonthlyIncomeTax.trim() ? Number(netMonthlyIncomeTax.replace(/,/g, '')) : undefined;
+      const optional = (s: string) => moneyValue(s) || undefined;
       await patchMe({
         taxProfile: {
           ...(user.taxProfile ?? {}),
@@ -239,6 +280,12 @@ export default function TaxSettingsScreen() {
           netMonthlyIncome: typeof net === 'number' && !Number.isNaN(net) ? net : undefined,
           grossMonthlyIncome: !withheldByEmployer && typeof gross === 'number' && !Number.isNaN(gross) ? gross : undefined,
           incomeType: withheldByEmployer ? 'net' : incomeType,
+          annualRent: optional(annualRent),
+          pensionContribution: optional(pensionMonthly),
+          nhfContribution: optional(nhfMonthly),
+          nhisContribution: optional(nhisMonthly),
+          lifeInsurancePremium: optional(lifeInsuranceYearly),
+          mortgageInterest: optional(mortgageInterestYearly),
           optInTaxFeature
         }
       });
@@ -253,6 +300,11 @@ export default function TaxSettingsScreen() {
 
   const switchColors = { trackColor: { true: theme.colors.primary, false: theme.colors.border }, thumbColor: '#FFFFFF' };
   const muted = !optInTaxFeature ? { opacity: 0.5 } : null;
+  const totalReliefs = taxPreview ? Math.max(0, taxPreview.grossAnnual - taxPreview.taxableIncome) : 0;
+
+  const moneyField = (label: string, value: string, onChange: (v: string) => void, hint?: string) => (
+    <TextField label={label} value={value} onChangeText={(v) => onChange(sanitizeMoney(v))} placeholder="0" keyboardType="decimal-pad" hint={hint} />
+  );
 
   return (
     <Screen bottomInset={48}>
@@ -277,6 +329,11 @@ export default function TaxSettingsScreen() {
               <Text style={[type.small, { color: inkText, opacity: 0.78 }]}>
                 a month · {formatMoney(taxPreview.totalTax, currency)} a year on {formatMoney(taxPreview.taxableIncome, currency)} taxable
               </Text>
+              {totalReliefs > 0 ? (
+                <Text style={[type.caption, { color: inkText, opacity: 0.7, marginTop: 8 }]}>
+                  {formatMoney(totalReliefs, currency)} of reliefs taken off first{rentRelief > 0 ? `, including ${formatMoney(rentRelief, currency)} rent relief` : ''} 🏠
+                </Text>
+              ) : null}
               {effectiveRateInfo ? (
                 <Text style={[type.caption, { color: inkText, opacity: 0.7, marginTop: 8 }]}>
                   Approx. effective rate {effectiveRateInfo.pct}% ({effectiveRateInfo.bracket}), based on the gross and net you entered.
@@ -358,12 +415,12 @@ export default function TaxSettingsScreen() {
                 key={`${String(b.upTo)}-${idx}`}
                 title={b.upTo == null ? 'Above' : `Up to ${Number(b.upTo).toLocaleString()}`}
                 subtitle="Annual income"
-                right={<Text style={[type.bodyStrong, { color: theme.colors.text }]}>{Math.round((b.rate ?? 0) * 100)}%</Text>}
+                right={<Text style={[type.bodyStrong, { color: theme.colors.text }]}>{b.rate === 0 ? 'Tax-free' : `${Math.round((b.rate ?? 0) * 100)}%`}</Text>}
               />
             ))}
           </ListCard>
           <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 6 }]}>
-            These are the brackets we loaded. Final tax can still vary with deductions and allowances.
+            {isNigeria ? 'Nigeria Tax Act 2025, in force from 1 January 2026. Reliefs you add below come off before these rates apply.' : 'These are the brackets we loaded. Final tax can still vary with deductions and allowances.'}
           </Text>
         </>
       ) : null}
@@ -409,9 +466,39 @@ export default function TaxSettingsScreen() {
           error={optInTaxFeature ? validation.netError : null}
           hint={optInTaxFeature && !withheldByEmployer && mode === 'current' ? 'If your employer withholds tax, turn on “withheld by employer” to enter take-home.' : undefined}
         />
-
-        <PrimaryButton title="Save tax settings" disabled={!validation.canSave} loading={isSavingTax} onPress={saveTax} />
       </Card>
+
+      {optInTaxFeature && isNigeria ? (
+        <>
+          <SectionHeader title="Reliefs that lower your tax" />
+          <Card>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+              <IconTile bg={theme.colors.successSoft} size={34}>
+                <House color={theme.colors.success} size={17} />
+              </IconTile>
+              <Text style={[type.small, { color: theme.colors.textMuted, flex: 1 }]}>
+                Paying rent? 20% of your yearly rent, up to {formatMoney(RENT_RELIEF_CAP, currency)}, comes off your taxable income. Keep your tenancy agreement or receipts as proof.
+              </Text>
+            </View>
+            {moneyField(
+              'Yearly rent',
+              annualRent,
+              setAnnualRent,
+              rentRelief > 0 ? `Rent relief: ${formatMoney(rentRelief, currency)}${rentRelief >= RENT_RELIEF_CAP ? ' (the maximum)' : ''}` : 'Rent for the home you live in'
+            )}
+            <Text style={[type.smallStrong, { color: theme.colors.text, marginTop: 4, marginBottom: 8 }]}>Taken from your pay each month</Text>
+            {moneyField('Pension contribution', pensionMonthly, setPensionMonthly, 'Your share, usually 8% of pay')}
+            {moneyField('National Housing Fund (NHF)', nhfMonthly, setNhfMonthly, 'Usually 2.5% of basic salary')}
+            {moneyField('Health insurance (NHIS)', nhisMonthly, setNhisMonthly)}
+            <Text style={[type.smallStrong, { color: theme.colors.text, marginTop: 4, marginBottom: 8 }]}>Paid each year</Text>
+            {moneyField('Life insurance premium', lifeInsuranceYearly, setLifeInsuranceYearly)}
+            {moneyField('Mortgage interest on your home', mortgageInterestYearly, setMortgageInterestYearly)}
+            <Text style={[type.caption, { color: theme.colors.textMuted }]}>If your employer already applies these on your payslip, your take-home should match what we estimate.</Text>
+          </Card>
+        </>
+      ) : null}
+
+      <PrimaryButton title="Save tax settings" disabled={!validation.canSave} loading={isSavingTax} onPress={saveTax} style={{ marginTop: 14 }} />
 
       {optInTaxFeature && taxPreviewError ? (
         <Card style={{ marginTop: 10 }}>

@@ -21,6 +21,8 @@ export function toApiUser(p: any, _opts: { withTax?: boolean } = {}) {
       painPoints: p.painPoints ?? []
     },
     budgetPeriod: p.budgetPeriod ?? 'payday',
+    budgetMode: p.budgetMode ?? 'solo',
+    homeBudget: p.homeBudget ?? 'own',
     createdAt: iso(p.createdAt),
     updatedAt: iso(p.updatedAt)
   };
@@ -55,7 +57,14 @@ const TaxProfileSchema = z
     incomeType: z.enum(['gross', 'net']).optional(),
     residentType: z.string().max(50).optional(),
     dependents: z.number().int().nonnegative().optional(),
+    // Monthly amounts
     pensionContribution: z.number().finite().nonnegative().optional(),
+    nhfContribution: z.number().finite().nonnegative().optional(),
+    nhisContribution: z.number().finite().nonnegative().optional(),
+    // Yearly amounts
+    annualRent: z.number().finite().nonnegative().optional(),
+    lifeInsurancePremium: z.number().finite().nonnegative().optional(),
+    mortgageInterest: z.number().finite().nonnegative().optional(),
     optInTaxFeature: z.boolean().optional()
   })
   .strict()
@@ -69,7 +78,9 @@ const PatchMeSchema = z
     monthlyIncome: z.number().finite().nonnegative().optional(),
     taxProfile: TaxProfileSchema,
     budgetPeriod: z.enum(['payday', 'monthly']).optional(),
-    painPoints: z.array(z.enum(['runs_out', 'no_idea', 'cant_save', 'debt', 'irregular'])).max(5).optional()
+    painPoints: z.array(z.enum(['runs_out', 'no_idea', 'cant_save', 'debt', 'irregular'])).max(5).optional(),
+    budgetMode: z.enum(['solo', 'shared', 'both']).optional(),
+    homeBudget: z.enum(['own', 'shared']).optional()
   })
   .strict();
 
@@ -89,6 +100,8 @@ export async function usersMe(ctx: Ctx) {
       monthly_income = ${patch.monthlyIncome !== undefined ? patch.monthlyIncome : current.monthlyIncome},
       tax_profile = ${patch.taxProfile !== undefined ? sql.json(patch.taxProfile as any) : current.taxProfile ? sql.json(current.taxProfile) : null},
       budget_period = ${patch.budgetPeriod ?? current.budgetPeriod},
+      budget_mode = ${patch.budgetMode ?? current.budgetMode ?? 'solo'},
+      home_budget = ${patch.homeBudget ?? current.homeBudget ?? 'own'},
       pain_points = ${patch.painPoints ?? current.painPoints}
     where id = ${auth.userId}
     returning *
@@ -226,9 +239,22 @@ export async function pushTokens(ctx: Ctx) {
 }
 
 const PrefsSchema = z
-  .object({ paceAlerts: z.boolean().optional(), billReminders: z.boolean().optional(), weeklyCheckIn: z.boolean().optional(), autoSave: z.boolean().optional() })
+  .object({
+    paceAlerts: z.boolean().optional(),
+    billReminders: z.boolean().optional(),
+    weeklyCheckIn: z.boolean().optional(),
+    autoSave: z.boolean().optional(),
+    invoiceReminders: z.boolean().optional(),
+    sharedActivity: z.boolean().optional()
+  })
   .strict();
-const ReadSchema = z.object({ ids: z.array(z.string().max(80)).max(200).optional() });
+const SpaceSchema = z.enum(['personal', 'business']);
+const ReadSchema = z.object({ ids: z.array(z.string().max(80)).max(200).optional(), spaceId: SpaceSchema.optional() });
+
+/** Notifications for one space, plus account-wide ones (space_id null) that belong in both. */
+function inSpace(space: string | null) {
+  return space === 'personal' || space === 'business' ? sql`and (space_id = ${space} or space_id is null)` : sql``;
+}
 
 /**
  * GET   /v1/notifications            feed (newest first) + unread count
@@ -256,7 +282,7 @@ export async function notifications(ctx: Ctx) {
     if (input.ids?.length && !ids.length) return json(200, { updated: 0 });
     const updated = await sql`
       update public.notifications set read_at = now()
-      where user_id = ${auth.userId} and read_at is null ${ids.length ? sql`and id in ${sql(ids)}` : sql``}
+      where user_id = ${auth.userId} and read_at is null ${ids.length ? sql`and id in ${sql(ids)}` : inSpace(input.spaceId ?? null)}
       returning id
     `;
     return json(200, { updated: updated.length });
@@ -267,17 +293,27 @@ export async function notifications(ctx: Ctx) {
   const beforeRaw = ctx.query.get('before');
   const before = beforeRaw ? new Date(beforeRaw) : null;
   const validBefore = before && !Number.isNaN(before.getTime()) ? before : null;
+  const space = ctx.query.get('spaceId');
 
   const [items, [{ unread }]] = await Promise.all([
     sql`
       select * from public.notifications
-      where user_id = ${auth.userId} ${validBefore ? sql`and created_at < ${validBefore}` : sql``}
+      where user_id = ${auth.userId} ${inSpace(space)} ${validBefore ? sql`and created_at < ${validBefore}` : sql``}
       order by created_at desc limit 50
     `,
-    sql`select count(*)::int as unread from public.notifications where user_id = ${auth.userId} and read_at is null`
+    sql`select count(*)::int as unread from public.notifications where user_id = ${auth.userId} and read_at is null ${inSpace(space)}`
   ]);
   return json(200, {
     unread,
-    items: items.map((n) => ({ id: n.id, kind: n.kind, title: n.title, body: n.body, data: n.data ?? null, read: !!n.readAt, createdAt: iso(n.createdAt) }))
+    items: items.map((n) => ({
+      id: n.id,
+      kind: n.kind,
+      title: n.title,
+      body: n.body,
+      data: n.data ?? null,
+      spaceId: n.spaceId ?? null,
+      read: !!n.readAt,
+      createdAt: iso(n.createdAt)
+    }))
   });
 }

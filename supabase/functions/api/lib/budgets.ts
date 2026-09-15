@@ -1,6 +1,9 @@
 import { iso, isUuid, sql, type Fragment } from './db.ts';
 import type { Space } from './http.ts';
 
+/** personal: someone's own plan · household: a budget people share and run every period · event: a one-off like a wedding or trip. */
+export type BudgetPurpose = 'personal' | 'household' | 'event';
+
 export type BudgetRow = {
   id: string;
   userId: string;
@@ -12,6 +15,7 @@ export type BudgetRow = {
   endDate: string | null;
   categories: Record<string, { budgeted: number; [k: string]: unknown }>;
   rollover: { destination: string; amount: number; goalId: string | null; budgetId: string | null; at: string } | null;
+  purpose: BudgetPurpose | null;
   createdAt: Date;
   updatedAt: Date;
   members: { userId: string; role: string; name: string | null; email: string; joinedAt: string }[];
@@ -58,6 +62,7 @@ export function toApiBudget(b: BudgetRow, viewerId: string) {
     id: b.id,
     spaceId: b.spaceId ?? 'personal',
     name: b.name,
+    purpose: b.purpose ?? 'personal',
     totalBudget: Number(b.totalBudget),
     period: b.period,
     startDate: b.startDate,
@@ -73,6 +78,30 @@ export function toApiBudget(b: BudgetRow, viewerId: string) {
     createdAt: iso(b.createdAt),
     updatedAt: iso(b.updatedAt)
   };
+}
+
+/**
+ * Copies the people from an earlier household budget into a new one, so sharing carries into the next period.
+ * Without `fromBudgetId`, uses the owner's most recent household budget that has members. Returns who was added.
+ */
+export async function carryMembers(ownerId: string, toBudgetId: string, fromBudgetId?: string | null): Promise<string[]> {
+  const [src] = fromBudgetId
+    ? [{ id: fromBudgetId }]
+    : await sql`
+        select b.id from public.budgets b
+        where b.user_id = ${ownerId} and b.purpose = 'household' and b.id <> ${toBudgetId}
+          and exists (select 1 from public.budget_members m where m.budget_id = b.id)
+        order by b.start_date desc
+        limit 1
+      `;
+  if (!src) return [];
+  const rows = await sql`
+    insert into public.budget_members (budget_id, user_id)
+    select ${toBudgetId}, m.user_id from public.budget_members m where m.budget_id = ${src.id} and m.user_id <> ${ownerId}
+    on conflict do nothing
+    returning user_id
+  `;
+  return rows.map((r) => String(r.userId));
 }
 
 /**
@@ -112,14 +141,14 @@ export async function bumpBucket(budgetId: string, bucket: string, delta: number
   `;
 }
 
-/** The most recent own budget in a space that covers a date. */
+/** The own budget in a space that covers a date: the person's own plan first, then a household budget. Events are never picked. */
 export async function budgetCovering(userId: string, space: Space, dateIso: string): Promise<string | null> {
   const [b] = await sql`
     select id from public.budgets
-    where user_id = ${userId} and space_id = ${space} and start_date <= ${dateIso}::date
+    where user_id = ${userId} and space_id = ${space} and purpose <> 'event' and start_date <= ${dateIso}::date
       and coalesce(end_date, case when period = 'weekly' then start_date + 6
                                   else (date_trunc('month', start_date) + interval '1 month - 1 day')::date end) >= ${dateIso}::date
-    order by start_date desc, id desc
+    order by (purpose = 'personal') desc, start_date desc, id desc
     limit 1
   `;
   return b?.id ?? null;

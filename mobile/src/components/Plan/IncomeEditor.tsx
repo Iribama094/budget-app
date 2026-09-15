@@ -3,12 +3,18 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { X } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SegmentedControl } from '../Common/ui';
+import { SelectField, type SelectOption } from '../Common/SelectField';
 import { ChoiceChip } from './ChoiceChip';
 import { FREQUENCY_WORD, INCOME_FREQUENCIES, INCOME_KINDS, kindLabel, ordinal, WEEKDAYS, type DraftIncome } from '../../lib/planDrafts';
 import { formatNumberInput } from '../../utils/format';
 import { fonts, type } from '../../theme/typography';
 
-const PAY_DAYS = [1, 15, 25, 28];
+// Every day of the month, so someone paid on the 30th can pick it. 31 means "the last day".
+const PAY_DAY_OPTIONS: Array<SelectOption<number | null>> = [
+  { value: null, label: 'Not sure' },
+  ...Array.from({ length: 30 }, (_, i) => ({ value: i + 1, label: `${ordinal(i + 1)} of the month` })),
+  { value: 31, label: 'Last day of the month' }
+];
 
 /** Edits one income source: what kind, how much, how often and when it arrives. */
 export function IncomeEditor({
@@ -27,7 +33,6 @@ export function IncomeEditor({
   const { theme } = useTheme();
   const set = (patch: Partial<DraftIncome>) => onChange({ ...value, ...patch });
   const weekly = value.frequency === 'weekly' || value.frequency === 'biweekly';
-  const customDay = value.payDay != null && !PAY_DAYS.includes(value.payDay) && value.payDay !== 31;
 
   return (
     <View>
@@ -84,33 +89,15 @@ export function IncomeEditor({
       <SegmentedControl options={INCOME_FREQUENCIES} value={value.frequency} onChange={(k) => set({ frequency: k })} />
 
       {value.frequency === 'monthly' ? (
-        <>
-          <Text style={[type.smallStrong, styles.label, { color: theme.colors.text }]}>Which day are you usually paid?</Text>
-          <View style={styles.wrap}>
-            {PAY_DAYS.map((d) => (
-              <ChoiceChip key={d} label={ordinal(d)} active={value.payDay === d} onPress={() => set({ payDay: d })} />
-            ))}
-            <ChoiceChip label="Last day" active={value.payDay === 31} onPress={() => set({ payDay: 31 })} />
-            <ChoiceChip label="Not sure" active={value.payDay == null} onPress={() => set({ payDay: null })} />
-          </View>
-          <View style={[styles.row, { marginTop: 10 }]}>
-            <Text style={[type.caption, { color: theme.colors.textMuted }]}>Another day:</Text>
-            <View style={[styles.dayInput, { borderColor: customDay ? theme.colors.primary : theme.colors.border, backgroundColor: theme.colors.surface }]}>
-              <TextInput
-                value={customDay ? String(value.payDay) : ''}
-                onChangeText={(t) => {
-                  const n = Number(t.replace(/\D/g, ''));
-                  set({ payDay: n >= 1 && n <= 31 ? n : null });
-                }}
-                keyboardType="number-pad"
-                maxLength={2}
-                placeholder="1–31"
-                placeholderTextColor={theme.colors.textMuted}
-                style={[styles.inputText, { color: theme.colors.text, textAlign: 'center' }]}
-              />
-            </View>
-          </View>
-        </>
+        <SelectField
+          label="Which day are you usually paid?"
+          sheetTitle="Payday"
+          value={value.payDay ?? null}
+          options={PAY_DAY_OPTIONS}
+          onChange={(d) => set({ payDay: d })}
+          hint="If it moves around, pick the usual day. Weekends and holidays are fine."
+          style={{ marginTop: 16, marginBottom: 0 }}
+        />
       ) : weekly ? (
         <>
           <Text style={[type.smallStrong, styles.label, { color: theme.colors.text }]}>Which day?</Text>
@@ -129,10 +116,8 @@ export function IncomeEditor({
 
 const styles = StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   label: { marginTop: 16, marginBottom: 8 },
   input: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, minHeight: 50 },
-  inputText: { flex: 1, fontFamily: fonts.medium, fontSize: 16, paddingVertical: 10 },
-  dayInput: { width: 72, borderWidth: 1, borderRadius: 12, paddingHorizontal: 6, minHeight: 40 }
+  inputText: { flex: 1, fontFamily: fonts.medium, fontSize: 16, paddingVertical: 10 }
 });

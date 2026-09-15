@@ -192,6 +192,12 @@ try {
   r = await call(a.token, 'PATCH', '/notifications/prefs', { weeklyCheckIn: false });
   check('update notification prefs', r.status === 200 && r.data.prefs.weeklyCheckIn === false && r.data.prefs.paceAlerts === true, r);
   check('read notification prefs', (await call(a.token, 'GET', '/notifications/prefs')).data?.prefs?.weeklyCheckIn === false);
+  r = await call(a.token, 'PATCH', '/notifications/prefs', { invoiceReminders: false });
+  check('invoice reminder preference saves', r.status === 200 && r.data.prefs.invoiceReminders === false && r.data.prefs.billReminders === true, r);
+  r = await call(a.token, 'GET', '/notifications?spaceId=personal');
+  check('personal feed holds personal and account-wide alerts only', r.status === 200 && r.data.items.length > 0 && r.data.items.every((n) => n.spaceId === 'personal' || n.spaceId === null), r.data?.items?.map((n) => n.spaceId));
+  r = await call(a.token, 'GET', '/notifications?spaceId=business');
+  check('business feed leaves out personal alerts', r.status === 200 && r.data.items.every((n) => n.spaceId !== 'personal') && r.data.unread === 0, r.data?.items?.map((n) => [n.kind, n.spaceId]));
   check('register push token', (await call(a.token, 'POST', '/push-tokens', { token: `ExponentPushToken[e2e-${stamp}]`, platform: 'ios' })).status === 200);
   check('reject non-Expo push token', (await call(a.token, 'POST', '/push-tokens', { token: 'nope' })).status === 400);
   check('unregister push token', (await call(a.token, 'DELETE', '/push-tokens', { token: `ExponentPushToken[e2e-${stamp}]` })).status === 200);
@@ -225,8 +231,31 @@ try {
   check('partner cannot invite', (await call(b.token, 'POST', `/budgets/${budgetId}/invites`)).status === 403);
   r = await call(a.token, 'GET', `/budgets/${budgetId}/members`);
   check('members list', r.status === 200 && r.data.items.length === 2 && r.data.items[1].name === B.name, r);
+  check('sharing makes it a household budget', (await call(a.token, 'GET', `/budgets/${budgetId}`)).data?.budget?.purpose === 'household');
+  r = await call(a.token, 'POST', `/budgets/${budgetId}/next`);
+  check('start next period keeps the people', r.status === 201 && r.data.budget.purpose === 'household' && r.data.budget.members.some((mm) => mm.userId === b.id) && r.data.budget.startDate > monthStart, r);
+  const nextId = r.data?.budget?.id;
+  check('starting it again returns the same budget', (await call(a.token, 'POST', `/budgets/${budgetId}/next`)).data?.budget?.id === nextId);
+  check('partner sees the next period', (await call(b.token, 'GET', '/budgets?spaceId=personal')).data?.items?.some((x) => x.id === nextId));
+  check('partner cannot start the next period', (await call(b.token, 'POST', `/budgets/${budgetId}/next`)).status === 403);
+  r = await call(a.token, 'POST', '/budgets', { name: 'My Budget (Own)', totalBudget: 100000, period: 'monthly', startDate: monthStart, categories: {}, purpose: 'personal' });
+  check('own plan runs alongside a shared budget', r.status === 201 && r.data.budget.purpose === 'personal', r);
+  const ownId = r.data?.budget?.id;
+  r = await call(a.token, 'POST', '/budgets', { name: 'Ada’s wedding', totalBudget: 2000000, period: 'monthly', startDate: monthStart, categories: {}, purpose: 'event' });
+  check('event budget can overlap other budgets', r.status === 201 && r.data.budget.purpose === 'event', r);
+  const eventId = r.data?.budget?.id;
+  check('second shared budget for the same dates is rejected', (await call(a.token, 'POST', '/budgets', { name: 'Another home', totalBudget: 1, period: 'monthly', startDate: monthStart, categories: {}, purpose: 'household' })).status === 400);
+  r = await call(a.token, 'PATCH', '/users/me', { homeBudget: 'shared', budgetMode: 'both' });
+  check('home budget preference saves', r.status === 200 && r.data.user.homeBudget === 'shared' && r.data.user.budgetMode === 'both', r);
+  r = await call(b.token, 'PATCH', '/notifications/prefs', { sharedActivity: false });
+  check('shared activity preference saves', r.status === 200 && r.data.prefs.sharedActivity === false, r);
   check('partner leaves', (await call(b.token, 'DELETE', `/budgets/${budgetId}/members/${b.id}`)).status === 200);
   check('partner loses access after leaving', (await call(b.token, 'GET', `/budgets/${budgetId}`)).status === 404);
+  r = await call(a.token, 'GET', '/notifications');
+  check('owner is told when the partner leaves', (r.data?.items ?? []).some((n) => n.kind === 'shared' && /comot/.test(n.title)), r.data?.items?.map((n) => n.title));
+  // Tidy up the extra budgets so later sections see the same data as before.
+  for (const id of [nextId, ownId, eventId]) if (id) await call(a.token, 'DELETE', `/budgets/${id}`);
+  await call(a.token, 'PATCH', '/users/me', { homeBudget: 'own', budgetMode: 'solo' });
   check("other user's transaction is private", (await call(b.token, 'GET', `/transactions/${expenseId}`)).status === 404);
 
   section('Bank connections');
@@ -251,6 +280,14 @@ try {
   check('tax rules', (await call(a.token, 'GET', '/tax/rules?country=NG')).data?.meta?.country === 'NG');
   r = await call(a.token, 'POST', '/tax/calc', { country: 'NG', grossAnnual: 6000000 });
   check('tax calculation', r.status === 200 && r.data.result.totalTax > 0 && r.data.result.bands.length > 0, r);
+  // Nigeria Tax Act 2025: 0% to ₦800k, 15% to ₦3m, 18% to ₦12m → ₦330,000 + ₦540,000 on ₦6m.
+  check('tax uses 2026 bands', r.data?.result?.totalTax === 870000 && r.data.result.taxableIncome === 6000000, r.data?.result);
+  r = await call(a.token, 'POST', '/tax/calc', { country: 'NG', grossAnnual: 6000000, deductions: { annualRent: 1000000 } });
+  {
+    const saved = await call(a.token, 'PATCH', '/users/me', { taxProfile: { country: 'NG', optInTaxFeature: true, grossMonthlyIncome: 500000, annualRent: 1200000, pensionContribution: 40000, nhfContribution: 5000 } });
+    check('tax reliefs save to the profile', saved.status === 200 && saved.data.user.taxProfile?.annualRent === 1200000 && saved.data.user.taxProfile?.nhfContribution === 5000, saved);
+  }
+  check('rent relief is 20% of rent',r.status === 200 && r.data.result.taxableIncome === 5800000 && r.data.result.totalTax === 834000, r.data?.result ?? r);
 
   section('Categories and learning');
   r = await call(a.token, 'GET', '/categories?spaceId=personal');

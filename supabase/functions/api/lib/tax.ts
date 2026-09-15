@@ -10,33 +10,44 @@ export type TaxRule = {
   sources?: string[];
   brackets: TaxBracket[];
   allowances?: Record<string, number | { type: string; rate?: number; fixed?: number; minRate?: number }>;
-  deductions?: Record<string, { cap?: number }>;
+  /** `rate` turns the amount entered into the deduction (e.g. 20% of annual rent); `cap` limits the deduction. */
+  deductions?: Record<string, { cap?: number; rate?: number }>;
   minimumTaxRate?: number;
   noTaxIfGrossMonthlyAtOrBelow?: number;
 };
 
-// Same rules as backend/tax_rules/*.json.
+// Nigeria Tax Act 2025, in force from 1 January 2026. The old PITA rules (CRA, 7%–24% bands, 1% minimum tax) no longer apply.
 const RULES: Record<string, TaxRule> = {
   ng: {
     country: 'NG',
-    version: '2025-09-29-v1',
-    effectiveDate: '2024-05-01',
+    version: '2026-01-01-nta-2025',
+    effectiveDate: '2026-01-01',
     currency: 'NGN',
     notes:
-      'Nigeria PAYE (PIT) estimate rules (annual). Includes Consolidated Relief Allowance (CRA) and minimum tax. Gross income definition and exemptions can vary by taxpayer and state interpretation; this is an estimator.',
-    lastReviewed: '2025-09-29',
-    sources: ['https://taxsummaries.pwc.com/nigeria/individual/taxes-on-personal-income', 'https://taxsummaries.pwc.com/nigeria/individual/deductions'],
+      'Nigeria personal income tax (PAYE) estimate under the Nigeria Tax Act 2025 (annual). The first ₦800,000 is tax-free and the Consolidated Relief Allowance and minimum tax are gone. Rent relief is 20% of annual rent up to ₦500,000; pension, NHF, NHIS, life insurance and mortgage interest are deductible. Minimum wage earners are exempt. This is an estimator, not tax advice.',
+    lastReviewed: '2026-09-15',
+    sources: [
+      'https://taxsummaries.pwc.com/nigeria/individual/significant-developments',
+      'https://kpmg.com/xx/en/our-insights/gms-flash-alert/flash-alert-2025-168.html'
+    ],
+    // ₦70,000 a month is the national minimum wage; earners at or below it pay no income tax.
     noTaxIfGrossMonthlyAtOrBelow: 70000,
-    minimumTaxRate: 0.01,
-    allowances: { consolidatedReliefAllowance: { type: 'cra', fixed: 200000, minRate: 0.01, rate: 0.2 } },
-    deductions: {},
+    allowances: {},
+    deductions: {
+      annualRent: { rate: 0.2, cap: 500000 },
+      pension: {},
+      nhf: {},
+      nhis: {},
+      lifeInsurance: {},
+      mortgageInterest: {}
+    },
     brackets: [
-      { from: 0, to: 300000, rate: 0.07 },
-      { from: 300000, to: 600000, rate: 0.11 },
-      { from: 600000, to: 1100000, rate: 0.15 },
-      { from: 1100000, to: 1600000, rate: 0.19 },
-      { from: 1600000, to: 3200000, rate: 0.21 },
-      { from: 3200000, to: null, rate: 0.24 }
+      { from: 0, to: 800000, rate: 0 },
+      { from: 800000, to: 3000000, rate: 0.15 },
+      { from: 3000000, to: 12000000, rate: 0.18 },
+      { from: 12000000, to: 25000000, rate: 0.21 },
+      { from: 25000000, to: 50000000, rate: 0.23 },
+      { from: 50000000, to: null, rate: 0.25 }
     ]
   }
 };
@@ -71,7 +82,8 @@ export function computeTax(rule: TaxRule, input: { grossAnnual: number; deductio
 
   let totalDeductions = 0;
   for (const [k, raw] of Object.entries(input.deductions ?? {})) {
-    totalDeductions += Math.min(Math.max(0, Number(raw) || 0), rule.deductions?.[k]?.cap ?? Infinity);
+    const d = rule.deductions?.[k];
+    totalDeductions += Math.min(Math.max(0, Number(raw) || 0) * (d?.rate ?? 1), d?.cap ?? Infinity);
   }
 
   const taxable = Math.max(0, gross - totalAllowances - totalDeductions);

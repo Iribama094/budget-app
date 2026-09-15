@@ -108,7 +108,11 @@ export async function previewPlan(input: PlanInputs): Promise<ApiPlan> {
   return (await apiFetch('/v1/plan/preview', { method: 'POST', body: JSON.stringify(input) })).plan;
 }
 
-export async function completeOnboarding(input: PlanInputs & { createBudget: boolean }): Promise<{ user: ApiUser; plan: ApiPlan; budget: ApiBudget | null }> {
+export type BudgetMode = 'solo' | 'shared' | 'both';
+
+export async function completeOnboarding(
+  input: PlanInputs & { createBudget: boolean; mode?: BudgetMode; inviteCode?: string }
+): Promise<{ user: ApiUser; plan: ApiPlan; budget: ApiBudget | null; ownBudget?: ApiBudget | null; sharedBudget?: ApiBudget | null }> {
   return apiFetch('/v1/onboarding/complete', { method: 'POST', body: JSON.stringify(input) });
 }
 

@@ -127,6 +127,7 @@ export async function checkDailySpend(tx: CreatedTx): Promise<void> {
   await notifyUser(tx.userId, {
     kind: 'pace',
     ...voice.dailySpend(formatMoney(spentToday, currency), Math.round(spentToday / usual)),
+    spaceId: space === 'business' ? 'business' : 'personal',
     data: { screen: 'Transactions' },
     dedupeKey: `daily-spend:${space}:${today}`,
     dedupeTtlSec: 36 * 3600

@@ -5,8 +5,8 @@ import { View, Text, Pressable, ActivityIndicator, Modal, ScrollView, Animated, 
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { createBudget, listBudgets, listTransactions, patchBudget, patchBudgetInSpace, calcTax, type ApiBudget, type ApiTransaction } from '../api/endpoints';
-import { ArrowRightLeft, CalendarDays, Check, ChevronLeft, ChevronRight, Eye, EyeOff, Minus, Plus, Users, X } from 'lucide-react-native';
+import { createBudget, listBudgets, listTransactions, patchBudget, patchBudgetInSpace, calcTax, type ApiBudget, type ApiTransaction, type BudgetPurpose } from '../api/endpoints';
+import { ArrowRightLeft, CalendarDays, Check, ChevronLeft, ChevronRight, Eye, EyeOff, Minus, PartyPopper, Plus, Users, X } from 'lucide-react-native';
 import { applyRollover, getRollover, type RolloverPreview } from '../api/features';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -29,6 +29,8 @@ import {
   SegmentedControl,
   formatAmount
 } from '../components/Common/ui';
+import { TextField } from '../components/Common/ui';
+import { SelectField } from '../components/Common/SelectField';
 import { currencySymbol, formatMoney, monthName, toIsoDate, toIsoDateTime } from '../utils/format';
 import { bucketColor } from '../theme/theme';
 import { fonts, type } from '../theme/typography';
@@ -39,6 +41,13 @@ import { SpaceSwitcher } from '../components/Common/SpaceSwitcher';
 import { useTour, useTourAnchor } from '../contexts/TourContext';
 import { useNudges } from '../contexts/NudgesContext';
 import { NudgeTooltip } from '../components/Common/NudgeTooltip';
+
+/** One model for every use case: your own plan, a household budget you share every month, or a one-off event or trip. */
+const PURPOSE_OPTIONS: Array<{ value: BudgetPurpose; label: string; subtitle: string }> = [
+  { value: 'personal', label: 'My monthly plan', subtitle: 'Your own budget for the month or pay period' },
+  { value: 'household', label: 'Shared household', subtitle: 'With a partner, family or housemates; repeats every month' },
+  { value: 'event', label: 'Event or trip', subtitle: 'A one-off like a wedding, trip or burial; runs alongside your plan' }
+];
 
 export function BudgetScreen() {
   const { user } = useAuth();
@@ -191,6 +200,8 @@ export function BudgetScreen() {
     setTotalBudget(intPart);
   };
   const [period, setPeriod] = useState<'monthly' | 'weekly'>('monthly');
+  const [purpose, setPurpose] = useState<BudgetPurpose>('personal');
+  const [budgetTitle, setBudgetTitle] = useState('');
 
   // Category selection & percentages (including Debt Financing)
   // Only preselect core categories, not all
@@ -357,7 +368,18 @@ export function BudgetScreen() {
         cursor = res.nextCursor ?? null;
       } while (cursor);
 
-      const map: Record<string, { income: number; expenses: number; spentByCategory: Record<string, number> }> = {};
+      type Tally = { income: number; expenses: number; spentByCategory: Record<string, number> };
+      const tally = (entry: Tally, t: ApiTransaction) => {
+        if (t.type === 'income') {
+          entry.income += t.amount;
+          return;
+        }
+        entry.expenses += t.amount;
+        const cat = (t.budgetCategory || (t as any).category || '').trim();
+        if (cat) entry.spentByCategory[cat] = (entry.spentByCategory[cat] ?? 0) + t.amount;
+      };
+
+      const map: Record<string, Tally> = {};
       for (const b of items) {
         map[String(b.id)] = { income: 0, expenses: 0, spentByCategory: {} };
       }
@@ -365,15 +387,32 @@ export function BudgetScreen() {
       for (const t of all) {
         const bid = t.budgetId ? String(t.budgetId) : '';
         if (!bid || !map[bid]) continue;
+        tally(map[bid], t);
+      }
 
-        if (t.type === 'income') {
-          map[bid].income += t.amount;
-          continue;
-        }
-
-        map[bid].expenses += t.amount;
-        const cat = (t.budgetCategory || (t as any).category || '').trim();
-        if (cat) map[bid].spentByCategory[cat] = (map[bid].spentByCategory[cat] ?? 0) + t.amount;
+      // A shared budget also counts other members' transactions, which only come back when filtering by that budget.
+      for (const b of items.filter((x) => x.isShared)) {
+        const r = getBudgetRange(b);
+        if (!r) continue;
+        const start = new Date(r.start);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(r.end);
+        end.setHours(23, 59, 59, 999);
+        const entry: Tally = { income: 0, expenses: 0, spentByCategory: {} };
+        let sharedCursor: string | null = null;
+        do {
+          const res = await listTransactions({
+            start: toIsoDateTime(start),
+            end: toIsoDateTime(end),
+            limit: 200,
+            cursor: sharedCursor ?? undefined,
+            budgetId: String(b.id),
+            spaceId: spacesEnabled ? activeSpaceId : undefined
+          });
+          for (const t of res.items || []) tally(entry, t);
+          sharedCursor = res.nextCursor ?? null;
+        } while (sharedCursor);
+        map[String(b.id)] = entry;
       }
 
       setBudgetTxByBudgetId(map);
@@ -519,6 +558,8 @@ export function BudgetScreen() {
       setEndMonthSel(end.getMonth());
       setEndYearSel(end.getFullYear());
       setPayRange(start.getDate() !== 1 && b.endDate ? { start: b.startDate, end: b.endDate, label: b.name.replace(/^My Budget \((.*)\)$/, '$1') } : null);
+      setPurpose(b.purpose ?? 'personal');
+      setBudgetTitle(/^My Budget \(/.test(b.name) ? '' : b.name);
       setPeriod(b.period);
       setTotalBudget(String(Math.round(b.totalBudget)).replace(/\B(?=(\d{3})+(?!\d))/g, ','));
 
@@ -563,8 +604,9 @@ export function BudgetScreen() {
   // Home can open the setup straight away, e.g. "Create your budget" from the plan.
   useEffect(() => {
     if (!route.params?.startNew || showSetup) return;
-    (nav as any).setParams?.({ startNew: undefined });
-    openNewBudget();
+    const requested = route.params?.purpose as BudgetPurpose | undefined;
+    (nav as any).setParams?.({ startNew: undefined, purpose: undefined });
+    openNewBudget(requested);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route.params?.startNew]);
 
@@ -621,12 +663,13 @@ export function BudgetScreen() {
       })();
 
       const baseInput = {
-        name: nameForBudget,
+        name: purpose !== 'personal' && budgetTitle.trim() ? budgetTitle.trim() : purpose === 'household' ? 'Household budget' : nameForBudget,
         totalBudget: parsedTotal,
         period,
         startDate: toIsoDate(startDateObj),
         endDate: toIsoDate(endDateObj),
-        categories
+        categories,
+        purpose: isBusiness ? ('personal' as BudgetPurpose) : purpose
       };
 
       const created = editingBudgetId
@@ -638,13 +681,18 @@ export function BudgetScreen() {
             ...(spacesEnabled ? { spaceId: activeSpaceId } : {})
           });
       setBudget(created);
+      // A new shared budget is only useful once people are in it.
+      if (!editingBudgetId && purpose === 'household' && created && !created.isShared) {
+        toast.show('Shared budget created. Now invite your people 👇', 'success', 3500);
+        (nav as any).navigate('ShareBudget', { budgetId: String(created.id), budgetName: created.name });
+      }
       setEditingBudgetId(null);
       // reload list after creation
       await load();
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to save budget';
-      if (/Budget dates overlap an existing budget/i.test(message)) {
-        toast.show('A budget already exists for that timeline.', 'error', 3500);
+      if (/overlap an existing budget|already covers those dates/i.test(message)) {
+        toast.show(purpose === 'household' ? 'You already have a shared budget for those dates.' : 'A budget already exists for that timeline.', 'error', 3500);
         return;
       }
       setError(message);
@@ -752,7 +800,9 @@ export function BudgetScreen() {
     (nav as any).setOptions?.({ tabBarStyle: showSetup ? { display: 'none' } : undefined });
   }, [nav, showSetup]);
 
-  const openNewBudget = () => {
+  const openNewBudget = (nextPurpose: BudgetPurpose = 'personal') => {
+    setPurpose(nextPurpose);
+    setBudgetTitle('');
     setShowSetup(true);
     setSetupStep(1);
     setBudget(null);
@@ -828,11 +878,12 @@ export function BudgetScreen() {
   };
 
   const nextDisabled =
-    (setupStep === 1 && datesInvalid) ||
+    (setupStep === 1 && (datesInvalid || (purpose === 'event' && !budgetTitle.trim()))) ||
     (setupStep === 2 && (!Number.isFinite(parsedTotal) || parsedTotal <= 0)) ||
     ((setupStep === 3 || setupStep === 4) && !canSave);
 
   const displayName = (b: ApiBudget) => {
+    if (!/^My Budget \(/.test(b.name)) return b.name;
     const r = getBudgetRange(b);
     if (!r) return b.name;
     const s = r.start;
@@ -866,6 +917,20 @@ export function BudgetScreen() {
 
           {setupStep === 1 ? (
             <>
+              {!isBusiness ? (
+                <>
+                  <SelectField label="What’s this budget for?" value={purpose} options={PURPOSE_OPTIONS} onChange={setPurpose} />
+                  {purpose !== 'personal' ? (
+                    <TextField
+                      label={purpose === 'event' ? 'Name it' : 'Name (optional)'}
+                      value={budgetTitle}
+                      onChangeText={setBudgetTitle}
+                      placeholder={purpose === 'event' ? 'e.g. Ada’s wedding, Easter trip' : 'e.g. Home budget, Flat 4B'}
+                      maxLength={60}
+                    />
+                  ) : null}
+                </>
+              ) : null}
               <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Dates</Text>
               <Text style={[type.h2, { color: theme.colors.text, marginTop: 6 }]}>When does this budget run?</Text>
               <View style={styles.wrap}>
@@ -1209,8 +1274,13 @@ export function BudgetScreen() {
   }
 
   /* ------------------------------------------------------------- list view */
-  const current = budgetsSorted.find((b) => isBudgetCurrent(b)) ?? null;
-  const history = budgetsSorted.filter((b) => b !== current);
+  // Your own plan leads. Shared budgets and events that are running get their own sections; the rest is history.
+  const running = budgetsSorted.filter((b) => isBudgetCurrent(b));
+  const current =
+    running.find((b) => b.role !== 'member' && (b.purpose ?? 'personal') === 'personal') ?? running.find((b) => b.purpose !== 'event') ?? running[0] ?? null;
+  const sharedRunning = running.filter((b) => b !== current && (b.purpose === 'household' || b.isShared) && b.purpose !== 'event');
+  const eventsActive = budgetsSorted.filter((b) => b !== current && b.purpose === 'event' && (getBudgetRange(b)?.end.getTime() ?? 0) >= Date.now() - 86400000);
+  const history = budgetsSorted.filter((b) => b !== current && !sharedRunning.includes(b) && !eventsActive.includes(b));
   const currentTx = current ? budgetTxByBudgetId[String(current.id)] ?? { income: 0, expenses: 0, spentByCategory: {} } : null;
   const currentRange = current ? getBudgetRange(current) : null;
   const currentPace = (() => {
@@ -1246,7 +1316,7 @@ export function BudgetScreen() {
                   </IconButton>
                   <Pressable
                     ref={createBudgetAnchorRef as any}
-                    onPress={openNewBudget}
+                    onPress={() => openNewBudget()}
                     accessibilityRole="button"
                     accessibilityLabel="New budget"
                     style={({ pressed }) => [styles.newPill, { backgroundColor: theme.colors.primary, opacity: pressed ? 0.85 : 1 }]}
@@ -1348,7 +1418,7 @@ export function BudgetScreen() {
                   title={budgetsSorted.length ? 'No budget running right now' : 'Create your first budget'}
                   body="Plan what you’ll spend this month. We’ll track it as you add transactions and warn you before you overspend."
                   actionLabel="Create a budget"
-                  onAction={openNewBudget}
+                  onAction={() => openNewBudget()}
                 />
               </View>
             ) : (
@@ -1371,6 +1441,68 @@ export function BudgetScreen() {
                 <PrimaryButton title="Move leftover money" onPress={() => setRolloverSheet(true)} style={{ marginTop: 12 }} />
               </Card>
             ) : null}
+
+            {sharedRunning.length ? <SectionHeader title="Shared budgets" /> : null}
+            {sharedRunning.map((b) => {
+              const tx = budgetTxByBudgetId[String(b.id)] ?? { income: 0, expenses: 0, spentByCategory: {} };
+              const left = (b.totalBudget ?? 0) - tx.expenses;
+              const people = (b.members?.length ?? 0) + 1;
+              return (
+                <Pressable
+                  key={String(b.id)}
+                  onPress={() => (nav as any).navigate('BudgetDetail', { budgetId: String(b.id) })}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.historyRow, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, opacity: pressed ? 0.85 : 1 }]}
+                >
+                  <IconTile bg={theme.colors.primarySoft}>
+                    <Users color={theme.colors.primary} size={18} />
+                  </IconTile>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text numberOfLines={1} style={[type.bodyStrong, { color: theme.colors.text }]}>
+                      {displayName(b)}
+                    </Text>
+                    <Text style={[type.caption, { color: theme.colors.textMuted }]}>
+                      {people} {people === 1 ? 'person' : 'people'} · {b.role === 'member' ? 'shared with you' : 'you manage it'}
+                    </Text>
+                  </View>
+                  <Chip tone={left < 0 ? 'negative' : 'primary'} label={hide ? (left < 0 ? 'Over' : 'Running') : left < 0 ? `Over by ${formatAmount(-left, glyph)}` : `${formatAmount(left, glyph)} left`} />
+                </Pressable>
+              );
+            })}
+
+            {eventsActive.length ? <SectionHeader title="Events & trips" /> : null}
+            {eventsActive.map((b) => {
+              const tx = budgetTxByBudgetId[String(b.id)] ?? { income: 0, expenses: 0, spentByCategory: {} };
+              const r = getBudgetRange(b);
+              const upcoming = !!r && r.start.getTime() > Date.now();
+              const left = (b.totalBudget ?? 0) - tx.expenses;
+              return (
+                <Pressable
+                  key={String(b.id)}
+                  onPress={() => (nav as any).navigate('BudgetDetail', { budgetId: String(b.id) })}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.historyRow, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, opacity: pressed ? 0.85 : 1 }]}
+                >
+                  <IconTile bg={theme.colors.brassSoft}>
+                    <PartyPopper color={theme.colors.brass} size={18} />
+                  </IconTile>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text numberOfLines={1} style={[type.bodyStrong, { color: theme.colors.text }]}>
+                      {displayName(b)}
+                    </Text>
+                    <Text style={[type.caption, { color: theme.colors.textMuted }]}>
+                      {r ? `${r.start.getDate()} ${monthName(r.start.getMonth())} – ${r.end.getDate()} ${monthName(r.end.getMonth())}` : ''}
+                      {b.isShared ? ' · shared' : ''}
+                    </Text>
+                  </View>
+                  {upcoming ? (
+                    <Chip label="Upcoming" />
+                  ) : (
+                    <Chip tone={left < 0 ? 'negative' : 'brass'} label={hide ? (left < 0 ? 'Over' : 'On') : left < 0 ? `Over by ${formatAmount(-left, glyph)}` : `${formatAmount(left, glyph)} left`} />
+                  )}
+                </Pressable>
+              );
+            })}
 
             {history.length ? <SectionHeader title="Other budgets" /> : null}
           </View>

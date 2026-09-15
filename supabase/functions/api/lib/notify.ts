@@ -1,11 +1,44 @@
 import { sql } from './db.ts';
 
-export type NotificationKind = 'pace' | 'over' | 'bill' | 'recurring' | 'autosave' | 'weekly' | 'shared' | 'security' | 'bank' | 'rollover' | 'insight';
+export type NotificationKind =
+  | 'pace'
+  | 'over'
+  | 'bill'
+  | 'recurring'
+  | 'autosave'
+  | 'weekly'
+  | 'shared'
+  | 'security'
+  | 'bank'
+  | 'rollover'
+  | 'insight'
+  | 'invoice'
+  | 'tax'
+  | 'household';
 
-export type NotificationPrefs = { paceAlerts: boolean; billReminders: boolean; weeklyCheckIn: boolean; autoSave: boolean };
+/** Which space a notification belongs to. null means the whole account (for example security) and shows in both. */
+export type NotificationSpace = 'personal' | 'business';
 
-export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = { paceAlerts: true, billReminders: true, weeklyCheckIn: true, autoSave: true };
+export type NotificationPrefs = {
+  paceAlerts: boolean;
+  billReminders: boolean;
+  weeklyCheckIn: boolean;
+  autoSave: boolean;
+  invoiceReminders: boolean;
+  /** The daily summary of what others spent in budgets you share. */
+  sharedActivity: boolean;
+};
 
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  paceAlerts: true,
+  billReminders: true,
+  weeklyCheckIn: true,
+  autoSave: true,
+  invoiceReminders: true,
+  sharedActivity: true
+};
+
+// VAT and PAYE ('tax') reminders are switched on and off in the business settings, so they have no preference here.
 const PREF_FOR_KIND: Partial<Record<NotificationKind, keyof NotificationPrefs>> = {
   pace: 'paceAlerts',
   over: 'paceAlerts',
@@ -13,8 +46,11 @@ const PREF_FOR_KIND: Partial<Record<NotificationKind, keyof NotificationPrefs>> 
   recurring: 'billReminders',
   autosave: 'autoSave',
   weekly: 'weeklyCheckIn',
-  insight: 'weeklyCheckIn'
+  insight: 'weeklyCheckIn',
+  invoice: 'invoiceReminders'
 };
+
+const BUSINESS_SCREENS = new Set(['InvoiceDetail', 'Invoices', 'InvoiceEdit', 'Bills', 'BusinessTax', 'BusinessDetails', 'PayYourself', 'BusinessReports', 'Payroll', 'StatementImport']);
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -67,7 +103,16 @@ export async function sendPushToUser(userId: string, msg: { title: string; body:
  */
 export async function notifyUser(
   userId: string,
-  n: { kind: NotificationKind; title: string; body: string; data?: Record<string, unknown>; dedupeKey?: string; dedupeTtlSec?: number }
+  n: {
+    kind: NotificationKind;
+    title: string;
+    body: string;
+    data?: Record<string, unknown>;
+    dedupeKey?: string;
+    dedupeTtlSec?: number;
+    /** Leave out to infer it from the screen or budget the notification opens. */
+    spaceId?: NotificationSpace | null;
+  }
 ): Promise<boolean> {
   if (n.dedupeKey) {
     const ttl = n.dedupeTtlSec ?? 60 * 60 * 24;
@@ -81,14 +126,30 @@ export async function notifyUser(
     if (!claimed.length) return false;
   }
 
+  const spaceId = n.spaceId !== undefined ? n.spaceId : await inferSpace(n);
+
   await sql`
-    insert into public.notifications (user_id, kind, title, body, data)
-    values (${userId}, ${n.kind}, ${n.title}, ${n.body}, ${n.data ? sql.json(n.data as any) : null})
+    insert into public.notifications (user_id, space_id, kind, title, body, data)
+    values (${userId}, ${spaceId}, ${n.kind}, ${n.title}, ${n.body}, ${n.data ? sql.json(n.data as any) : null})
   `;
 
   const pref = PREF_FOR_KIND[n.kind];
   if (!pref || (await getNotificationPrefs(userId))[pref]) {
-    await sendPushToUser(userId, { title: n.title, body: n.body, data: { ...(n.data ?? {}), kind: n.kind } });
+    // spaceId lets the app open the notification in the right space.
+    await sendPushToUser(userId, { title: n.title, body: n.body, data: { ...(n.data ?? {}), kind: n.kind, spaceId } });
   }
   return true;
+}
+
+/** Security alerts are account-wide; business tools and business budgets are Business; everything else is Personal. */
+async function inferSpace(n: { kind: NotificationKind; data?: Record<string, unknown> }): Promise<NotificationSpace | null> {
+  if (n.kind === 'security') return null;
+  const screen = typeof n.data?.screen === 'string' ? n.data.screen : '';
+  if (BUSINESS_SCREENS.has(screen)) return 'business';
+  const budgetId = n.data?.budgetId;
+  if (typeof budgetId === 'string' && budgetId) {
+    const [b] = await sql`select space_id from public.budgets where id::text = ${budgetId}`;
+    if (b?.spaceId === 'business') return 'business';
+  }
+  return 'personal';
 }

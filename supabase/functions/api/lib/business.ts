@@ -461,8 +461,9 @@ export async function sendBusinessReminders(today = todayIso()): Promise<{ invoi
     const overdueDays = daysBetween(inv.dueDate, today);
     const note = overdueDays < 0 ? voice.invoiceDueSoon(inv.customerName, balance, inv.number) : voice.invoiceOverdue(inv.customerName, balance, overdueDays);
     const sent = await notifyUser(inv.userId, {
-      kind: 'bill',
+      kind: 'invoice',
       ...note,
+      spaceId: 'business',
       data: { screen: 'InvoiceDetail', invoiceId: inv.id },
       dedupeKey: `invoice:${inv.id}:${overdueDays}`,
       dedupeTtlSec: 3 * 86400
@@ -480,6 +481,7 @@ export async function sendBusinessReminders(today = todayIso()): Promise<{ invoi
     const sent = await notifyUser(bill.userId, {
       kind: 'bill',
       ...voice.billDueSoon(bill.supplierName, formatMoney(Number(bill.amount) - Number(bill.amountPaid), currency), bill.dueDate === today ? 'today' : 'in 2 days'),
+      spaceId: 'business',
       data: { screen: 'Bills' },
       dedupeKey: `supplier-bill:${bill.id}:${bill.dueDate === today ? 0 : 2}`,
       dedupeTtlSec: 3 * 86400
@@ -499,12 +501,12 @@ export async function sendBusinessReminders(today = todayIso()): Promise<{ invoi
     `;
     for (const p of people) {
       if (day === 14 && p.vatRegistered) {
-        if (await notifyUser(p.userId, { kind: 'bill', ...voice.vatReminder(monthLabel(prevMonth)), data: { screen: 'BusinessTax' }, dedupeKey: `vat:${prevMonth}`, dedupeTtlSec: 20 * 86400 })) filing++;
+        if (await notifyUser(p.userId, { kind: 'tax', spaceId: 'business', ...voice.vatReminder(monthLabel(prevMonth)), data: { screen: 'BusinessTax' }, dedupeKey: `vat:${prevMonth}`, dedupeTtlSec: 20 * 86400 })) filing++;
       }
       if (day === 5 && p.hasStaff) {
         const currency = await currencyFor(p.userId);
         const owed = Number(p.payeOwed);
-        if (await notifyUser(p.userId, { kind: 'bill', ...voice.payeReminder(monthLabel(prevMonth), owed > 0 ? formatMoney(owed, currency) : null), data: { screen: 'BusinessTax' }, dedupeKey: `paye:${prevMonth}`, dedupeTtlSec: 20 * 86400 })) filing++;
+        if (await notifyUser(p.userId, { kind: 'tax', spaceId: 'business', ...voice.payeReminder(monthLabel(prevMonth), owed > 0 ? formatMoney(owed, currency) : null), data: { screen: 'BusinessTax' }, dedupeKey: `paye:${prevMonth}`, dedupeTtlSec: 20 * 86400 })) filing++;
       }
     }
   }

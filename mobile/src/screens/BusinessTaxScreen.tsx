@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Switch, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { CalendarClock, Landmark, Receipt, UserRound } from 'lucide-react-native';
+import { Building2, CalendarClock, Landmark, Receipt, UserRound } from 'lucide-react-native';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -16,7 +16,7 @@ import { type } from '../theme/typography';
 const SET_ASIDE = [5, 10, 15, 20, 25, 30];
 const BUFFERS = [1, 2, 3, 6];
 
-/** Business tax at a glance: what to set aside, VAT and PAYE, filing dates, and the details on invoices. */
+/** Business tax at a glance: what to set aside, VAT and PAYE, and filing dates. Business name and contacts live in Business details. */
 export default function BusinessTaxScreen() {
   const nav = useNavigation<any>();
   const { user } = useAuth();
@@ -27,19 +27,12 @@ export default function BusinessTaxScreen() {
 
   const [summary, setSummary] = useState<BusinessSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [details, setDetails] = useState({ businessName: '', businessEmail: '', businessPhone: '', businessAddress: '', invoicePrefix: 'INV', vatRate: '7.5' });
+  const [vatRate, setVatRate] = useState('7.5');
   const [saving, setSaving] = useState(false);
 
   const apply = (s: BusinessSummary) => {
     setSummary(s);
-    setDetails({
-      businessName: s.settings.businessName ?? '',
-      businessEmail: s.settings.businessEmail ?? '',
-      businessPhone: s.settings.businessPhone ?? '',
-      businessAddress: s.settings.businessAddress ?? '',
-      invoicePrefix: s.settings.invoicePrefix,
-      vatRate: String(s.settings.vatRate)
-    });
+    setVatRate(String(s.settings.vatRate));
   };
 
   const load = useCallback(async () => {
@@ -67,31 +60,21 @@ export default function BusinessTaxScreen() {
     }
   };
 
-  const saveDetails = async () => {
-    const vatRate = Number(details.vatRate);
-    if (!Number.isFinite(vatRate) || vatRate < 0 || vatRate > 50) {
+  const saveVatRate = async () => {
+    const rate = Number(vatRate);
+    if (!Number.isFinite(rate) || rate < 0 || rate > 50) {
       toast.show('Enter a VAT rate between 0 and 50', 'error');
       return;
     }
     setSaving(true);
-    await change(
-      {
-        businessName: details.businessName.trim() || null,
-        businessEmail: details.businessEmail.trim() || null,
-        businessPhone: details.businessPhone.trim() || null,
-        businessAddress: details.businessAddress.trim() || null,
-        invoicePrefix: details.invoicePrefix.trim().toUpperCase() || 'INV',
-        vatRate
-      },
-      'Business details saved'
-    );
+    await change({ vatRate: rate }, 'VAT rate saved');
     setSaving(false);
   };
 
   if (!summary) {
     return (
       <Screen bottomInset={48}>
-        <ScreenHeader title="Tax & business details" onBack={() => nav.goBack()} />
+        <ScreenHeader title="Tax & VAT" onBack={() => nav.goBack()} />
         {error ? <InlineError message={error} /> : <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 40 }} />}
       </Screen>
     );
@@ -102,7 +85,7 @@ export default function BusinessTaxScreen() {
 
   return (
     <Screen bottomInset={48} onRefresh={load} refreshing={false}>
-      <ScreenHeader title="Tax & business details" onBack={() => nav.goBack()} />
+      <ScreenHeader title="Tax & VAT" subtitle={s.businessName ?? undefined} onBack={() => nav.goBack()} />
 
       <HeroCard style={{ marginTop: 8 }}>
         <Text style={[type.eyebrow, { color: inkText, opacity: 0.72 }]}>Set aside for tax this month</Text>
@@ -163,22 +146,17 @@ export default function BusinessTaxScreen() {
         <Text style={[type.small, { color: theme.colors.textMuted }]}>No filing dates to track. Turn on VAT below or add staff to see VAT and PAYE dates.</Text>
       )}
 
-      <SectionHeader title="Settings" />
+      <SectionHeader title="VAT" />
       <ListCard>
         <ListRow title="VAT registered" subtitle="Adds VAT to new invoices and tracks what you collect" right={<Switch value={s.vatRegistered} onValueChange={(v) => void change({ vatRegistered: v })} {...switchColors} />} />
         <ListRow title="Filing reminders" subtitle="A nudge before VAT and PAYE dates" right={<Switch value={s.filingReminders} onValueChange={(v) => void change({ filingReminders: v })} {...switchColors} />} />
-        <ListRow
-          icon={
-            <IconTile bg={theme.colors.primarySoft} size={34}>
-              <UserRound color={theme.colors.primary} size={17} />
-            </IconTile>
-          }
-          title="Your personal income tax"
-          subtitle="Estimate tax on your own pay"
-          onPress={() => nav.navigate('TaxSettings')}
-          chevron
-        />
       </ListCard>
+      {s.vatRegistered ? (
+        <Card style={{ marginTop: 10 }}>
+          <TextField label="VAT rate (%)" value={vatRate} onChangeText={(v) => setVatRate(v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" hint="7.5% is the standard rate in Nigeria" />
+          <PrimaryButton title="Save VAT rate" onPress={saveVatRate} loading={saving} disabled={Number(vatRate) === Number(s.vatRate)} />
+        </Card>
+      ) : null}
 
       <Card style={{ marginTop: 10 }}>
         <Text style={[type.bodyStrong, { color: theme.colors.text }]}>Cash buffer for paying yourself</Text>
@@ -190,21 +168,31 @@ export default function BusinessTaxScreen() {
         </View>
       </Card>
 
-      <SectionHeader title="Business details" />
-      <Text style={[type.small, { color: theme.colors.textMuted, marginBottom: 10 }]}>These show on your invoices and reports.</Text>
-      <TextField label="Business name" value={details.businessName} onChangeText={(v) => setDetails({ ...details, businessName: v })} placeholder="e.g. Ada Foods" />
-      <TextField label="Phone" value={details.businessPhone} onChangeText={(v) => setDetails({ ...details, businessPhone: v })} keyboardType="phone-pad" placeholder="0803 000 0000" />
-      <TextField label="Email" value={details.businessEmail} onChangeText={(v) => setDetails({ ...details, businessEmail: v })} keyboardType="email-address" autoCapitalize="none" placeholder="hello@adafoods.ng" />
-      <TextField label="Address" value={details.businessAddress} onChangeText={(v) => setDetails({ ...details, businessAddress: v })} placeholder="12 Allen Avenue, Ikeja" />
-      <View style={styles.row}>
-        <View style={{ flex: 1 }}>
-          <TextField label="Invoice prefix" value={details.invoicePrefix} onChangeText={(v) => setDetails({ ...details, invoicePrefix: v.replace(/[^A-Za-z0-9-]/g, '').slice(0, 8) })} autoCapitalize="characters" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <TextField label="VAT rate (%)" value={details.vatRate} onChangeText={(v) => setDetails({ ...details, vatRate: v.replace(/[^0-9.]/g, '') })} keyboardType="decimal-pad" />
-        </View>
-      </View>
-      <PrimaryButton title="Save details" onPress={saveDetails} loading={saving} />
+      <SectionHeader title="Related" />
+      <ListCard>
+        <ListRow
+          icon={
+            <IconTile bg={theme.colors.brassSoft} size={34}>
+              <Building2 color={theme.colors.brass} size={17} />
+            </IconTile>
+          }
+          title="Business details"
+          subtitle="Name, contacts and invoice numbering"
+          onPress={() => nav.navigate('BusinessDetails')}
+          chevron
+        />
+        <ListRow
+          icon={
+            <IconTile bg={theme.colors.primarySoft} size={34}>
+              <UserRound color={theme.colors.primary} size={17} />
+            </IconTile>
+          }
+          title="Your personal income tax"
+          subtitle="Estimate tax on your own pay and reliefs"
+          onPress={() => nav.navigate('TaxSettings')}
+          chevron
+        />
+      </ListCard>
 
       <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 14 }]}>
         Tax figures here are estimates to help you plan, based on common Nigerian practice (VAT usually by the 21st, PAYE by the 10th). Rules change, so confirm with your accountant or the tax office.
@@ -215,6 +203,5 @@ export default function BusinessTaxScreen() {
 
 const styles = StyleSheet.create({
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tiles: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  row: { flexDirection: 'row', gap: 10 }
+  tiles: { flexDirection: 'row', gap: 10, marginTop: 14 }
 });

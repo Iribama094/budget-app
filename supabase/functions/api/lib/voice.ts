@@ -107,5 +107,25 @@ export const voice = {
   memberJoined: (name: string, label: string): Note => ({
     title: `${name} don join ${label} 🎉`,
     body: 'Their spending now counts toward this budget.'
+  }),
+
+  memberLeft: (name: string, label: string): Note => ({
+    title: `${name} don comot from ${label}`,
+    body: 'They no longer see this budget. What they already added stays.'
+  }),
+
+  sharedDigest: (label: string, who: string, tail: string | null): Note => ({
+    title: pick([`Here’s what went into ${label} yesterday 👀`, `${label}: yesterday’s spending`]),
+    body: `${who}.${tail ? ` ${tail}` : ''}`
+  }),
+
+  periodEnding: (label: string, shared: boolean): Note => ({
+    title: pick([`${label} ends tomorrow ⏳`, `${boss()}, ${label} don reach last day`]),
+    body: shared ? 'Start the next one in a tap and everyone stays in.' : 'Start the next one in a tap: same plan, fresh numbers.'
+  }),
+
+  nextPeriodReady: (label: string): Note => ({
+    title: `${label} is ready 🎉`,
+    body: 'Same plan, same people. Spending you add now counts here.'
   })
 };

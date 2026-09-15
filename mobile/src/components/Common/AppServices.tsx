@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { AppState, Platform } from 'react-native';
 import { useNotificationBadges } from '../../contexts/NotificationBadgeContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSpace } from '../../contexts/SpaceContext';
 import { navigate } from '../../navigation/navigationRef';
 import { getNotificationPrefs, listNotifications, registerPushToken } from '../../api/features';
 import {
@@ -14,17 +15,19 @@ import {
 
 const TAB_SCREENS: Record<string, string> = { Dashboard: 'Dashboard', Budget: 'Budget', Budgets: 'Budget', Analytics: 'Analytics', Goals: 'Goals' };
 
-/** Push registration, the on-device weekly check-in, and opening the right screen from a notification. */
+/** Push registration, the on-device weekly check-in, and opening the right screen (and space) from a notification. */
 export function AppServices() {
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const { setHasUnreadNotifications } = useNotificationBadges();
+  const { spacesEnabled, activeSpaceId, setActiveSpaceId } = useSpace();
+  const spaceId = spacesEnabled ? activeSpaceId : undefined;
 
-  // Keep the bell's unread dot in step with the server feed.
+  // Keep the bell's unread dot in step with the server feed for the space on screen.
   useEffect(() => {
     if (!userId) return;
     const refresh = () =>
-      listNotifications()
+      listNotifications({ spaceId })
         .then((r) => setHasUnreadNotifications(r.unread > 0))
         .catch(() => undefined);
     void refresh();
@@ -32,20 +35,24 @@ export function AppServices() {
       if (s === 'active') void refresh();
     });
     return () => sub.remove();
-  }, [setHasUnreadNotifications, userId]);
+  }, [setHasUnreadNotifications, spaceId, userId]);
 
   useEffect(
     () =>
       addNotificationTapListener((data) => {
+        // A business alert opens in the Business space, a personal one in Personal.
+        if (spacesEnabled && (data.spaceId === 'business' || data.spaceId === 'personal') && data.spaceId !== activeSpaceId) {
+          setActiveSpaceId(data.spaceId);
+        }
         const screen = typeof data.screen === 'string' ? data.screen : null;
         if (!screen) return;
         if (TAB_SCREENS[screen]) {
           navigate('Main', { screen: TAB_SCREENS[screen] });
           return;
         }
-        navigate(screen, { budgetId: data.budgetId, goalId: data.goalId, recurringId: data.recurringId });
+        navigate(screen, { ...data });
       }),
-    []
+    [activeSpaceId, setActiveSpaceId, spacesEnabled]
   );
 
   useEffect(() => {

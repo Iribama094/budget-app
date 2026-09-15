@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { IconButton, InlineError, ListCard, PrimaryButton, Screen, SegmentedControl, TextField, formatAmount } from '../components/Common/ui';
+import { SelectField } from '../components/Common/SelectField';
 import { useToast } from '../components/Common/Toast';
 import { useSync } from '../contexts/SyncContext';
 import { bucketColor } from '../theme/theme';
@@ -246,7 +247,13 @@ export function AddTransactionScreen() {
         setBudgets(filtered);
 
         if (filtered.length > 0) {
-          const current = filtered.find((bb) => isBudgetCurrent(bb)) ?? filtered[0];
+          // Default to the budget Home shows: your own plan, or the shared one if that's your choice.
+          const running = filtered.filter((bb) => isBudgetCurrent(bb));
+          const preferred =
+            user?.homeBudget === 'shared'
+              ? running.find((bb) => bb.purpose === 'household' || bb.isShared)
+              : running.find((bb) => bb.role !== 'member' && (bb.purpose ?? 'personal') === 'personal');
+          const current = preferred ?? running.find((bb) => bb.purpose !== 'event') ?? running[0] ?? filtered[0];
           setSelectedBudgetId(String(current.id));
         } else {
           setSelectedBudgetId(null);
@@ -601,23 +608,14 @@ export function AddTransactionScreen() {
         </ListCard>
 
         {showGoalLink && goals.length > 0 ? (
-          <View style={{ marginTop: 12 }}>
-            <Text style={[typo.caption, { color: theme.colors.textMuted, marginBottom: 6 }]}>Also add this to a goal?</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-              {[{ id: null as string | null, label: 'No' }, ...goals.map((g) => ({ id: String(g.id), label: `${g.emoji ? `${g.emoji} ` : ''}${g.name}` }))].map((g) => {
-                const active = String(selectedGoalId) === String(g.id);
-                return (
-                  <Pressable
-                    key={String(g.id)}
-                    onPress={() => setSelectedGoalId(g.id)}
-                    style={[styles.chip, { backgroundColor: active ? theme.colors.primarySoft : theme.colors.surface, borderColor: active ? theme.colors.primary : theme.colors.border }]}
-                  >
-                    <Text style={[typo.smallStrong, { color: active ? theme.colors.primary : theme.colors.text }]}>{g.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
+          <SelectField
+            label="Also add this to a goal?"
+            sheetTitle="Add to a goal"
+            value={selectedGoalId == null ? null : String(selectedGoalId)}
+            options={[{ value: null, label: 'No goal' }, ...goals.map((g) => ({ value: String(g.id), label: `${g.emoji ? `${g.emoji} ` : ''}${g.name}` }))]}
+            onChange={(id) => setSelectedGoalId(id)}
+            style={{ marginTop: 12, marginBottom: 0 }}
+          />
         ) : null}
 
         {impact ? (
@@ -727,21 +725,19 @@ export function AddTransactionScreen() {
               </View>
             ) : (
               <>
-                <Text style={[typo.caption, styles.sheetLabel, { color: theme.colors.textMuted }]}>Which budget</Text>
-                <View style={styles.wrap}>
-                  {budgets.map((b) => {
-                    const active = String(b.id) === String(selectedBudgetId);
-                    return (
-                      <Pressable
-                        key={String(b.id)}
-                        onPress={() => setSelectedBudgetId(String(b.id))}
-                        style={[styles.chip, { backgroundColor: active ? theme.colors.primarySoft : theme.colors.surface, borderColor: active ? theme.colors.primary : theme.colors.border }]}
-                      >
-                        <Text style={[typo.smallStrong, { color: active ? theme.colors.primary : theme.colors.text }]}>{b.name.replace(/^My Budget \((.*)\)$/, '$1')}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                <SelectField
+                  label="Which budget"
+                  value={selectedBudgetId ? String(selectedBudgetId) : null}
+                  options={budgets.map((b) => ({
+                    value: String(b.id),
+                    label: b.name.replace(/^My Budget \((.*)\)$/, '$1'),
+                    subtitle:
+                      [isBudgetCurrent(b) ? 'Current' : null, b.purpose === 'household' || b.isShared ? 'Shared' : b.purpose === 'event' ? 'One-off' : null].filter(Boolean).join(' · ') ||
+                      undefined
+                  }))}
+                  onChange={(id) => id && setSelectedBudgetId(id)}
+                  style={{ marginTop: 14, marginBottom: 0 }}
+                />
                 <Text style={[typo.caption, styles.sheetLabel, { color: theme.colors.textMuted }]}>Bucket</Text>
                 <View style={styles.wrap}>
                   {allowedBudgetTypes.map((opt) => {
@@ -758,23 +754,13 @@ export function AddTransactionScreen() {
                   })}
                 </View>
                 {miniBudgetsForCategory.length > 0 ? (
-                  <>
-                    <Text style={[typo.caption, styles.sheetLabel, { color: theme.colors.textMuted }]}>Mini budget (optional)</Text>
-                    <View style={styles.wrap}>
-                      {[{ id: null as string | null, name: 'None' }, ...miniBudgetsForCategory].map((m) => {
-                        const active = (selectedMiniBudgetId ?? null) === m.id;
-                        return (
-                          <Pressable
-                            key={String(m.id)}
-                            onPress={() => setSelectedMiniBudgetId(m.id)}
-                            style={[styles.chip, { backgroundColor: active ? theme.colors.primarySoft : theme.colors.surface, borderColor: active ? theme.colors.primary : theme.colors.border }]}
-                          >
-                            <Text style={[typo.smallStrong, { color: active ? theme.colors.primary : theme.colors.text }]}>{m.name}</Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </>
+                  <SelectField
+                    label="Mini budget (optional)"
+                    value={selectedMiniBudgetId == null ? null : String(selectedMiniBudgetId)}
+                    options={[{ value: null, label: 'None' }, ...miniBudgetsForCategory.map((m) => ({ value: String(m.id), label: m.name }))]}
+                    onChange={(id) => setSelectedMiniBudgetId(id)}
+                    style={{ marginTop: 14, marginBottom: 0 }}
+                  />
                 ) : null}
                 <PrimaryButton title="Done" onPress={() => setShowBudgetSheet(false)} style={{ marginTop: 18 }} />
               </>

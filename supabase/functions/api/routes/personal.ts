@@ -5,6 +5,7 @@ import { addDaysIso, ISO_DATE, parseIsoDateUtcNoon, todayIso } from '../lib/date
 import { clampedIso, computePlan, loadPlan, payPeriod, primarySource, toApiIncomeSource, type BillInput, type IncomeInput } from '../lib/plan.ts';
 import { defaultBucketFor, ensureCategories, normalizeBucket, suggestCategory, toApiCategory } from '../lib/categories.ts';
 import { findOwnBudget, toApiBudget } from '../lib/budgets.ts';
+import { joinBudgetWithCode } from './budgets.ts';
 import { loadProfile, toApiUser } from './account.ts';
 import type { Ctx } from '../index.ts';
 
@@ -135,7 +136,10 @@ const CompleteSchema = z.object({
   income: z.array(IncomeSchema).max(10).default([]),
   bills: z.array(BillSchema).max(30).default([]),
   budgetPeriod: z.enum(['payday', 'monthly']).default('payday'),
-  createBudget: z.boolean().default(true)
+  createBudget: z.boolean().default(true),
+  // solo: my own budget · shared: one budget with other people · both: my own plus a shared one
+  mode: z.enum(['solo', 'shared', 'both']).default('solo'),
+  inviteCode: z.string().trim().min(4).max(12).optional()
 });
 
 /**
@@ -147,7 +151,11 @@ export async function onboardingComplete(ctx: Ctx) {
   const { userId, email } = await requireAuth(ctx.req);
   const input = await body(ctx.req, CompleteSchema);
   const today = todayIso();
-  await loadProfile(userId, email);
+  const profile = await loadProfile(userId, email);
+
+  // Join first, so a bad invite code is reported before anything is saved.
+  const joined = input.inviteCode ? await joinBudgetWithCode(userId, input.inviteCode) : null;
+  const modeChanged = input.mode !== (profile.budgetMode ?? 'solo');
 
   if (input.income.length) {
     await sql`delete from public.income_sources where user_id = ${userId}`;
@@ -173,6 +181,8 @@ export async function onboardingComplete(ctx: Ctx) {
     update public.profiles set
       pain_points = ${input.painPoints},
       budget_period = ${input.budgetPeriod},
+      budget_mode = ${input.mode},
+      home_budget = ${modeChanged ? (input.mode === 'shared' ? 'shared' : 'own') : profile.homeBudget ?? 'own'},
       currency = coalesce(currency, 'NGN'),
       onboarding_completed_at = now(),
       onboarding_skipped_at = null
@@ -182,12 +192,15 @@ export async function onboardingComplete(ctx: Ctx) {
   const plan = await loadPlan(userId, today);
   if (plan.monthlyIncome > 0) await sql`update public.profiles set monthly_income = ${plan.monthlyIncome} where id = ${userId}`;
 
-  let budget = null;
-  if (input.createBudget && plan.monthlyIncome > 0) {
+  // solo and both get their own plan. shared without a code gets the household budget instead, ready to invite people.
+  let ownBudget = null;
+  let sharedBudget = joined ? toApiBudget(joined, userId) : null;
+  const purpose = input.mode === 'shared' ? (joined ? null : 'household') : 'personal';
+  if (input.createBudget && plan.monthlyIncome > 0 && purpose) {
     const { period } = plan;
     const [clash] = await sql`
       select id from public.budgets
-      where user_id = ${userId} and space_id = 'personal' and start_date <= ${period.end}::date
+      where user_id = ${userId} and space_id = 'personal' and purpose = ${purpose} and start_date <= ${period.end}::date
         and coalesce(end_date, case when period = 'weekly' then start_date + 6
                                     else (date_trunc('month', start_date) + interval '1 month - 1 day')::date end) >= ${period.start}::date
       limit 1
@@ -202,15 +215,17 @@ export async function onboardingComplete(ctx: Ctx) {
       };
       const total = categories.Needs.budgeted + categories.Wants.budgeted + categories.Savings.budgeted;
       const [row] = await sql`
-        insert into public.budgets (user_id, space_id, name, total_budget, period, start_date, end_date, categories)
-        values (${userId}, 'personal', ${`My Budget (${period.label})`}, ${total}, 'monthly', ${period.start}::date, ${period.end}::date, ${sql.json(categories)})
+        insert into public.budgets (user_id, space_id, name, total_budget, period, start_date, end_date, categories, purpose)
+        values (${userId}, 'personal', ${purpose === 'household' ? 'Household budget' : `My Budget (${period.label})`}, ${total}, 'monthly', ${period.start}::date, ${period.end}::date, ${sql.json(categories)}, ${purpose})
         returning id
       `;
-      budget = toApiBudget((await findOwnBudget(userId, row.id))!, userId);
+      const created = toApiBudget((await findOwnBudget(userId, row.id))!, userId);
+      if (purpose === 'household') sharedBudget = created;
+      else ownBudget = created;
     }
   }
 
-  return json(200, { user: toApiUser(await loadProfile(userId, email)), plan, budget });
+  return json(200, { user: toApiUser(await loadProfile(userId, email)), plan, budget: ownBudget ?? sharedBudget, ownBudget, sharedBudget });
 }
 
 /** POST /v1/onboarding/skip */

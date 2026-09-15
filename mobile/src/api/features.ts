@@ -69,7 +69,21 @@ export async function runRecurring(): Promise<{ created: number }> {
 
 /* -------------------------------------------------------- notifications */
 
-export type NotificationKind = 'pace' | 'over' | 'bill' | 'recurring' | 'autosave' | 'weekly' | 'shared' | 'security' | 'bank' | 'rollover' | 'insight';
+export type NotificationKind =
+  | 'pace'
+  | 'over'
+  | 'bill'
+  | 'recurring'
+  | 'autosave'
+  | 'weekly'
+  | 'shared'
+  | 'security'
+  | 'bank'
+  | 'rollover'
+  | 'insight'
+  | 'invoice'
+  | 'tax'
+  | 'household';
 
 export type ApiNotification = {
   id: string;
@@ -77,6 +91,8 @@ export type ApiNotification = {
   title: string;
   body: string;
   data: Record<string, unknown> | null;
+  /** null for account-wide notifications, which show in both spaces. */
+  spaceId?: 'personal' | 'business' | null;
   read: boolean;
   createdAt: string;
 };
@@ -86,15 +102,23 @@ export type NotificationPrefs = {
   billReminders: boolean;
   weeklyCheckIn: boolean;
   autoSave: boolean;
+  invoiceReminders: boolean;
+  /** The daily summary of what others spent in budgets you share. */
+  sharedActivity: boolean;
 };
 
-export async function listNotifications(before?: string): Promise<{ items: ApiNotification[]; unread: number }> {
-  const qs = before ? `?before=${encodeURIComponent(before)}` : '';
-  return apiFetch(`/v1/notifications${qs}`, { method: 'GET' });
+/** With a spaceId, returns that space's notifications (plus account-wide ones) and its unread count. */
+export async function listNotifications(opts: { before?: string; spaceId?: 'personal' | 'business' } = {}): Promise<{ items: ApiNotification[]; unread: number }> {
+  const qs = new URLSearchParams();
+  if (opts.before) qs.set('before', opts.before);
+  if (opts.spaceId) qs.set('spaceId', opts.spaceId);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return apiFetch(`/v1/notifications${suffix}`, { method: 'GET' });
 }
 
-export async function markNotificationsRead(ids?: string[]): Promise<void> {
-  await apiFetch('/v1/notifications/read', { method: 'POST', body: JSON.stringify(ids?.length ? { ids } : {}) });
+export async function markNotificationsRead(ids?: string[], spaceId?: 'personal' | 'business'): Promise<void> {
+  const payload = { ...(ids?.length ? { ids } : {}), ...(spaceId ? { spaceId } : {}) };
+  await apiFetch('/v1/notifications/read', { method: 'POST', body: JSON.stringify(payload) });
 }
 
 export async function getNotificationPrefs(): Promise<NotificationPrefs> {
