@@ -3,6 +3,9 @@ import { requireAuth } from '../lib/auth.ts';
 import { badRequest, body, json, methodNotAllowed, spaceParam, z } from '../lib/http.ts';
 import { computeInsights } from '../lib/insights.ts';
 import { assistantReply } from '../lib/assistant.ts';
+import { parseEntryIntent } from '../lib/entry.ts';
+import { currencyFor, formatMoney } from '../lib/notify.ts';
+import { todayIso } from '../lib/dates.ts';
 import { enforceRateLimit } from '../lib/rateLimit.ts';
 import type { Ctx } from '../index.ts';
 
@@ -41,5 +44,23 @@ export async function assistantChat(ctx: Ctx) {
   const { userId } = await requireAuth(ctx.req);
   const input = await body(ctx.req, ChatSchema, 'Type a question for Flux');
   await enforceRateLimit({ key: `assistant:${userId}`, limit: 40, windowSec: 60 * 60 });
+
+  // "I spent 5k on fuel" is something to record, not a question. The app shows it for confirmation;
+  // nothing is saved until the person taps Save.
+  const today = todayIso();
+  const draft = parseEntryIntent(input.message, today);
+  if (draft) {
+    const money = formatMoney(draft.amount, await currencyFor(userId));
+    const when = draft.occurredOn === today ? 'today' : 'yesterday';
+    const what = draft.description ? ` for ${draft.description}` : '';
+    return json(200, {
+      reply:
+        draft.type === 'income'
+          ? `Got it: ${money} in${what}, ${when}. Tap Save and I go record am.`
+          : `Got it: ${money} out${what}, ${when}. Tap Save and I go record am.`,
+      draft
+    });
+  }
+
   return json(200, { reply: await assistantReply(userId, input.message, input.history) });
 }

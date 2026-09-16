@@ -6,7 +6,7 @@ import { Building2, CalendarClock, Landmark, Receipt, UserRound } from 'lucide-r
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
-import { Amount, Card, HeroCard, IconTile, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SectionHeader, TextField, formatAmount } from '../components/Common/ui';
+import { Amount, Card, HeroCard, IconTile, InfoTip, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SectionHeader, TextField, formatAmount } from '../components/Common/ui';
 import { ChoiceChip } from '../components/Plan/ChoiceChip';
 import { StatCard } from '../components/Business/parts';
 import { getBusinessSummary, updateBusinessSettings, type BusinessSettings, type BusinessSummary } from '../api/business';
@@ -146,7 +146,10 @@ export default function BusinessTaxScreen() {
         <Text style={[type.small, { color: theme.colors.textMuted }]}>No filing dates to track. Turn on VAT below or add staff to see VAT and PAYE dates.</Text>
       )}
 
-      <SectionHeader title="VAT" />
+      <SectionHeader
+        title="VAT"
+        info="Tax figures here are estimates to help you plan, based on common Nigerian practice: VAT usually by the 21st of the next month, PAYE by the 10th. Rules change, so confirm with your accountant or the tax office."
+      />
       <ListCard>
         <ListRow title="VAT registered" subtitle="Adds VAT to new invoices and tracks what you collect" right={<Switch value={s.vatRegistered} onValueChange={(v) => void change({ vatRegistered: v })} {...switchColors} />} />
         <ListRow title="Filing reminders" subtitle="A nudge before VAT and PAYE dates" right={<Switch value={s.filingReminders} onValueChange={(v) => void change({ filingReminders: v })} {...switchColors} />} />
@@ -194,9 +197,12 @@ export default function BusinessTaxScreen() {
         />
       </ListCard>
 
-      <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 14 }]}>
-        Tax figures here are estimates to help you plan, based on common Nigerian practice (VAT usually by the 21st, PAYE by the 10th). Rules change, so confirm with your accountant or the tax office.
-      </Text>
+      <InfoTip
+        style={{ marginTop: 14 }}
+        text="These figures are estimates to help you plan, based on common Nigerian practice: VAT usually by the 21st of the next month, PAYE by the 10th. Rules change, so confirm with your accountant or the tax office."
+      >
+        Estimates to help you plan, not tax advice.
+      </InfoTip>
     </Screen>
   );
 }

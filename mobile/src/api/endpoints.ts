@@ -593,6 +593,14 @@ export async function getAnalyticsSummary(start: string, end: string, params?: {
 export type ChatTurn = { role: 'user' | 'assistant'; text: string };
 
 /** Ask Flux, the AI money coach. Answers are grounded in the signed-in person's own data. */
-export async function assistantChat(message: string, history: ChatTurn[] = []): Promise<{ reply: string }> {
-  return (await apiFetch('/v1/assistant/chat', { method: 'POST', body: JSON.stringify({ message, history }) })) as { reply: string };
+/** A transaction Flux heard in the message. Nothing is recorded until the person taps Save. */
+export type EntryDraft = {
+  type: 'income' | 'expense';
+  amount: number;
+  description: string;
+  occurredOn: string;
+};
+
+export async function assistantChat(message: string, history: ChatTurn[] = []): Promise<{ reply: string; draft?: EntryDraft }> {
+  return (await apiFetch('/v1/assistant/chat', { method: 'POST', body: JSON.stringify({ message, history }) })) as { reply: string; draft?: EntryDraft };
 }

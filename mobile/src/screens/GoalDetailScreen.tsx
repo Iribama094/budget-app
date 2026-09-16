@@ -314,7 +314,10 @@ export default function GoalDetailScreen() {
 
           <PendingSavingsCard goalId={goal.id} onAnswered={load} />
 
-          <SectionHeader title="Auto-save reminder" />
+          <SectionHeader
+            title="Auto-save reminder"
+            info="This is only a reminder: nothing moves automatically. When you record income we ask if you moved the money, and it counts once you say “I moved it”. BudgetFriendly never debits your account. What you record grows this goal and counts under Savings in your budget."
+          />
           <Card>
             <View style={styles.row}>
               <IconTile bg={theme.colors.brassSoft} size={38}>
@@ -353,29 +356,6 @@ export default function GoalDetailScreen() {
                 })}
               </View>
             ) : null}
-            <Text style={[typo.caption, { color: theme.colors.textMuted, marginTop: 12 }]}>
-              This is only a reminder. Nothing moves automatically: when you record income, we ask if you moved the money, and it only counts once you say “I moved it”.
-            </Text>
-          </Card>
-
-          <SectionHeader title="How this works with your budget" />
-          <Card>
-            <View style={[styles.row, { alignItems: 'flex-start' }]}>
-              <IconTile bg={theme.colors.primarySoft} size={34}>
-                <CalendarClock color={theme.colors.primary} size={16} />
-              </IconTile>
-              <Text style={[typo.small, { color: theme.colors.textMuted, flex: 1 }]}>
-                BudgetFriendly never debits your account. Move the money to your savings account yourself, then record it here.
-              </Text>
-            </View>
-            <View style={[styles.row, { alignItems: 'flex-start', marginTop: 12 }]}>
-              <IconTile bg={theme.colors.successSoft} size={34}>
-                <PiggyBank color={theme.colors.success} size={16} />
-              </IconTile>
-              <Text style={[typo.small, { color: theme.colors.textMuted, flex: 1 }]}>
-                What you record grows this goal and counts under Savings in your budget, so your plan stays true.
-              </Text>
-            </View>
           </Card>
         </>
       ) : null}

@@ -200,6 +200,15 @@ try {
   check('business feed leaves out personal alerts', r.status === 200 && r.data.items.every((n) => n.spaceId !== 'personal') && r.data.unread === 0, r.data?.items?.map((n) => [n.kind, n.spaceId]));
   check('register push token', (await call(a.token, 'POST', '/push-tokens', { token: `ExponentPushToken[e2e-${stamp}]`, platform: 'ios' })).status === 200);
   check('reject non-Expo push token', (await call(a.token, 'POST', '/push-tokens', { token: 'nope' })).status === 400);
+  // Voice notes: the route is reachable and validates, without spending a real transcription.
+  check('voice transcribe needs a recording', (await call(a.token, 'POST', '/voice/transcribe', { audio: 'x' })).status === 400);
+  check('voice transcribe needs sign-in', (await call(null, 'POST', '/voice/transcribe', { audio: 'x'.repeat(200) })).status === 401);
+  // Telling Flux about spending comes back as a draft to confirm, with no AI key needed.
+  r = await call(a.token, 'POST', '/assistant/chat', { message: 'I spent 5k on fuel yesterday' });
+  check('Flux turns spending into a draft', r.status === 200 && r.data.draft?.type === 'expense' && r.data.draft?.amount === 5000 && /fuel/i.test(r.data.draft?.description ?? ''), r.data);
+  check('Flux draft is dated yesterday', r.data?.draft?.occurredOn < today && /Save/.test(r.data?.reply ?? ''), r.data?.draft);
+  r = await call(a.token, 'POST', '/assistant/chat', { message: 'How much did I spend on fuel?' });
+  check('a question is not turned into a draft', r.data?.draft === undefined, r.data);
   check('unregister push token', (await call(a.token, 'DELETE', '/push-tokens', { token: `ExponentPushToken[e2e-${stamp}]` })).status === 200);
 
   section('Month-end rollover');

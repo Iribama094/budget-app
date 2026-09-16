@@ -41,6 +41,7 @@ import {
   wrappedRoute
 } from './routes/business.ts';
 import { goalAddMoney, goalContributionAction, goalContributionsIndex } from './routes/savings.ts';
+import { voiceTranscribe } from './routes/voice.ts';
 import { sendBusinessReminders } from './lib/business.ts';
 import { voice } from './lib/voice.ts';
 
@@ -161,6 +162,7 @@ function route(parts: string[]): Handler | null {
 
   if (a === 'notifications' && n <= 2) return notifications;
   if (a === 'push-tokens' && n === 1) return pushTokens;
+  if (a === 'voice' && b === 'transcribe') return voiceTranscribe;
   if (a === 'cron' && b === 'daily') return cronDaily;
 
   if (a === 'budget-invites' && b === 'accept') return acceptInvite;

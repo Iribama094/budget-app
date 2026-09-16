@@ -226,7 +226,7 @@ export function OnboardingScreen({ onDone, onContinueToAuth }: Props) {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  swooshWrap: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+  swooshWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' },
   swoosh: {
     position: 'absolute',
     left: -90,

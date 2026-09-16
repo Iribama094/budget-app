@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { useToast } from '../components/Common/Toast';
-import { Card, IconTile, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SecondaryButton, SectionHeader, SegmentedControl, formatAmount } from '../components/Common/ui';
+import { Card, IconTile, InfoTip, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SecondaryButton, SectionHeader, SegmentedControl, formatAmount } from '../components/Common/ui';
 import { ChoiceChip } from '../components/Plan/ChoiceChip';
 import { LineItem } from '../components/Business/parts';
 import { importStatement, type StatementSource } from '../api/business';
@@ -178,14 +178,12 @@ export default function StatementImportScreen() {
         </Card>
       ) : null}
 
-      <Card style={{ marginTop: 18 }}>
-        <View style={styles.row}>
-          <ShieldCheck color={theme.colors.primary} size={18} />
-          <Text style={[type.small, { color: theme.colors.textMuted, flex: 1 }]}>
-            Uploading a file never gives BudgetFriendly access to your Paystack, Moniepoint or bank account. Uploading the same file twice won’t double anything. Live Paystack sync is coming.
-          </Text>
-        </View>
-      </Card>
+      <InfoTip
+        style={{ marginTop: 18 }}
+        text="Uploading a file never gives BudgetFriendly access to your Paystack, Moniepoint or bank account: we only read the file you pick. Uploading the same file twice won’t double anything, because we skip rows you’ve already imported. Live Paystack sync is coming."
+      >
+        Your accounts stay private, and uploading twice is safe.
+      </InfoTip>
     </Screen>
   );
 }

@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Info } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { tokens } from '../../theme/tokens';
 import { fonts, type } from '../../theme/typography';
@@ -101,16 +101,98 @@ export function ScreenHeader({
   );
 }
 
-export function SectionHeader({ title, actionLabel, onAction, style }: { title: string; actionLabel?: string; onAction?: () => void; style?: StyleProp<ViewStyle> }) {
+/** A section title. With `info`, an ⓘ reveals the explanation underneath instead of it sitting on screen all the time. */
+export function SectionHeader({
+  title,
+  actionLabel,
+  onAction,
+  info,
+  style
+}: {
+  title: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  info?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
   const { theme } = useTheme();
+  const [showInfo, setShowInfo] = useState(false);
   return (
-    <View style={[styles.sectionHeader, style]}>
-      <Text style={[type.title, { color: theme.colors.text }]}>{title}</Text>
-      {actionLabel && onAction ? (
-        <Pressable onPress={onAction} hitSlop={10} style={({ pressed }) => [styles.row, { opacity: pressed ? 0.7 : 1 }]}>
-          <Text style={[type.smallStrong, { color: theme.colors.primary }]}>{actionLabel}</Text>
-          <ChevronRight color={theme.colors.primary} size={15} />
-        </Pressable>
+    <View style={style}>
+      <View style={styles.sectionHeader}>
+        <View style={[styles.row, { gap: 6, flex: 1, minWidth: 0 }]}>
+          <Text numberOfLines={1} style={[type.title, { color: theme.colors.text, flexShrink: 1 }]}>
+            {title}
+          </Text>
+          {info ? (
+            <Pressable
+              onPress={() => setShowInfo((v) => !v)}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={`About ${title}`}
+              accessibilityState={{ expanded: showInfo }}
+              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+            >
+              <Info color={showInfo ? theme.colors.primary : theme.colors.textMuted} size={15} />
+            </Pressable>
+          ) : null}
+        </View>
+        {actionLabel && onAction ? (
+          <Pressable onPress={onAction} hitSlop={10} style={({ pressed }) => [styles.row, { opacity: pressed ? 0.7 : 1 }]}>
+            <Text style={[type.smallStrong, { color: theme.colors.primary }]}>{actionLabel}</Text>
+            <ChevronRight color={theme.colors.primary} size={15} />
+          </Pressable>
+        ) : null}
+      </View>
+      {info && showInfo ? (
+        <View style={[styles.infoBox, { backgroundColor: theme.colors.surfaceAlt }]}>
+          <Text style={[type.caption, { color: theme.colors.textMuted }]}>{info}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * A one-line note with an ⓘ that opens the longer explanation. Keeps screens light without hiding the detail.
+ * `children` is the short line; leave it out for just the icon.
+ */
+export function InfoTip({
+  text,
+  children,
+  label,
+  tone = 'muted',
+  style
+}: {
+  text: string;
+  children?: string;
+  label?: string;
+  tone?: 'muted' | 'onInk';
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { theme } = useTheme();
+  const [open, setOpen] = useState(false);
+  const onInk = tone === 'onInk';
+  const color = onInk ? theme.colors.inkText : theme.colors.textMuted;
+  return (
+    <View style={style}>
+      <Pressable
+        onPress={() => setOpen((v) => !v)}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={label ?? (children ? `${children}. More information` : 'More information')}
+        accessibilityState={{ expanded: open }}
+        style={({ pressed }) => [styles.row, { gap: 6, opacity: pressed ? 0.6 : onInk ? 0.85 : 1 }]}
+      >
+        {children ? (
+          <Text style={[type.caption, { color, flex: 1 }]}>{children}</Text>
+        ) : null}
+        <Info color={open ? theme.colors.primary : color} size={15} />
+      </Pressable>
+      {open ? (
+        <View style={[styles.infoBox, { backgroundColor: onInk ? 'rgba(255,255,255,0.12)' : theme.colors.surfaceAlt, marginTop: 8, marginBottom: 0 }]}>
+          <Text style={[type.caption, { color }]}>{text}</Text>
+        </View>
       ) : null}
     </View>
   );
@@ -581,6 +663,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 10 },
+  infoBox: { borderRadius: tokens.radius.lg, padding: 12, marginBottom: 10 },
   card: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: tokens.radius['2xl'],

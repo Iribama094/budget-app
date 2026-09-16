@@ -7,12 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/logo.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0D2B26"
-    },
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -30,7 +24,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0D2B26"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.budgetfriendly.app"
     },
@@ -38,6 +31,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/logo.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0D2B26"
+        }
+      ],
       [
         "expo-local-authentication",
         {
@@ -69,7 +70,14 @@
           ]
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "BudgetFriendly uses the microphone so you can talk to Flux and log spending by voice."
+        }
+      ],
+      "expo-asset"
     ]
   }
 }

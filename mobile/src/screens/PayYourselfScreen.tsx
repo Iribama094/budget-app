@@ -116,7 +116,10 @@ export default function PayYourselfScreen() {
         {s.alreadyPaid > 0 ? <Text style={[type.caption, { color: inkText, opacity: 0.7, marginTop: 8 }]}>You’ve already paid yourself {formatAmount(s.alreadyPaid, glyph)} this month.</Text> : null}
       </HeroCard>
 
-      <SectionHeader title="How we worked it out" />
+      <SectionHeader
+        title="How we worked it out"
+        info="We take the smaller of two numbers: this month’s profit after tax, or the cash left after keeping your buffer and paying open bills. Then we subtract what you’ve already paid yourself."
+      />
       <Card>
         <LineItem label="Profit this month" value={formatAmount(s.profit, glyph)} />
         <LineItem label="Tax set aside" value={`−${formatAmount(s.taxSetAside, glyph)}`} />
@@ -124,18 +127,15 @@ export default function PayYourselfScreen() {
         <LineItem label={`Safety buffer (${s.bufferMonths} month${s.bufferMonths === 1 ? '' : 's'} of costs)`} value={`−${formatAmount(s.buffer, glyph)}`} />
         <LineItem label="Bills still to pay" value={`−${formatAmount(s.openBills, glyph)}`} />
         <LineItem label="Safe amount" value={formatAmount(s.suggested, glyph)} strong />
-        <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 8 }]}>
-          We take the smaller of two numbers: this month’s profit after tax, or the cash left after keeping your buffer and paying open bills. Then we subtract what you’ve already paid yourself.
-        </Text>
         <TextButton title="Change buffer or tax %" onPress={() => nav.navigate('BusinessTax')} style={{ alignItems: 'flex-start', paddingBottom: 0 }} />
       </Card>
 
-      <SectionHeader title="Record what you paid" />
+      <SectionHeader
+        title="Record what you paid"
+        info="Pay yourself from your business account first; we only record it. It shows as Owner’s pay in Business (not counted against profit) and as income in Personal, so both budgets stay true."
+      />
       <MoneyField label="Amount you paid yourself" value={amount} onChange={setAmount} glyph={glyph} hint="Pay it from your business account first. We only record it." />
       <PrimaryButton title="I paid myself" onPress={submit} loading={saving} />
-      <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 10 }]}>
-        It shows as Owner’s pay in Business (not counted against profit) and as income in Personal, so both budgets stay true.
-      </Text>
 
       {history.length ? (
         <>

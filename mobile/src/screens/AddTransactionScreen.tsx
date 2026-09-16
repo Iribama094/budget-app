@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, Modal, TextInput, ScrollView, Switch, StyleSheet } from 'react-native';
+import { ActivityIndicator, View, Text, Pressable, Modal, TextInput, ScrollView, Switch, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CalendarDays, ChevronLeft, ChevronRight, ClipboardPaste, Delete, PieChart, Plus, Receipt, Sparkles, Wallet, X } from 'lucide-react-native';
+import { CalendarDays, ChevronLeft, ChevronRight, ClipboardPaste, Delete, Mic, PieChart, Plus, Receipt, Sparkles, Square, Wallet, X } from 'lucide-react-native';
 
 import { createTransaction, listBudgets, listGoals, listMiniBudgets, listMiniBudgetsInSpace, listTransactions, type ApiBudget, type ApiGoal } from '../api/endpoints';
 import { addMoneyToGoal } from '../api/business';
@@ -11,6 +11,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { IconButton, InlineError, ListCard, PrimaryButton, Screen, SegmentedControl, TextField, formatAmount } from '../components/Common/ui';
 import { SelectField } from '../components/Common/SelectField';
+import { useVoiceNote } from '../lib/voice';
+import { parseVoiceEntry } from '../lib/voiceParse';
 import { useToast } from '../components/Common/Toast';
 import { useSync } from '../contexts/SyncContext';
 import { bucketColor } from '../theme/theme';
@@ -449,6 +451,23 @@ export function AddTransactionScreen() {
           : 'Choose a budget, or turn off “Count toward a budget”'
         : null;
 
+  // "I spent 5k on fuel yesterday" fills in the amount, type, note and date. You still check it and save.
+  const voice = useVoiceNote((text) => {
+    const parsed = parseVoiceEntry(text);
+    if (parsed.type) setType(parsed.type);
+    if (parsed.amount != null) setAmount(formatNumberInput(String(parsed.amount)));
+    if (parsed.description) {
+      setDescription(parsed.description);
+      setCategoryTouched(false);
+    }
+    setDate(parsed.dayOffset === -1 ? yesterdayIso : todayIso);
+    toast.show(
+      parsed.amount != null ? `Heard: ${text.slice(0, 60)}. Check it and save 🎤` : 'I caught the note but not the amount. Type it in.',
+      parsed.amount != null ? 'success' : 'info',
+      4000
+    );
+  });
+
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back'];
 
   return (
@@ -477,9 +496,23 @@ export function AddTransactionScreen() {
           }}
           style={{ width: 200 }}
         />
-        <IconButton accessibilityLabel="Paste a bank alert" onPress={() => nav.navigate('BankAlertImport')}>
-          <ClipboardPaste color={theme.colors.text} size={19} />
-        </IconButton>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <IconButton
+            accessibilityLabel={voice.state === 'recording' ? 'Stop and use what I said' : 'Say it instead of typing'}
+            onPress={() => (voice.state === 'recording' ? void voice.stop() : void voice.start())}
+          >
+            {voice.state === 'working' ? (
+              <ActivityIndicator color={theme.colors.primary} size="small" />
+            ) : voice.state === 'recording' ? (
+              <Square color={theme.colors.error} size={17} fill={theme.colors.error} />
+            ) : (
+              <Mic color={theme.colors.text} size={19} />
+            )}
+          </IconButton>
+          <IconButton accessibilityLabel="Paste a bank alert" onPress={() => nav.navigate('BankAlertImport')}>
+            <ClipboardPaste color={theme.colors.text} size={19} />
+          </IconButton>
+        </View>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 8 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -493,6 +526,11 @@ export function AddTransactionScreen() {
           {[spacesEnabled ? `${activeSpace?.name ?? 'Personal'} space` : null, requiresBudget && budgetName ? `${budgetName} budget` : null].filter(Boolean).join(' · ') ||
             (type === 'income' ? 'Not counted toward a budget' : ' ')}
         </Text>
+        {voice.state !== 'idle' || voice.error ? (
+          <Text style={[typo.caption, { color: voice.error ? theme.colors.error : theme.colors.primary, textAlign: 'center', marginTop: 4 }]}>
+            {voice.error ?? (voice.state === 'recording' ? 'Listening… say something like “spent 5k on fuel”' : 'Turning that into words…')}
+          </Text>
+        ) : null}
 
         {error ? (
           <View style={{ marginTop: 12 }}>

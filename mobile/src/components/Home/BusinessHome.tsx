@@ -30,7 +30,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { SPACE_LOOK } from '../../contexts/SpaceContext';
 import { useAmountVisibility } from '../../contexts/AmountVisibilityContext';
 import { useNotificationBadges } from '../../contexts/NotificationBadgeContext';
-import { Amount, Card, EmptyState, IconButton, IconTile, InlineError, ListCard, ListRow, Screen, SectionHeader, formatAmount } from '../Common/ui';
+import { Amount, Card, EmptyState, IconButton, IconTile, InfoTip, InlineError, ListCard, ListRow, Screen, SectionHeader, formatAmount } from '../Common/ui';
 import { SpaceSwitcher } from '../Common/SpaceSwitcher';
 import { CategoryIcon } from '../Common/CategoryIcon';
 import { StatCard, ToolTile } from '../Business/parts';
@@ -363,9 +363,12 @@ export function BusinessHome() {
         </>
       ) : null}
 
-      <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 14 }]}>
-        BudgetFriendly records what you’ve earned, spent and owe. It never moves money. Tax figures are estimates; confirm with an accountant.
-      </Text>
+      <InfoTip
+        style={{ marginTop: 14 }}
+        text="BudgetFriendly records what you’ve earned, spent and owe, and turns it into profit, cash and tax figures. It never moves money, and it isn’t connected to your bank unless you link one. Tax figures are estimates; confirm with an accountant."
+      >
+        We record and explain your money. We never move it.
+      </InfoTip>
     </Screen>
   );
 }

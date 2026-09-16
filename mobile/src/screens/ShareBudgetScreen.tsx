@@ -9,7 +9,7 @@ import { listBudgets, patchMe, type ApiBudget } from '../api/endpoints';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
-import { Card, Chip, IconTile, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SecondaryButton, SectionHeader, TextButton, TextField } from '../components/Common/ui';
+import { Card, Chip, IconTile, InfoTip, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SecondaryButton, SectionHeader, TextButton, TextField } from '../components/Common/ui';
 import { formatShortDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 
@@ -211,15 +211,14 @@ export default function ShareBudgetScreen() {
               <Text style={[type.caption, { color: theme.colors.textMuted }]}>{purpose === 'event' ? 'A one-off budget you plan together' : 'Budget together with a partner, family or housemates'}</Text>
             </View>
           </View>
-          <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 12 }]}>
-            Everyone’s spending in this budget counts toward it. Everyone gets pace alerts and a morning summary of what the others spent. Your other budgets, goals and transactions stay private.
-          </Text>
-          {purpose !== 'event' ? (
-            <View style={[styles.note, { backgroundColor: theme.colors.surfaceAlt }]}>
-              <CalendarSync color={theme.colors.primary} size={16} />
-              <Text style={[type.caption, { color: theme.colors.text, flex: 1 }]}>When the next month’s budget starts, everyone here comes along automatically.</Text>
-            </View>
-          ) : null}
+          <InfoTip
+            style={{ marginTop: 12 }}
+            text={`Everyone’s spending in this budget counts toward it, and everyone gets pace alerts plus a morning summary of what the others spent. Your other budgets, goals and transactions stay private. Only the owner can edit the budget or invite people.${
+              purpose !== 'event' ? ' When next month’s budget starts, everyone here comes along automatically.' : ''
+            }`}
+          >
+            Everyone’s spending counts here. Everything else stays private.
+          </InfoTip>
         </Card>
       ) : null}
 

@@ -3,7 +3,7 @@ import { View, Text, Switch, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Briefcase, Check, Globe, House, Receipt } from 'lucide-react-native';
 
-import { Card, HeroCard, IconTile, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SectionHeader, SegmentedControl, TextField } from '../components/Common/ui';
+import { Card, HeroCard, IconTile, InfoTip, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SectionHeader, SegmentedControl, TextField } from '../components/Common/ui';
 import { Sheet } from '../components/Business/parts';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -470,16 +470,11 @@ export default function TaxSettingsScreen() {
 
       {optInTaxFeature && isNigeria ? (
         <>
-          <SectionHeader title="Reliefs that lower your tax" />
+          <SectionHeader
+            title="Reliefs that lower your tax"
+            info={`Paying rent? 20% of your yearly rent, up to ${formatMoney(RENT_RELIEF_CAP, currency)}, comes off your taxable income. Keep your tenancy agreement or receipts as proof. Pension, NHF, health insurance, life insurance and mortgage interest come off too.`}
+          />
           <Card>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-              <IconTile bg={theme.colors.successSoft} size={34}>
-                <House color={theme.colors.success} size={17} />
-              </IconTile>
-              <Text style={[type.small, { color: theme.colors.textMuted, flex: 1 }]}>
-                Paying rent? 20% of your yearly rent, up to {formatMoney(RENT_RELIEF_CAP, currency)}, comes off your taxable income. Keep your tenancy agreement or receipts as proof.
-              </Text>
-            </View>
             {moneyField(
               'Yearly rent',
               annualRent,
@@ -493,7 +488,9 @@ export default function TaxSettingsScreen() {
             <Text style={[type.smallStrong, { color: theme.colors.text, marginTop: 4, marginBottom: 8 }]}>Paid each year</Text>
             {moneyField('Life insurance premium', lifeInsuranceYearly, setLifeInsuranceYearly)}
             {moneyField('Mortgage interest on your home', mortgageInterestYearly, setMortgageInterestYearly)}
-            <Text style={[type.caption, { color: theme.colors.textMuted }]}>If your employer already applies these on your payslip, your take-home should match what we estimate.</Text>
+            <InfoTip text="If your employer already applies these on your payslip, your take-home should match what we estimate. Amounts you enter are only used for your estimate.">
+              Already on your payslip?
+            </InfoTip>
           </Card>
         </>
       ) : null}

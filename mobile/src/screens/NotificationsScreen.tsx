@@ -34,7 +34,7 @@ import { getBusinessSettings, updateBusinessSettings } from '../api/business';
 import { useTheme } from '../contexts/ThemeContext';
 import { SPACE_LOOK, useSpace } from '../contexts/SpaceContext';
 import { useNotificationBadges } from '../contexts/NotificationBadgeContext';
-import { EmptyState, IconButton, IconTile, InlineError, ListCard, Screen, ScreenHeader, TextButton } from '../components/Common/ui';
+import { EmptyState, IconButton, IconTile, InfoTip, InlineError, ListCard, Screen, ScreenHeader, TextButton } from '../components/Common/ui';
 import { scheduleWeeklyCheckIn } from '../lib/notifications';
 import { formatRelativeDay } from '../utils/format';
 import { type } from '../theme/typography';
@@ -239,11 +239,16 @@ export default function NotificationsScreen() {
                   )}
                 </ListCard>
                 {spacesEnabled ? (
-                  <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 6, marginLeft: 4 }]}>
-                    {isBusiness
-                      ? 'Bill reminders, cost alerts and tips share one switch with your Personal space.'
-                      : 'Customer invoice, VAT and PAYE reminders are set in the Business space.'}
-                  </Text>
+                  <InfoTip
+                    style={{ marginTop: 6, marginLeft: 4 }}
+                    text={
+                      isBusiness
+                        ? 'Bill reminders, cost alerts and weekly tips use the same switch in both spaces, so turning one off here turns it off for Personal too. Invoice and tax reminders are business-only.'
+                        : 'Customer invoice, VAT and PAYE reminders are set in the Business space. Bill reminders, pace alerts and weekly tips are shared between both spaces.'
+                    }
+                  >
+                    {isBusiness ? 'Some switches are shared with Personal' : 'Business alerts are set in the Business space'}
+                  </InfoTip>
                 ) : null}
               </>
             ) : null}

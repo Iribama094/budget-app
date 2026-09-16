@@ -121,6 +121,13 @@ export async function markNotificationsRead(ids?: string[], spaceId?: 'personal'
   await apiFetch('/v1/notifications/read', { method: 'POST', body: JSON.stringify(payload) });
 }
 
+/* -------------------------------------------------------------- voice notes */
+
+/** Sends a short recording (base64) and gets the words back. */
+export async function transcribeVoiceNote(audio: string, mimeType?: string): Promise<{ text: string }> {
+  return apiFetch('/v1/voice/transcribe', { method: 'POST', body: JSON.stringify({ audio, mimeType }) });
+}
+
 export async function getNotificationPrefs(): Promise<NotificationPrefs> {
   const data = await apiFetch('/v1/notifications/prefs', { method: 'GET' });
   return data.prefs as NotificationPrefs;
