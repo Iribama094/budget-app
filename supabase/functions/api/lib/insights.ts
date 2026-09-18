@@ -9,7 +9,18 @@ import { computeBusinessWarnings } from './business.ts';
 
 export type Insight = {
   key: string;
-  kind: 'runway' | 'under_pace' | 'spike' | 'small_spends' | 'regular_bill' | 'kept' | 'overspent' | 'plan_drift' | 'logging_gap' | 'irregular_income';
+  kind:
+    | 'runway'
+    | 'under_pace'
+    | 'spike'
+    | 'small_spends'
+    | 'regular_bill'
+    | 'kept'
+    | 'overspent'
+    | 'plan_drift'
+    | 'logging_gap'
+    | 'irregular_income'
+    | 'bills_over_income';
   tone: 'positive' | 'neutral' | 'warning';
   title: string;
   body: string;
@@ -58,6 +69,18 @@ export async function computeInsights(userId: string, space: Space = 'personal',
   const plan = space === 'personal' ? await loadPlan(userId, today) : null;
   const monthlyIncome = plan?.monthlyIncome ?? 0;
   const out: Insight[] = [];
+
+  // 0. Bills bigger than income come first: nothing else in the plan works until that gap closes.
+  if (plan && plan.status === 'short' && plan.shortfall > 0) {
+    out.push({
+      key: `bills_over_income:${month}`,
+      kind: 'bills_over_income',
+      tone: 'warning',
+      title: pick([`${boss(month)}, bills don pass income`, `Your bills are bigger than your income`], month),
+      body: `Regular bills come to ${money(plan.shortfall)} more than you earn each month. Pay must-pay bills first, pause extras, or add expected income, and the plan will balance.`,
+      action: { label: 'See what to do', screen: 'IncomeBills' }
+    });
+  }
 
   // 1. Will the money last until payday (or the end of the budget)?
   const [budget] = await sql`

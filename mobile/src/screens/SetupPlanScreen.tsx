@@ -421,6 +421,18 @@ export default function SetupPlanScreen() {
           <Card style={{ marginTop: 12 }}>
             <PlanSplit split={plan.split} percents={plan.percents} glyph={glyph} />
           </Card>
+          {plan.status === 'short' && plan.shortfall > 0 ? (
+            <Card style={{ marginTop: 12, backgroundColor: theme.colors.brassSoft, borderColor: theme.colors.brassSoft }}>
+              <Text style={[type.bodyStrong, { color: theme.colors.text }]}>
+                Your bills are {glyph}
+                {Math.round(plan.shortfall).toLocaleString()} more than you earn
+              </Text>
+              <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 4 }]}>
+                That’s common, and your plan never counts money you don’t have. After setup, Income & bills shows which bills to pay first and which to pause, and you can add extra income like a side hustle.
+              </Text>
+              <TextButton title="Add another income now" onPress={() => go(order.indexOf('income'))} style={{ alignItems: 'flex-start', paddingBottom: 0 }} />
+            </Card>
+          ) : null}
           <Card style={{ marginTop: 12, gap: 10 }}>
             {plan.tips.map((tip) => (
               <View key={tip} style={styles.tip}>

@@ -3,6 +3,7 @@ import { budgetBounds, effectiveEndIso, parseIsoDateUtcNoon, todayIso } from './
 import { budgetLabel, budgetMemberIds, findVisibleBudget } from './budgets.ts';
 import { currencyFor, formatMoney, notifyUser } from './notify.ts';
 import { voice } from './voice.ts';
+import { loadPlan } from './plan.ts';
 
 const DAY = 24 * 60 * 60;
 export const MAX_AUTOSAVE_PERCENT = 50;
@@ -57,11 +58,14 @@ export async function checkBudgetPace(budgetId: string, bucket?: string | null):
   for (const userId of memberIds) {
     const currency = await currencyFor(userId);
     const money = (n: number) => formatMoney(n, currency);
+    // When someone's regular bills are bigger than their income, the budget was never coverable: skip the
+    // pace nags and say it kindly once, instead of telling them off for something they can't avoid.
+    const short = b.spaceId === 'personal' && (await loadPlan(userId).catch(() => null))?.status === 'short';
 
     if (total > 0 && totalSpent > total) {
       await notifyUser(userId, {
         kind: 'over',
-        ...voice.budgetOver(label, money(totalSpent), money(total)),
+        ...(short ? voice.overWhileShort(label) : voice.budgetOver(label, money(totalSpent), money(total))),
         data,
         dedupeKey: `over:${budgetId}`,
         dedupeTtlSec: 40 * DAY
@@ -70,7 +74,7 @@ export async function checkBudgetPace(budgetId: string, bucket?: string | null):
     }
 
     const budgeted = bucket ? Number(b.categories?.[bucket]?.budgeted ?? 0) : 0;
-    if (!bucket || budgeted <= 0) continue;
+    if (short || !bucket || budgeted <= 0) continue;
     const spent = byBucket.get(bucket) ?? 0;
     const ratio = spent / budgeted;
 

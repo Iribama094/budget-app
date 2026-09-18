@@ -38,6 +38,8 @@ import { FirstWeekChecklist } from '../components/Home/FirstWeekChecklist';
 import { InsightCards } from '../components/Home/InsightCards';
 import { BusinessHome } from '../components/Home/BusinessHome';
 import { PendingSavingsCard } from '../components/Home/PendingSavingsCard';
+import { ShortfallCard } from '../components/Home/ShortfallCard';
+import { usePlan } from '../lib/usePlan';
 
 export function DashboardScreen() {
   const nav = useNavigation<any>();
@@ -66,6 +68,9 @@ export function DashboardScreen() {
   const { isOnline, queued } = useSync();
   const notifAnim = useRef(new Animated.Value(0)).current;
   const { hasUnreadNotifications } = useNotificationBadges();
+  // The plan tells us when regular bills are bigger than income, which changes how Home talks about "over budget".
+  const plan = usePlan(!(spacesEnabled && activeSpaceId === 'business'));
+  const planShort = plan?.status === 'short' && plan.shortfall > 0;
 
   const addTxAnchorRef = useTourAnchor('dashboard.addTx');
   const spaceSwitcherAnchorRef = useTourAnchor('space.switcher');
@@ -516,7 +521,7 @@ export function DashboardScreen() {
         >
           <HeroCard>
             <View style={styles.rowBetween}>
-              <Text style={[type.eyebrow, { color: inkText, opacity: 0.72 }]}>{pace.status === 'over' ? 'Over budget by' : 'Safe to spend today'}</Text>
+              <Text style={[type.eyebrow, { color: inkText, opacity: 0.72 }]}>{pace.status === 'over' ? (planShort ? 'Bills have used up this budget' : 'Over budget by') : 'Safe to spend today'}</Text>
               <Pressable onPress={toggleShowAmounts} hitSlop={12} accessibilityLabel={showAmounts ? 'Hide amounts' : 'Show amounts'}>
                 {showAmounts ? <EyeOff color={inkText} size={18} opacity={0.75} /> : <Eye color={inkText} size={18} opacity={0.75} />}
               </Pressable>
@@ -569,6 +574,8 @@ export function DashboardScreen() {
           <PrimaryButton title="Create a budget" onPress={() => nav.navigate('Budget', { startNew: true })} style={{ marginTop: 16 }} />
         </HeroCard>
       )}
+
+      {planShort && plan ? <ShortfallCard plan={plan} /> : null}
 
       {currentBudget && alsoRunning.length ? (
         <View style={{ marginTop: 10, gap: 8 }}>

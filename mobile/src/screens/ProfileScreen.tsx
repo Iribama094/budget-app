@@ -116,7 +116,17 @@ export function ProfileScreen() {
               {plan!.period.basis === 'payday' ? `${plan!.period.label} · ${plan!.period.daysToPayday} days to payday` : `Budgeting by calendar month · ${plan!.period.label}`}
             </Text>
             <PlanSplit split={plan!.split} percents={plan!.percents} glyph={glyph} />
-            <PrimaryButton title="Income & bills" onPress={() => nav.navigate('IncomeBills')} style={{ marginTop: 10 }} />
+            {plan!.status === 'short' && plan!.shortfall > 0 ? (
+              <Text style={[type.small, { color: theme.colors.warn, marginTop: 8 }]}>
+                Your bills are {glyph}
+                {Math.round(plan!.shortfall).toLocaleString()} more than you earn. Income & bills shows what to pause first.
+              </Text>
+            ) : null}
+            <PrimaryButton
+              title={plan!.status === 'short' ? 'See how to close the gap' : 'Income & bills'}
+              onPress={() => nav.navigate('IncomeBills')}
+              style={{ marginTop: 10 }}
+            />
           </>
         ) : (
           <>

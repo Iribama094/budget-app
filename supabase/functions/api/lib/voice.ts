@@ -124,6 +124,11 @@ export const voice = {
     body: shared ? 'Start the next one in a tap and everyone stays in.' : 'Start the next one in a tap: same plan, fresh numbers.'
   }),
 
+  overWhileShort: (label: string): Note => ({
+    title: `${label} is used up`,
+    body: 'Your bills are bigger than your income this month, so this was expected. Pay must-pay bills first; Income & bills shows what to pause.'
+  }),
+
   nextPeriodReady: (label: string): Note => ({
     title: `${label} is ready 🎉`,
     body: 'Same plan, same people. Spending you add now counts here.'

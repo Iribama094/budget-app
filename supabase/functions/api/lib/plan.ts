@@ -179,7 +179,8 @@ export function computePlan(input: { income: IncomeInput[]; bills: BillInput[]; 
   const tips: string[] = [];
   tips.push(committed > 0 ? `${money(total)} comes in each month and ${money(committed)} already goes to bills.` : `${money(total)} comes in each month.`);
   if (status === 'short') {
-    tips.push(`Your bills come to ${money(shortfall)} more than you earn. Log your spending for a week and we’ll help you find where to cut.`);
+    tips.push(`Your bills come to ${money(shortfall)} more than you earn. Your plan only counts money you actually have, so the gap shows here instead of as savings that aren’t there.`);
+    tips.push('Pay in this order: rent, food, school fees and loan repayments first; subscriptions and extras are the first to pause. Adding a side hustle or money you expect closes the gap from the other side.');
   } else if (status === 'tight') {
     tips.push(`Money is tight, so savings starts small at ${money(split.Savings)} a month. Small amounts still add up.`);
   } else {
