@@ -224,9 +224,11 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Auto-start on first login, once navigation is ready.
+  // The first-run plan comes first: the tour navigates to the tabs, which would push a new account off SetupPlan.
   useEffect(() => {
     if (!user) return;
     if (startedThisSession.current) return;
+    if (user.onboarding && !user.onboarding.completedAt && !user.onboarding.skippedAt) return;
 
     let cancelled = false;
     const tryStart = async () => {
@@ -240,6 +242,9 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
       const interval = setInterval(() => {
         if (cancelled) return;
         if (!navigationRef.isReady()) return;
+        // Only over the tabs, so it never interrupts a flow such as inviting people right after the plan.
+        const root = navigationRef.getRootState();
+        if (root?.routes?.[root.index ?? 0]?.name !== 'Main') return;
         clearInterval(interval);
         startedThisSession.current = true;
         void startFirstRunTour();

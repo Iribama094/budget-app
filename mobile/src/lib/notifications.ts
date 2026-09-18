@@ -1,14 +1,23 @@
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+import { isRunningInExpoGo } from 'expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PUSH_TOKEN_KEY = 'bf_push_token_v1';
 const WEEKLY_ID = 'bf-weekly-checkin';
 const BILL_PREFIX = 'bf-bill-';
 
-Notifications.setNotificationHandler({
+/**
+ * Expo Go on Android dropped remote push in SDK 53, and just loading expo-notifications there throws
+ * while modules load, so the whole module is skipped in that one case and every helper becomes a no-op.
+ * Development and store builds are unaffected.
+ */
+export const notificationsSupported = !(Platform.OS === 'android' && isRunningInExpoGo());
+
+const Notifications: typeof import('expo-notifications') | null = notificationsSupported ? require('expo-notifications') : null;
+
+Notifications?.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,
@@ -18,6 +27,7 @@ Notifications.setNotificationHandler({
 });
 
 export async function ensureNotificationPermission(ask = true): Promise<boolean> {
+  if (!Notifications) return false;
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'Budget alerts',
@@ -40,7 +50,7 @@ function easProjectId(): string | null {
  * (simulator, no EAS project id configured, or permission denied).
  */
 export async function getExpoPushToken(): Promise<string | null> {
-  if (!Device.isDevice) return null;
+  if (!Notifications || !Device.isDevice) return null;
   const projectId = easProjectId();
   if (!projectId) return null;
   try {
@@ -61,6 +71,7 @@ export async function getRememberedPushToken(): Promise<string | null> {
 
 /** Sunday 18:00 on this phone's clock. */
 export async function scheduleWeeklyCheckIn(enabled: boolean): Promise<void> {
+  if (!Notifications) return;
   await Notifications.cancelScheduledNotificationAsync(WEEKLY_ID).catch(() => undefined);
   if (!enabled) return;
   await Notifications.scheduleNotificationAsync({
@@ -101,6 +112,7 @@ const DAILY_COPY: Array<{ title: string; body: string }> = [
 
 /** A daily nudge to log spending, on this phone's clock. Returns false if notifications aren't allowed. */
 export async function setDailyReminder(time: DailyReminder): Promise<boolean> {
+  if (!Notifications) return false;
   await Promise.all(
     [DAILY_ID, ...DAILY_COPY.map((_, i) => `${DAILY_ID}-${i}`)].map((id) => Notifications.cancelScheduledNotificationAsync(id).catch(() => undefined))
   );
@@ -136,6 +148,7 @@ export type ReminderItem = {
  * Replaces all previously scheduled bill reminders.
  */
 export async function scheduleLocalBillReminders(items: ReminderItem[], enabled: boolean): Promise<number> {
+  if (!Notifications) return 0;
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   await Promise.all(
     scheduled.filter((n) => n.identifier.startsWith(BILL_PREFIX)).map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier))
@@ -165,6 +178,7 @@ export async function scheduleLocalBillReminders(items: ReminderItem[], enabled:
 }
 
 export function addNotificationTapListener(onOpen: (data: Record<string, unknown>) => void): () => void {
+  if (!Notifications) return () => undefined;
   const sub = Notifications.addNotificationResponseReceivedListener((response) => {
     onOpen((response.notification.request.content.data ?? {}) as Record<string, unknown>);
   });

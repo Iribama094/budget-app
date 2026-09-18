@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { registerRootComponent } from 'expo';
+import { isRunningInExpoGo, registerRootComponent } from 'expo';
 
 import App from './App';
 
@@ -8,7 +8,8 @@ import App from './App';
 // the environment is set up appropriately
 registerRootComponent(App);
 
-if (Platform.OS === 'android') {
+// Expo Go has no widget native module, and loading the library there throws, so widgets need a development or store build.
+if (Platform.OS === 'android' && !isRunningInExpoGo()) {
   // Renders the home-screen widget in the background (react-native-android-widget).
   const { registerWidgetTaskHandler } = require('react-native-android-widget');
   registerWidgetTaskHandler(require('./src/widgets/widgetTaskHandler').widgetTaskHandler);

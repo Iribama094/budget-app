@@ -242,7 +242,7 @@ otp_expiry = 900
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Reset codes are emailed by the api function (Resend), so the hosted recovery template is left as is.
+# Reset codes are emailed by the api function (Brevo), so the hosted recovery template is left as is.
 # Custom Auth email templates need custom SMTP on the free plan.
 # [auth.email.template.recovery]
 # subject = "Your BudgetFriendly reset code"

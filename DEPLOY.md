@@ -162,7 +162,7 @@ Set function secrets with `npx supabase secrets set NAME=value`.
 | Feature | Function secret | App / build |
 | --- | --- | --- |
 | Flux, the AI money coach | `ANTHROPIC_API_KEY` (Claude, used first when set) or `GROQ_API_KEY` (console.groq.com); optional `ASSISTANT_MODEL` / `GROQ_MODEL` | — |
-| Password reset emails | `RESEND_API_KEY`, `EMAIL_FROM` (a sender on a domain verified in Resend) | — |
+| Password reset emails | `BREVO_API_KEY` (the v3 API key, starting `xkeysib-`, not the SMTP relay password), `EMAIL_FROM` (a sender verified in Brevo) | — |
 | Reset codes shown in the app (test projects only, never with real users) | `AUTH_DEV_EXPOSE_RESET_CODE=1` | — |
 | Daily job: recurring transactions, bill reminders, bank sync | `CRON_SECRET` (already set), `APP_TZ_OFFSET_MINUTES` (default 60) | — |
 | Push notifications (pace alerts, bills, auto-save, security) | `EXPO_ACCESS_TOKEN` only if Expo enhanced push security is on | An EAS project id (`npx eas init`) and a development or store build |
