@@ -30,6 +30,7 @@ import {
   formatAmount
 } from '../components/Common/ui';
 import { SelectField } from '../components/Common/SelectField';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { getRememberedPushToken, scheduleLocalBillReminders } from '../lib/notifications';
 import { currencySymbol, formatNumberInput, formatShortDate, parseNumberInput, toIsoDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
@@ -302,7 +303,8 @@ export default function RecurringScreen() {
         </>
       ) : null}
 
-      <Modal transparent visible={!!draft} animationType="slide" onRequestClose={() => setDraft(null)}>
+      <Modal transparent visible={!!draft} animationType="slide" onRequestClose={() => setDraft(null)} statusBarTranslucent navigationBarTranslucent>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <Pressable style={[styles.backdrop, { backgroundColor: theme.colors.overlay }]} onPress={() => setDraft(null)}>
           <Pressable style={[styles.sheet, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 16) }]} onPress={() => undefined}>
             {draft ? (
@@ -448,6 +450,7 @@ export default function RecurringScreen() {
             ) : null}
           </Pressable>
         </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </Screen>
   );

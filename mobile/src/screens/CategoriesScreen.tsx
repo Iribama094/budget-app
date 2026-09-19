@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Plus } from 'lucide-react-native';
@@ -152,8 +153,8 @@ export default function CategoriesScreen() {
 
       <PrimaryButton title={`Add a ${kind === 'expense' ? 'spending' : 'income'} category`} iconLeft={<Plus color={theme.colors.onPrimary} size={18} />} onPress={openNew} style={{ marginTop: 20 }} />
 
-      <Modal transparent visible={!!draft} animationType="slide" onRequestClose={() => setDraft(null)}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <Modal transparent visible={!!draft} animationType="slide" onRequestClose={() => setDraft(null)} statusBarTranslucent navigationBarTranslucent>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
           <Pressable style={[styles.backdrop, { backgroundColor: theme.colors.overlay }]} onPress={() => setDraft(null)}>
             <Pressable style={[styles.sheet, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 16) }]} onPress={() => undefined}>
               {draft ? (

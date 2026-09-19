@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BUCKETS, bucketDisplayName } from '../theme/buckets';
 import { View, FlatList, Text, Pressable, ActivityIndicator } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useNavigation } from '@react-navigation/native';
 import { X } from 'lucide-react-native';
 
@@ -166,6 +167,8 @@ export default function MiniBudgetsScreen({ route }: any) {
       <FlatList
         data={filtered}
         keyExtractor={(i) => i.id}
+        renderScrollComponent={(props) => <KeyboardAwareScrollView {...props} bottomOffset={24} />}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 20 }}

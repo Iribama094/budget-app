@@ -31,6 +31,7 @@ import {
 } from '../components/Common/ui';
 import { TextField } from '../components/Common/ui';
 import { SelectField } from '../components/Common/SelectField';
+import { KeyboardAwareScrollView, KeyboardStickyView } from 'react-native-keyboard-controller';
 import { currencySymbol, formatMoney, monthName, toIsoDate, toIsoDateTime } from '../utils/format';
 import { bucketColor } from '../theme/theme';
 import { fonts, type } from '../theme/typography';
@@ -912,7 +913,13 @@ export function BudgetScreen() {
           </View>
         </View>
 
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
+        <KeyboardAwareScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          bottomOffset={96}
+        >
           {error ? <InlineError message={error} /> : null}
 
           {setupStep === 1 ? (
@@ -1198,8 +1205,9 @@ export function BudgetScreen() {
               </Text>
             </>
           ) : null}
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
+        <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom }}>
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12), borderTopColor: theme.colors.border, backgroundColor: theme.colors.surface }]}>
           <SecondaryButton
             title={setupStep === 1 ? 'Cancel' : 'Back'}
@@ -1223,6 +1231,7 @@ export function BudgetScreen() {
             }}
           />
         </View>
+        </KeyboardStickyView>
 
         <Modal transparent visible={monthSheet != null} animationType="slide" onRequestClose={() => setMonthSheet(null)}>
           <Pressable style={[styles.backdrop, { backgroundColor: theme.colors.overlay }]} onPress={() => setMonthSheet(null)}>

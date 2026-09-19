@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, ChevronDown, Search, X } from 'lucide-react-native';
 
@@ -43,7 +44,9 @@ export function SelectSheet<T extends SelectValue>({
   };
 
   return (
-    <Modal transparent visible={visible} animationType="slide" onRequestClose={close}>
+    <Modal transparent visible={visible} animationType="slide" onRequestClose={close} statusBarTranslucent navigationBarTranslucent>
+      {/* Searching lifts the list above the keyboard so results stay tappable. */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
       <Pressable style={[styles.backdrop, { backgroundColor: theme.colors.overlay }]} onPress={close}>
         <Pressable style={[styles.sheet, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 16) }]} onPress={() => undefined}>
           <View style={styles.header}>
@@ -106,6 +109,7 @@ export function SelectSheet<T extends SelectValue>({
           />
         </Pressable>
       </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

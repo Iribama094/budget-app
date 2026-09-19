@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { KeyboardAwareScrollView, KeyboardStickyView } from 'react-native-keyboard-controller';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BellRing, Check, ChevronLeft, CircleDollarSign, Layers, ListChecks, Plus, Receipt, Sparkles, UserRound, Users, X } from 'lucide-react-native';
@@ -51,6 +52,16 @@ const REMINDERS = [
 
 type ReminderKey = (typeof REMINDERS)[number]['key'];
 type StepKey = 'welcome' | 'who' | 'pain' | 'income' | 'bills' | 'plan' | 'reminder';
+
+const STEP_LABEL: Record<StepKey, string> = {
+  welcome: 'Welcome',
+  who: 'Who it’s for',
+  pain: 'What you want help with',
+  income: 'Your income',
+  bills: 'Your regular bills',
+  plan: 'Your plan',
+  reminder: 'Daily reminder'
+};
 
 const cleanCode = (t: string) => t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 
@@ -130,6 +141,59 @@ export default function SetupPlanScreen() {
   const leave = () => {
     if (fromHome && nav.canGoBack()) nav.goBack();
     else nav.reset({ index: 0, routes: [{ name: 'Main' }] });
+  };
+
+  // Skipping setup leaves Home without a plan, so it's a deliberate choice rather than an accidental tap.
+  const confirmSkip = () => {
+    if (fromHome) {
+      // Updating from Profile: nothing is saved until Finish, so only ask once they've got past the intro.
+      if (step <= 1) return void skip();
+      Alert.alert('Leave without saving?', 'Your changes to the plan won’t be kept.', [
+        { text: 'Leave', style: 'destructive', onPress: () => void skip() },
+        { text: 'Stay', style: 'cancel' }
+      ]);
+      return;
+    }
+    Alert.alert(
+      'Skip your plan?',
+      'It takes about two minutes. Without it we can’t show what’s safe to spend each day, and Home stays empty until you set a budget. You can finish it later from Profile.',
+      [
+        { text: 'Skip anyway', style: 'destructive', onPress: () => void skip() },
+        { text: 'Keep going', style: 'cancel' }
+      ]
+    );
+  };
+
+  /** Continue, but moving past an empty step asks once, with the helpful option as the default. */
+  const advance = () => {
+    const next = () => go(step + 1);
+    const ask = (title: string, body: string, keep: string, anyway: string) =>
+      Alert.alert(title, body, [
+        { text: anyway, style: 'destructive', onPress: next },
+        { text: keep, style: 'cancel' }
+      ]);
+    if (key === 'pain' && pains.length === 0) {
+      ask('Skip this one?', 'Picking even one means the tips you get fit your life, not everyone’s.', 'Pick one', 'Continue anyway');
+      return;
+    }
+    if (key === 'income' && !incomes.some((i) => toIncomeInput(i))) {
+      ask(
+        'Continue without your income?',
+        'Your plan is built from what you earn. Without it we can’t split your money or show what’s safe to spend each day. A rough number is fine.',
+        'Add my income',
+        'Continue anyway'
+      );
+      return;
+    }
+    if (key === 'bills' && bills.length > 0 && bills.some((b) => !toBillInput(b))) {
+      ask('Some bills have no amount', 'Bills without an amount are left out of your plan. A rough figure is better than none.', 'Add amounts', 'Leave them out');
+      return;
+    }
+    if (key === 'bills' && bills.length === 0) {
+      ask('No regular bills?', 'Rent, school fees, data, family support and ajo all count. Adding them now means they’re never a surprise later.', 'Add a bill', 'I have none');
+      return;
+    }
+    next();
   };
 
   const skip = async () => {
@@ -514,18 +578,32 @@ export default function SetupPlanScreen() {
                 <View key={i} style={[styles.step, { backgroundColor: i < step ? theme.colors.primary : theme.colors.border }]} />
               ))
             : null}
+          {step > 0 ? (
+            <Text style={[type.caption, styles.stepLabel, { color: theme.colors.textMuted }]} numberOfLines={1}>
+              {step} of {LAST_STEP} · {STEP_LABEL[key]}
+            </Text>
+          ) : null}
         </View>
-        <Pressable onPress={skip} disabled={busy} hitSlop={10} accessibilityRole="button">
+        <Pressable onPress={confirmSkip} disabled={busy} hitSlop={10} accessibilityRole="button">
           <Text style={[type.smallStrong, { color: theme.colors.textMuted }]}>{fromHome ? 'Close' : 'Skip for now'}</Text>
         </Pressable>
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <View style={{ flex: 1 }}>
+        {/* The field being typed in scrolls above the keyboard and the pinned buttons. */}
+        <KeyboardAwareScrollView
+          contentContainerStyle={styles.body}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          bottomOffset={96}
+          showsVerticalScrollIndicator={false}
+        >
           {error ? <InlineError message={error} /> : null}
           <Animated.View style={{ opacity: fade, transform: [{ translateY: fade.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }}>{content}</Animated.View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
+        {/* Back and Continue ride on top of the keyboard instead of hiding behind it. */}
+        <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom }}>
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12), borderTopColor: theme.colors.border, backgroundColor: theme.colors.surface }]}>
           {step === 0 ? (
             <PrimaryButton title="Let’s go" onPress={() => go(1)} style={{ flex: 1 }} />
@@ -534,7 +612,7 @@ export default function SetupPlanScreen() {
               <SecondaryButton title="Back" onPress={() => go(step - 1)} style={{ flex: 1 }} />
               <PrimaryButton
                 title={step === LAST_STEP ? 'Finish' : key === 'bills' && bills.length === 0 ? 'No bills, continue' : 'Continue'}
-                onPress={() => (step === LAST_STEP ? finish() : go(step + 1))}
+                onPress={() => (step === LAST_STEP ? finish() : advance())}
                 loading={busy}
                 disabled={key === 'plan' && planLoading}
                 style={{ flex: 2 }}
@@ -542,7 +620,8 @@ export default function SetupPlanScreen() {
             </>
           )}
         </View>
-      </KeyboardAvoidingView>
+        </KeyboardStickyView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -551,7 +630,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, minHeight: 52 },
   headerBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  steps: { flex: 1, flexDirection: 'row', gap: 5 },
+  steps: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  stepLabel: { width: '100%', textAlign: 'center', marginTop: 2 },
   step: { flex: 1, height: 4, borderRadius: 2 },
   body: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 32 },
   point: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 18 },

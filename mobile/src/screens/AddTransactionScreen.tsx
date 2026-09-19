@@ -13,6 +13,7 @@ import { IconButton, InlineError, ListCard, PrimaryButton, Screen, SegmentedCont
 import { SelectField } from '../components/Common/SelectField';
 import { useVoiceNote } from '../lib/voice';
 import { parseVoiceEntry } from '../lib/voiceParse';
+import { KeyboardAwareScrollView, KeyboardStickyView, useKeyboardState } from 'react-native-keyboard-controller';
 import { useToast } from '../components/Common/Toast';
 import { useSync } from '../contexts/SyncContext';
 import { bucketColor } from '../theme/theme';
@@ -30,6 +31,8 @@ export function AddTransactionScreen() {
   const { theme } = useTheme();
   const { spacesEnabled, activeSpaceId, activeSpace } = useSpace();
   const toast = useToast();
+  // While the text keyboard is up (typing a note), the number pad steps aside and Save rides above the keyboard.
+  const keyboardVisible = useKeyboardState((s) => s.isVisible);
   const { saveTransaction } = useSync();
 
   const [type, setType] = useState<'income' | 'expense'>('expense');
@@ -515,7 +518,14 @@ export function AddTransactionScreen() {
         </View>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 8 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 8 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        bottomOffset={80}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.amountWrap} accessible accessibilityLabel={`Amount ${amount || '0'}`}>
           <Text style={[styles.amountGlyph, { color: theme.colors.textMuted }]}>{glyph}</Text>
           <Text style={[styles.amount, { color: amount ? theme.colors.text : theme.colors.textMuted }]} numberOfLines={1} adjustsFontSizeToFit>
@@ -670,8 +680,9 @@ export function AddTransactionScreen() {
             </View>
           </View>
         ) : null}
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
+      {!keyboardVisible ? (
       <View style={styles.keys}>
         {keys.map((k) => (
           <Pressable
@@ -686,9 +697,12 @@ export function AddTransactionScreen() {
           </Pressable>
         ))}
       </View>
+      ) : null}
 
-      {blocker && (amount || category) ? <Text style={[typo.caption, { color: theme.colors.textMuted, textAlign: 'center', marginBottom: 6 }]}>{blocker}</Text> : null}
-      <PrimaryButton title={type === 'expense' ? 'Save expense' : 'Save income'} onPress={submit} disabled={!canSubmit} loading={isSaving} />
+      <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom }}>
+        {blocker && (amount || category) ? <Text style={[typo.caption, { color: theme.colors.textMuted, textAlign: 'center', marginBottom: 6 }]}>{blocker}</Text> : null}
+        <PrimaryButton title={type === 'expense' ? 'Save expense' : 'Save income'} onPress={submit} disabled={!canSubmit} loading={isSaving} />
+      </KeyboardStickyView>
 
       <Modal transparent visible={showDatePicker} animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
         <Pressable style={[styles.backdrop, { backgroundColor: theme.colors.overlay }]} onPress={() => setShowDatePicker(false)}>

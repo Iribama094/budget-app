@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AlertTriangle, Briefcase, Sparkles } from 'lucide-react-native';
@@ -281,8 +282,8 @@ export default function IncomeBillsScreen() {
         </InfoTip>
       ) : null}
 
-      <Modal transparent visible={!!editing} animationType="slide" onRequestClose={() => setEditing(null)}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <Modal transparent visible={!!editing} animationType="slide" onRequestClose={() => setEditing(null)} statusBarTranslucent navigationBarTranslucent>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
           <Pressable style={[styles.backdrop, { backgroundColor: theme.colors.overlay }]} onPress={() => setEditing(null)}>
             <Pressable style={[styles.sheet, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 16) }]} onPress={() => undefined}>
               <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>

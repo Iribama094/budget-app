@@ -77,7 +77,8 @@
           "microphonePermission": "BudgetFriendly uses the microphone so you can talk to Flux and log spending by voice."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-sharing"
     ]
   }
 }

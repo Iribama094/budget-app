@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { ChevronLeft, ChevronRight, Info } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { tokens } from '../../theme/tokens';
@@ -56,7 +57,10 @@ export function Screen({
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]} edges={['top', 'left', 'right']}>
       <AppBackground />
-      <ScrollView
+      {/* Keeps the field being typed in above the keyboard on every screen, on iOS and Android. */}
+      <KeyboardAwareScrollView
+        bottomOffset={24}
+        keyboardDismissMode="interactive"
         style={styles.scroll}
         contentContainerStyle={[styles.screenPadding, { flexGrow: 1 }, style]}
         keyboardShouldPersistTaps="handled"
@@ -66,7 +70,7 @@ export function Screen({
       >
         {children}
         <View style={{ height: bottomInset }} />
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
