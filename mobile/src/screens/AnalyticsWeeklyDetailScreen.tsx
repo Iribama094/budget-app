@@ -87,7 +87,7 @@ export default function AnalyticsWeeklyDetailScreen() {
       {isLoading && !data ? (
         <ActivityIndicator color={theme.colors.primary} />
       ) : daily.length === 0 ? (
-        <EmptyState title="No daily breakdown yet" body="Log a few expenses this week and your days go show here." />
+        <EmptyState title="No daily breakdown yet" body="Log a few expenses this week and your days will show here." />
       ) : (
         <ListCard>
           {daily.map((d) => {

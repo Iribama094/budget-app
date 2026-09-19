@@ -6,7 +6,7 @@ import { defaultBucketFor, ensureCategories, type Bucket } from './categories.ts
 import { clampedIso } from './plan.ts';
 import { computeTax, loadRuleForCountry } from './tax.ts';
 import { currencyFor, formatMoney, notifyUser } from './notify.ts';
-import { boss, pick, voice } from './voice.ts';
+import { pick, voice } from './voice.ts';
 import type { Insight } from './insights.ts';
 import type { Space } from './http.ts';
 
@@ -366,7 +366,7 @@ export async function computeBusinessWarnings(userId: string, today = todayIso()
       key: `biz-runway:${month}`,
       kind: 'runway',
       tone: 'warning',
-      title: summary.runwayMonths <= 0 ? `${boss(month)}, business cash don finish o` : `${boss(month)}, cash fit last only ${summary.runwayMonths.toFixed(1)} months`,
+      title: summary.runwayMonths <= 0 ? 'Business cash has run out' : `Cash may only last ${summary.runwayMonths.toFixed(1)} months`,
       body: `${money(Math.max(0, summary.cash))} tracked covers costs of about ${money(summary.avgMonthlyCosts)} a month. Chase money owed or trim one cost this week.`,
       action: summary.receivables.openCount ? { label: 'See who owes you', screen: 'Invoices' } : { label: 'See the report', screen: 'BusinessReports' }
     });
@@ -377,7 +377,7 @@ export async function computeBusinessWarnings(userId: string, today = todayIso()
       key: `biz-overdue:${today}`,
       kind: 'spike',
       tone: 'warning',
-      title: pick([`${money(summary.receivables.overdueTotal)} don overdue o 👀`, `${boss(today)}, customers owe you ${money(summary.receivables.overdueTotal)}`], today),
+      title: pick([`${money(summary.receivables.overdueTotal)} is overdue`, `Customers owe you ${money(summary.receivables.overdueTotal)}`], today),
       body: `${summary.receivables.overdueCount} invoice${summary.receivables.overdueCount === 1 ? ' is' : 's are'} past due. A friendly reminder usually does it.`,
       action: { label: 'Send reminders', screen: 'Invoices' }
     });
@@ -394,7 +394,7 @@ export async function computeBusinessWarnings(userId: string, today = todayIso()
         key: `biz-slow:${today.slice(0, 8)}${Math.floor(Number(today.slice(8)) / 7)}`,
         kind: 'spike',
         tone: 'warning',
-        title: 'Sales dey slow this week 👀',
+        title: 'Sales are slow this week',
         body: `${money(thisWeek)} in the last 7 days, compared with about ${money(usual)} in a normal week. A quick promo or follow-up with regular customers can help.`,
         action: { label: 'See the numbers', screen: 'BusinessReports' }
       });
@@ -411,7 +411,7 @@ export async function computeBusinessWarnings(userId: string, today = todayIso()
         key: `biz-costs:${month}`,
         kind: 'plan_drift',
         tone: 'neutral',
-        title: 'Costs dey grow pass sales',
+        title: 'Costs are growing faster than sales',
         body: `Costs are up ${costGrowth}% over the last 30 days while sales ${revGrowth >= 0 ? `grew ${revGrowth}%` : `fell ${Math.abs(revGrowth)}%`}. Check the biggest costs first.`,
         action: { label: 'See biggest costs', screen: 'BusinessReports' }
       });
@@ -434,7 +434,7 @@ export async function computeBusinessWarnings(userId: string, today = todayIso()
       key: `biz-payself:${month}`,
       kind: 'kept',
       tone: 'positive',
-      title: pick(['My Oga, the business dey try o 💪', `${boss(month)}, you fit pay yourself this month 🎉`], month),
+      title: pick(['Business dey move 💪', 'You can pay yourself this month 🎉'], month),
       body: `After tax set-aside and a safety buffer, about ${money(summary.payYourself.suggested)} looks safe to pay yourself.`,
       action: { label: 'Pay yourself', screen: 'PayYourself' }
     });

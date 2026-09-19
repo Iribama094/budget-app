@@ -4,7 +4,7 @@ import { formatMoney } from './notify.ts';
 import { loadPlan } from './plan.ts';
 import { normalizeBucket, patternOf, type Bucket } from './categories.ts';
 import type { Space } from './http.ts';
-import { boss, pick } from './voice.ts';
+import { pick } from './voice.ts';
 import { computeBusinessWarnings } from './business.ts';
 
 export type Insight = {
@@ -76,7 +76,7 @@ export async function computeInsights(userId: string, space: Space = 'personal',
       key: `bills_over_income:${month}`,
       kind: 'bills_over_income',
       tone: 'warning',
-      title: pick([`${boss(month)}, bills don pass income`, `Your bills are bigger than your income`], month),
+      title: 'Your bills are bigger than your income',
       body: `Regular bills come to ${money(plan.shortfall)} more than you earn each month. Pay must-pay bills first, pause extras, or add expected income, and the plan will balance.`,
       action: { label: 'See what to do', screen: 'IncomeBills' }
     });
@@ -113,8 +113,8 @@ export async function computeInsights(userId: string, space: Space = 'personal',
           tone: 'warning',
           title:
             left > 0
-              ? pick([`${boss(window.start)}, at this pace money go finish ${plural(short, 'day')} before ${window.until}`, `Easy o 👀 money fit finish ${plural(short, 'day')} before ${window.until}`], window.start)
-              : `${boss(window.start)} no be so o, we don pass plan for this period`,
+              ? `At this pace, money runs out ${plural(short, 'day')} before ${window.until}`
+              : 'You’ve gone past the plan for this period',
           body:
             left > 0
               ? `You’ve spent ${money(spent)} in ${plural(elapsed, 'day')}. Keeping to about ${money(left / (remaining + 1))} a day gets you there.`
@@ -131,7 +131,7 @@ export async function computeInsights(userId: string, space: Space = 'personal',
             key: `under:${window.start}`,
             kind: 'under_pace',
             tone: 'positive',
-            title: pick([`${boss(window.start)}, you dey spend like pro 😎`, 'My Oga, you’re really trying o 💪'], window.start),
+            title: pick(['You’re spending like a pro 😎', 'Well done, you’re well under plan 💪'], window.start),
             body: `Only ${Math.round(spentShare * 100)}% used with ${Math.round(timeShare * 100)}% of the period gone. You could move ${money(extra)} to savings now and still be comfortable until ${window.until}.`,
             action: goals > 0 ? { label: 'Add to a goal', screen: 'Goals' } : { label: 'Start a goal', screen: 'CreateGoal' }
           });
@@ -140,7 +140,7 @@ export async function computeInsights(userId: string, space: Space = 'personal',
             key: `runway-ok:${window.start}`,
             kind: 'runway',
             tone: 'positive',
-            title: pick(['My Oga, you’re really trying o 💪', `${boss(window.start)}, you dey on track for ${window.until} 🙌`], window.start),
+            title: pick(['You’re doing well 💪', `On track for ${window.until} 🙌`], window.start),
             body: `About ${money(left / (remaining + 1))} a day keeps you steady for the next ${plural(remaining, 'day')}.`,
             action: null
           });
@@ -171,7 +171,7 @@ export async function computeInsights(userId: string, space: Space = 'personal',
         key: `spike:${s.category}:${month}`,
         kind: 'spike',
         tone: 'warning',
-        title: `Did you know? ${s.category} don go up ${Math.round((s.now / s.usual - 1) * 100)}% 👀`,
+        title: `${s.category} is up ${Math.round((s.now / s.usual - 1) * 100)}% on usual`,
         body: `${money(s.now)} in the last 30 days, compared with about ${money(s.usual)} usually.`,
         action: { label: 'See where it went', screen: 'Analytics' }
       });
@@ -186,7 +186,7 @@ export async function computeInsights(userId: string, space: Space = 'personal',
       key: `small:${today.slice(0, 8)}${Math.floor(Number(today.slice(8)) / 7)}`,
       kind: 'small_spends',
       tone: 'neutral',
-      title: `${boss(today)}, small small spending dey add up`,
+      title: 'Small buys are adding up',
       body: `${small.length} small purchases came to ${money(small.reduce((s, t) => s + Number(t.amount), 0))} in the last two weeks. A weekly limit for wants can help.`,
       action: { label: 'Review spending', screen: 'Transactions' }
     });
@@ -247,7 +247,7 @@ export async function computeInsights(userId: string, space: Space = 'personal',
         key: `overspent:${month}`,
         kind: 'overspent',
         tone: 'warning',
-        title: `${boss(month)} no be so o, more money went out than came in`,
+        title: 'More money went out than came in',
         body: `${money(out30 - in30)} more than you received in the last 30 days.${top ? ` ${top[0]} was the biggest cost.` : ''}`,
         action: { label: 'See the breakdown', screen: 'Analytics' }
       });
@@ -265,7 +265,7 @@ export async function computeInsights(userId: string, space: Space = 'personal',
           key: `drift:${month}`,
           kind: 'plan_drift',
           tone: 'neutral',
-          title: 'Needs dey chop pass your plan',
+          title: 'Needs are costing more than planned',
           body: `About ${share}% of your income went to needs, but your plan sets aside ${plan.percents.Needs}%. Updating it keeps your daily number realistic.`,
           action: { label: 'Update your plan', screen: 'IncomeBills' }
         });
@@ -280,7 +280,7 @@ export async function computeInsights(userId: string, space: Space = 'personal',
       key: `gap:${today}`,
       kind: 'logging_gap',
       tone: 'neutral',
-      title: `${boss(today)}, where you dey? 👀`,
+      title: 'Long time 👀',
       body: `Nothing logged in ${plural(quietDays, 'day')}. A two-minute catch-up keeps your safe-to-spend number right.`,
       action: { label: 'Add a transaction', screen: 'AddTransaction' }
     });
@@ -303,7 +303,7 @@ export async function computeInsights(userId: string, space: Space = 'personal',
           key: `irregular:${month}`,
           kind: 'irregular_income',
           tone: 'neutral',
-          title: 'Your income dey change change',
+          title: 'Your income has been changing',
           body: `It ranged from ${money(low)} to ${money(high)} recently. Plan around the lower amount and save anything extra.`,
           action: { label: 'Update your income', screen: 'IncomeBills' }
         });

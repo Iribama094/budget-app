@@ -746,7 +746,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     minHeight: 52
   },
-  input: { flex: 1, fontFamily: fonts.medium, fontSize: 16, paddingVertical: 12 },
+  input: { flex: 1, fontFamily: fonts.medium, fontSize: 16, paddingVertical: 12, letterSpacing: 0 },
   errorBox: { borderRadius: tokens.radius.lg, padding: 12, marginBottom: 12 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, alignSelf: 'flex-start' },
   segment: { flexDirection: 'row', padding: 4, borderRadius: tokens.radius.lg },

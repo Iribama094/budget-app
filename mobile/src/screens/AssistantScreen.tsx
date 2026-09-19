@@ -118,7 +118,7 @@ export default function AssistantScreen() {
         {
           id: `s${Date.now()}`,
           role: 'assistant',
-          text: `Done ✅ Saved as ${category}${budget ? ` in your ${budget.name.replace(/^My Budget \((.*)\)$/, '$1')} budget` : ''}. You fit see am under Transactions.`
+          text: `Done ✅ Saved as ${category}${budget ? ` in your ${budget.name.replace(/^My Budget \((.*)\)$/, '$1')} budget` : ''}. You’ll find it under Transactions.`
         }
       ]);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   starters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   composer: { paddingHorizontal: 16, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
   inputWrap: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, borderWidth: 1, borderRadius: 22, paddingLeft: 14, paddingRight: 5, paddingVertical: 5 },
-  input: { flex: 1, maxHeight: 120, fontFamily: fonts.regular, fontSize: 15, paddingVertical: 8 },
+  input: { flex: 1, maxHeight: 120, fontFamily: fonts.regular, fontSize: 15, paddingVertical: 8, letterSpacing: 0 },
   send: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   draft: { marginTop: 10, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
   draftRow: { flexDirection: 'row', gap: 8, marginTop: 10 }

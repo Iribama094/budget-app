@@ -1,7 +1,13 @@
 /**
- * BudgetFriendly's notification voice: warm, playful Nigerian English with a touch of Pidgin, short and
- * always useful. Titles carry the personality; bodies carry the numbers and the next step.
- * Security messages stay plain on purpose.
+ * BudgetFriendly's notification voice: warm, plain Nigerian English, like a friend who is good with money.
+ *
+ * Tone rules:
+ * - Mostly plain English, with a sprinkle of the slang people actually text each other: omo, oya, easy o,
+ *   no wahala, sapa, credit alert, e choke, soft life. If it sounds like an ad trying to be Nigerian, cut it.
+ * - At most one slang touch per message, and not in every message. Happy and light moments only.
+ * - No nicknames (Boss, Chief, Oga) and no long Pidgin sentences.
+ * - Warnings, bills, debt and security stay calm and plain. Titles say what happened; bodies give the numbers
+ *   and the next step.
  */
 
 export type Note = { title: string; body: string };
@@ -14,58 +20,56 @@ export function pick<T>(options: readonly T[], seed?: string): T {
   return options[h % options.length];
 }
 
-export const boss = (seed?: string) => pick(['Boss', 'Chief', 'My person', 'Oga'], seed);
-
 export const voice = {
   budgetOver: (label: string, spent: string, total: string): Note => ({
-    title: pick([`${boss()}, ${label} don pass budget o 😬`, `Chief, the ${label} budget don finish`, `${boss()} no be so o, ${label} is over budget`]),
-    body: `${spent} spent out of ${total}. Let’s slow down on wants till things balance.`
+    title: pick([`${label} is over budget`, `You’ve gone past your ${label} budget`]),
+    body: `${spent} spent out of ${total}. Easing off on wants for a while will help it balance.`
   }),
 
   bucketOver: (bucket: string, label: string, spent: string, budgeted: string): Note => ({
-    title: pick([`${bucket} don burst o 😬`, `${boss()}, ${bucket} is over budget`]),
+    title: `${bucket} is over budget`,
     body: `${spent} spent, but the plan for ${label} was ${budgeted}. ${
-      bucket === 'Wants' ? 'Time to pause the enjoyment small till payday.' : 'Maybe shift a little from Wants to cover it.'
+      bucket === 'Wants' ? 'Maybe hold off on extras until payday.' : 'You could move a little from Wants to cover it.'
     }`
   }),
 
   runningHot: (bucket: string, label: string, usedPct: number, timePct: number, perDay: string): Note => ({
-    title: pick([`Easy o, ${boss()} 🔥 ${bucket} dey run fast`, `${boss()}, ${bucket} is moving too fast`]),
-    body: `${usedPct}% used and ${label} is only ${timePct}% gone. About ${perDay} a day keeps am steady.`
+    title: pick([`Easy o, ${bucket} is going fast 🔥`, `Heads up: ${bucket} is ahead of plan`]),
+    body: `${usedPct}% used and ${label} is only ${timePct}% gone. About ${perDay} a day keeps it steady.`
   }),
 
   dailySpend: (spentToday: string, times: number): Note => ({
-    title: pick([`${boss()} no be so o 👀`, 'Chief, today dey heavy o', `Hmm, ${boss()}… big spending day`]),
-    body: `You’ve spent ${spentToday} today, about ${times}× your usual day. Hope everything dey alright? If na one-off, no wahala.`
+    title: pick(['Omo, big spending day 👀', 'Today’s spending is high']),
+    body: `You’ve spent ${spentToday} today, about ${times}× your usual day. If it was a one-off, no wahala.`
   }),
 
   autosave: (amount: string, goalName: string | null, income: string): Note => ({
-    title: pick(['My Oga, you’re really trying o 💪', `${boss()}, you dey save! 🎉`, 'Small small, the goal dey grow 🌱']),
+    title: pick(['Well done o, you’re saving 💪', 'Your goal just grew 🌱']),
     body: goalName ? `${amount} just went into ${goalName} from your ${income} income.` : `${amount} went into your goals from your ${income} income.`
   }),
 
   autosaveReminder: (amount: string, goalName: string, income: string): Note => ({
-    title: pick([`Boss, time to feed ${goalName} 🌱`, `${amount} for ${goalName}? 💪`, `Small small, the goal dey grow 🌱`]),
+    title: pick([`Time to top up ${goalName} 🌱`, `${amount} for ${goalName}?`]),
     body: `From your ${income} income. Move ${amount} to your savings, then tap “I moved it” so your goal and budget stay correct.`
   }),
 
   invoiceDueSoon: (customer: string, amount: string, number: string): Note => ({
-    title: `${customer} go pay tomorrow? 📅`,
+    title: `${customer}’s invoice is due tomorrow 📅`,
     body: `${number} for ${amount} is due tomorrow. A friendly reminder today helps.`
   }),
 
   invoiceOverdue: (customer: string, amount: string, days: number): Note => ({
-    title: pick([`${boss()}, ${customer} never pay o 👀`, `${customer} don owe you ${days} day${days === 1 ? '' : 's'}`]),
+    title: `${customer} is ${days} day${days === 1 ? '' : 's'} late paying`,
     body: `${amount} is overdue. Send a gentle reminder from Invoices.`
   }),
 
   billDueSoon: (supplier: string, amount: string, when: string): Note => ({
     title: `Heads up: ${supplier} bill is due ${when}`,
-    body: `${amount}. Make sure the money dey ground.`
+    body: `${amount}. Make sure the money is ready.`
   }),
 
   vatReminder: (month: string): Note => ({
-    title: `${boss()}, VAT season don reach 🧾`,
+    title: 'VAT return coming up 🧾',
     body: `Your VAT return for ${month} is usually due by the 21st. Confirm with your accountant.`
   }),
 
@@ -75,42 +79,42 @@ export const voice = {
   }),
 
   wrappedReady: (label: string): Note => ({
-    title: `Your ${label} Money Wrapped don land 🎁`,
+    title: `Your ${label} Money Wrapped is here 🎁`,
     body: 'See how your money moved, your top spots and your money personality.'
   }),
 
   recurringRecorded: (name: string, amount: string, isIncome: boolean, times: number): Note => ({
-    title: times === 1 ? pick([`Done ✅ ${name} don record`, `${name} don enter, no stress`]) : `${name} recorded ${times} times ✅`,
+    title: times === 1 ? `${name} recorded ✅` : `${name} recorded ${times} times ✅`,
     body: `${amount} ${isIncome ? 'income' : 'expense'} added automatically from your schedule.`
   }),
 
   billDue: (name: string, when: string, amount: string, autoCreate: boolean): Note => ({
-    title: pick([`Heads up, ${boss()}: ${name} is due ${when}`, `${name} dey come ${when} o`]),
-    body: autoCreate ? `${amount}. We’ll record it for you on the day.` : `${amount}. Make sure the money dey ground.`
+    title: `Heads up: ${name} is due ${when}`,
+    body: autoCreate ? `${amount}. We’ll record it for you on the day.` : `${amount}. Make sure the money is ready.`
   }),
 
   bankReauth: (bank: string): Note => ({
-    title: `${boss()}, ${bank} don disconnect`,
+    title: `${bank} has disconnected`,
     body: 'Reconnect it so your transactions keep coming in.'
   }),
 
   bankImported: (count: number, bank: string): Note => ({
-    title: pick([`${count} new transaction${count === 1 ? '' : 's'} from ${bank} don land`, `Fresh transactions from ${bank} 📥`]),
+    title: `${count} new transaction${count === 1 ? '' : 's'} from ${bank} 📥`,
     body: 'Tap to sort them into your budget. E no go take long.'
   }),
 
   rollover: (amount: string, label: string, destination: string): Note => ({
-    title: pick([`Oya! ${amount} don move from ${label}`, `Nice one, ${boss()} 🎉 ${amount} saved from ${label}`]),
-    body: `Added to ${destination}. Small small, e go full.`
+    title: pick([`Oya! ${amount} saved from ${label} 🎉`, `${amount} left over from ${label}, and saved`]),
+    body: `Added to ${destination}. Little by little, it adds up.`
   }),
 
   memberJoined: (name: string, label: string): Note => ({
-    title: `${name} don join ${label} 🎉`,
+    title: `${name} joined ${label} 🎉`,
     body: 'Their spending now counts toward this budget.'
   }),
 
   memberLeft: (name: string, label: string): Note => ({
-    title: `${name} don comot from ${label}`,
+    title: `${name} left ${label}`,
     body: 'They no longer see this budget. What they already added stays.'
   }),
 
@@ -120,7 +124,7 @@ export const voice = {
   }),
 
   periodEnding: (label: string, shared: boolean): Note => ({
-    title: pick([`${label} ends tomorrow ⏳`, `${boss()}, ${label} don reach last day`]),
+    title: pick([`${label} ends tomorrow ⏳`, `Last day of ${label} tomorrow`]),
     body: shared ? 'Start the next one in a tap and everyone stays in.' : 'Start the next one in a tap: same plan, fresh numbers.'
   }),
 

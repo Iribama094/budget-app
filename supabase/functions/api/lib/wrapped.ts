@@ -11,14 +11,14 @@ const round = (n: number) => Math.round(n);
 export type WrappedKind = 'h1' | 'year';
 
 const PERSONAS = {
-  stacker: { key: 'stacker', title: 'The Stacker', line: 'You dey save like squirrel 🐿️ More came in than went out, and you kept it.' },
-  planner: { key: 'planner', title: 'The Planner', line: 'Budget no fit shock you. You stayed on plan most of the time.' },
-  tracker: { key: 'tracker', title: 'The Tracker', line: 'Every naira get receipt with you 🧾 You logged your money like a pro.' },
-  enjoyer: { key: 'enjoyer', title: 'The Enjoyer', line: 'You work hard and you enjoy life 😎 Just keep an eye on the wants.' },
-  hustler: { key: 'hustler', title: 'The Hustler', line: 'Money dey move and you dey move with am 💪 Next stop: a bit more savings.' },
-  builder: { key: 'builder', title: 'The Builder', line: 'The business dey grow and the margins dey look fine 🏗️' },
+  stacker: { key: 'stacker', title: 'The Stacker', line: 'You saved like a squirrel 🐿️ More came in than went out, and you kept it.' },
+  planner: { key: 'planner', title: 'The Planner', line: 'No budget could surprise you. You stayed on plan most of the time.' },
+  tracker: { key: 'tracker', title: 'The Tracker', line: 'Every naira accounted for 🧾 You logged your money like a pro.' },
+  enjoyer: { key: 'enjoyer', title: 'The Enjoyer', line: 'Enjoyment minister 😎 You work hard and you enjoy life. Just keep an eye on the wants.' },
+  hustler: { key: 'hustler', title: 'The Hustler', line: 'Money kept moving and so did you 💪 Next stop: a bit more savings.' },
+  builder: { key: 'builder', title: 'The Builder', line: 'The business grew and the margins look healthy 🏗️' },
   grinder: { key: 'grinder', title: 'The Grinder', line: 'Sales went up and you kept pushing. Respect 💼' },
-  survivor: { key: 'survivor', title: 'The Survivor', line: 'Tough period, but you still dey stand. Next half go better 🙏' }
+  survivor: { key: 'survivor', title: 'The Survivor', line: 'Sapa tried, but you’re still standing 💪 Better days ahead.' }
 } as const;
 
 /**

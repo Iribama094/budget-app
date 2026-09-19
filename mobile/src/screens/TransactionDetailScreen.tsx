@@ -391,7 +391,7 @@ export default function TransactionDetailScreen() {
                       editable={dateManual}
                       placeholder="YYYY-MM-DD"
                       placeholderTextColor={theme.colors.textMuted}
-                      style={{ color: theme.colors.text, fontSize: 16, fontFamily: 'Figtree_600SemiBold', padding: 0, margin: 0 }}
+                      style={{ color: theme.colors.text, fontSize: 16, fontFamily: 'Figtree_600SemiBold', padding: 0, margin: 0, letterSpacing: 0 }}
                     />
                     <Text style={{ color: theme.colors.textMuted, marginTop: 4, fontSize: 12, fontFamily: 'Figtree_600SemiBold' }}>
                       {dateManual ? 'Typing enabled' : 'Tap to pick a date • Double-tap to type'}

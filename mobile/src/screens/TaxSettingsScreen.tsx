@@ -363,7 +363,7 @@ export default function TaxSettingsScreen() {
           value={mode}
           onChange={setMode}
         />
-        {mode === 'whatIf' ? <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 8 }]}>What-if mode doesn’t save. Play with numbers and compare, no wahala.</Text> : null}
+        {mode === 'whatIf' ? <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 8 }]}>What-if mode doesn’t save. Play with the numbers and compare freely.</Text> : null}
       </Card>
 
       <ListCard style={{ marginTop: 10 }}>

@@ -17,6 +17,7 @@ import { currencyFor, formatMoney, notifyUser } from '../lib/notify.ts';
 import { loadPlan, periodCategories } from '../lib/plan.ts';
 import { enforceRateLimit } from '../lib/rateLimit.ts';
 import { voice } from '../lib/voice.ts';
+import { withQuote } from '../lib/quotes.ts';
 import type { Ctx } from '../index.ts';
 
 const CategoriesSchema = z.record(z.string().min(1).max(60), z.object({ budgeted: z.number().finite().nonnegative() }).passthrough());
@@ -67,7 +68,8 @@ async function assertNoOverlap(userId: string, space: string, purpose: BudgetPur
 /** Tells people who were carried into a new household budget that it's ready. */
 async function announceNextPeriod(memberIds: string[], b: { id: string; name: string }) {
   for (const id of memberIds) {
-    await notifyUser(id, { kind: 'shared', ...voice.nextPeriodReady(budgetLabel(b.name)), spaceId: 'personal', data: { screen: 'BudgetDetail', budgetId: b.id } }).catch(() => undefined);
+    const note = await withQuote(id, voice.nextPeriodReady(budgetLabel(b.name)), ['planning'], b.id);
+    await notifyUser(id, { kind: 'shared', ...note, spaceId: 'personal', data: { screen: 'BudgetDetail', budgetId: b.id } }).catch(() => undefined);
   }
 }
 
@@ -311,7 +313,11 @@ export async function budgetPace(ctx: Ctx) {
   const { userId } = await requireAuth(ctx.req);
   const b = await findVisibleBudget(userId, ctx.parts[1]);
   if (!b) notFound('Budget not found');
+  return json(200, await paceFor(b));
+}
 
+/** The pace figures for one budget. Shared by the pace endpoint and the weekly summary so both say the same. */
+export async function paceFor(b: NonNullable<Awaited<ReturnType<typeof findVisibleBudget>>>) {
   const today = todayIso();
   const end = effectiveEndIso(b);
   const { buckets, totalSpent } = await unspentByBucket(b);
@@ -333,7 +339,7 @@ export async function budgetPace(ctx: Ctx) {
   const daysLeft = today > end ? 0 : diffIsoDays(today, end) + 1;
   const safeToSpend = Math.max(0, Math.round(left - savingsLeft - billsTotal));
 
-  return json(200, {
+  return {
     left: Math.round(left),
     spent: Math.round(totalSpent),
     savingsLeft,
@@ -343,7 +349,7 @@ export async function budgetPace(ctx: Ctx) {
     safeToSpend,
     safePerDay: daysLeft > 0 ? Math.floor(safeToSpend / daysLeft) : 0,
     trackingStart: b.trackingStart ?? null
-  });
+  };
 }
 
 const RolloverSchema = z.discriminatedUnion('destination', [
@@ -424,9 +430,10 @@ export async function rollover(ctx: Ctx) {
   }
 
   const currency = await currencyFor(userId);
+  const saved = voice.rollover(formatMoney(unspent, currency), budgetLabel(b.name), input.destination === 'goal' ? goalName : `Savings in ${budgetLabel(nextBudget!.name)}`);
   await notifyUser(userId, {
     kind: 'rollover',
-    ...voice.rollover(formatMoney(unspent, currency), budgetLabel(b.name), input.destination === 'goal' ? goalName : `Savings in ${budgetLabel(nextBudget!.name)}`),
+    ...(await withQuote(userId, saved, ['saving', 'patience'], b.id)),
     data: input.destination === 'goal' ? { screen: 'GoalDetail', goalId: input.goalId } : { screen: 'BudgetDetail', budgetId: nextBudget!.id }
   }).catch(() => undefined);
 

@@ -107,7 +107,7 @@ export default function BankAlertScreen() {
 
 const styles = StyleSheet.create({
   box: { marginTop: 16, borderWidth: 1.5, borderRadius: 16, padding: 12, minHeight: 150 },
-  input: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, minHeight: 126 },
+  input: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, minHeight: 126, letterSpacing: 0 },
   actions: { flexDirection: 'row', gap: 10, marginTop: 10 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   privacy: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 18 }

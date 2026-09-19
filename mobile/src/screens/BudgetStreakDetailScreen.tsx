@@ -139,7 +139,7 @@ export default function BudgetStreakDetailScreen() {
   const inkText = theme.colors.inkText;
   const tips = [
     { Icon: TrendingDown, text: 'Keep daily spending below your average to maintain the streak.' },
-    { Icon: Search, text: 'Check the categories wey dey chop your money most and trim where you fit.' },
+    { Icon: Search, text: 'Check the categories that take the most money and trim where you can.' },
     { Icon: Wallet, text: 'Set mini budgets for things you buy often so nothing sneaks up on you.' }
   ];
 
@@ -163,9 +163,9 @@ export default function BudgetStreakDetailScreen() {
             ? 'Make a budget and your streak go start counting.'
             : isOnBudget
               ? streakDays >= 7
-                ? 'You dey try well well 🔥 Keep the fire burning.'
-                : 'Nice start! Stay under your plan and watch am grow 🌱'
-              : 'You went over this period. No wahala, a fresh plan resets it.'}
+                ? 'You’re doing really well 🔥 Keep it going.'
+                : 'Nice start! Stay under your plan and watch it grow 🌱'
+              : 'You went over this period. That’s okay, a fresh plan resets it.'}
         </Text>
         <View style={{ marginTop: 14 }}>
           <ProgressBar value={periodInfo.elapsedDays / periodInfo.daysInPeriod} height={8} color="#E2B65C" trackColor="rgba(255,255,255,0.14)" />

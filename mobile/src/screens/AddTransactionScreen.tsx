@@ -252,7 +252,7 @@ export function AddTransactionScreen() {
       }
       haptic.success();
       if (result.status === 'queued') toast.show('Saved on this phone. It will sync when you’re back online.', 'info', 4000);
-      else if (streak) toast.show(`${streak} days in a row 🔥 You dey build the habit, keep am up!`, 'success', 4000);
+      else if (streak) toast.show(`${streak} days in a row 🔥 Omo, you’re consistent!`, 'success', 4000);
       else toast.show(type === 'expense' ? 'Expense saved' : 'Income saved', 'success');
       nav.goBack();
     } catch (e) {
@@ -929,7 +929,7 @@ const styles = StyleSheet.create({
   chips: { gap: 8, paddingHorizontal: 20 },
   chip: { height: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 50 },
-  noteInput: { flex: 1, fontFamily: fonts.regular, fontSize: 15, paddingVertical: 12 },
+  noteInput: { flex: 1, fontFamily: fonts.regular, fontSize: 15, paddingVertical: 12, letterSpacing: 0 },
   miniChip: { height: 28, paddingHorizontal: 10, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   chipRow: { flexDirection: 'row', gap: 6 },
   suggested: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -4, marginBottom: 10 },

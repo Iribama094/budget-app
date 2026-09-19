@@ -83,7 +83,7 @@ export default function AnalyticsCategoryDetailScreen() {
       {isLoading && !data ? (
         <ActivityIndicator color={theme.colors.primary} />
       ) : items.length === 0 ? (
-        <EmptyState title="Nothing to show yet" body="No spending in this period. Log an expense and your breakdown go show here." />
+        <EmptyState title="Nothing to show yet" body="No spending in this period. Log an expense and your breakdown will show here." />
       ) : (
         <ListCard>
           {items.map(({ category, amount }) => {

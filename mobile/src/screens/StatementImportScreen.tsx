@@ -91,7 +91,7 @@ export default function StatementImportScreen() {
         totals.skipped += r.skipped;
       }
       setResult(totals);
-      toast.show(totals.imported ? `${totals.imported} transaction${totals.imported === 1 ? '' : 's'} don land 📥` : 'Nothing new. You’d already uploaded these.', totals.imported ? 'success' : 'info');
+      toast.show(totals.imported ? `${totals.imported} transaction${totals.imported === 1 ? '' : 's'} imported 📥` : 'Nothing new. You’d already uploaded these.', totals.imported ? 'success' : 'info');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed. Try again.');
     } finally {

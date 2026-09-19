@@ -10,6 +10,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { listBudgets, listTransactions, type ApiBudget, type ApiTransaction } from '../api/endpoints';
 import { currencySymbol, formatShortDate, toIsoDate } from '../utils/format';
 import { type } from '../theme/typography';
+import { pickQuote } from '../lib/quotes';
+import { QuoteLine } from '../components/Common/QuoteLine';
 
 export default function WeeklyCheckInDetailScreen() {
   const nav = useNavigation<any>();
@@ -196,8 +198,8 @@ export default function WeeklyCheckInDetailScreen() {
         <Amount value={weekExpenses} currency={glyph} size="hero" color={inkText} style={{ marginTop: 8 }} />
         <Text style={[type.small, { color: inkText, opacity: 0.78 }]}>
           {weekInfo.remainingDays > 0
-            ? `${weekInfo.remainingDays} day${weekInfo.remainingDays === 1 ? '' : 's'} left. Hold am tight, Boss 💪`
-            : 'Week don end today. How far, you try?'}
+            ? `${weekInfo.remainingDays} day${weekInfo.remainingDays === 1 ? '' : 's'} left this week 💪`
+            : 'Last day of the week. How did it go?'}
         </Text>
         <View style={{ marginTop: 14 }}>
           <ProgressBar value={weekInfo.progressPct / 100} height={8} color="#E2B65C" trackColor="rgba(255,255,255,0.14)" />
@@ -229,6 +231,12 @@ export default function WeeklyCheckInDetailScreen() {
           </View>
         ))}
       </ListCard>
+
+      {/* One quote a week: the seed changes weekly, so it stays the same for the whole week. */}
+      <QuoteLine
+        quote={pickQuote(['saving', 'spending', 'patience'], `${user?.id ?? ''}:${Math.floor(Date.now() / (7 * 86400000))}`)}
+        style={{ marginTop: 20 }}
+      />
     </Screen>
   );
 }

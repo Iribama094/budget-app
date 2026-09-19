@@ -24,7 +24,9 @@ import {
   type PainPoint,
   type PlanInputs
 } from '../api/personal';
-import { BILL_PRESETS, blankBill, blankIncome, fromApiIncome, toBillInput, toIncomeInput, type DraftBill, type DraftIncome } from '../lib/planDrafts';
+import { BILL_PRESETS, blankBill, blankIncome, everydayPerDay, fromApiIncome, toBillInput, toIncomeInput, type DraftBill, type DraftIncome } from '../lib/planDrafts';
+import { pickQuote } from '../lib/quotes';
+import { QuoteLine } from '../components/Common/QuoteLine';
 import { setDailyReminder } from '../lib/notifications';
 import { currencySymbol, formatNumberInput, formatShortDate, toIsoDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
@@ -158,6 +160,30 @@ export default function SetupPlanScreen() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, payday]);
+
+  // The payoff early: once there's an income, show roughly what a day of everyday spending looks like, and keep
+  // it updated while bills are added. Same server maths as the plan step, fetched after typing pauses.
+  const [livePlan, setLivePlan] = useState<ApiPlan | null>(null);
+  const liveKey = key === 'income' || key === 'bills' ? JSON.stringify([incomes.map(toIncomeInput), bills.map(toBillInput), payday]) : '';
+  useEffect(() => {
+    if (!liveKey) return;
+    const input = inputs();
+    if (!input.income.length) {
+      setLivePlan(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      previewPlan(input)
+        .then((p) => !cancelled && setLivePlan(p))
+        .catch(() => undefined);
+    }, 600);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveKey]);
 
   // Start from an estimate so most people just confirm it. It follows plan changes until they type their own.
   useEffect(() => {
@@ -366,7 +392,8 @@ export default function SetupPlanScreen() {
             autoCapitalize="characters"
             autoCorrect={false}
             placeholder="e.g. K7PQ2M"
-            style={{ fontFamily: fonts.display, letterSpacing: 4, fontSize: 18 }}
+            // Spaced letters make a typed code easy to check, but they'd also stretch the "e.g." hint.
+            style={inviteCode ? { fontFamily: fonts.display, letterSpacing: 4, fontSize: 18 } : undefined}
           />
           {mode === 'shared' ? (
             <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: -4 }]}>Your income and bills still help us suggest what you can put in.</Text>
@@ -404,6 +431,32 @@ export default function SetupPlanScreen() {
     </View>
   );
 
+  const validBills = bills.map(toBillInput).filter(Boolean) as BillInput[];
+  const liveDaily = livePlan && livePlan.status !== 'no_income' ? everydayPerDay(livePlan, validBills) : null;
+  const livePreview =
+    liveDaily == null || !livePlan ? null : (
+      <Card style={{ marginTop: 16, backgroundColor: theme.colors.primarySoft, borderColor: theme.colors.primarySoft }}>
+        {livePlan.status === 'short' ? (
+          <>
+            <Text style={[type.bodyStrong, { color: theme.colors.text }]}>Your bills are more than your income</Text>
+            <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>Keep going. Your plan shows what to pay first.</Text>
+          </>
+        ) : (
+          <>
+            <Text style={[type.caption, { color: theme.colors.primary, fontFamily: fonts.semibold }]}>Everyday spending money</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: 4 }}>
+              <Amount value={liveDaily} currency={glyph} size="lg" />
+              <Text style={[type.small, { color: theme.colors.textMuted }]}>a day</Text>
+            </View>
+            <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>
+              {validBills.length ? 'After your bills and savings.' : 'After savings. Add your bills next and we’ll adjust it.'}
+            </Text>
+          </>
+        )}
+      </Card>
+    );
+  const planDaily = plan && plan.status !== 'no_income' ? everydayPerDay(plan, validBills) : 0;
+
   const incomeStep = (
     <View>
       <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Income</Text>
@@ -428,6 +481,7 @@ export default function SetupPlanScreen() {
           style={{ marginTop: 12 }}
         />
       ) : null}
+      {livePreview}
     </View>
   );
 
@@ -456,7 +510,7 @@ export default function SetupPlanScreen() {
                 placeholder="Bill name"
                 placeholderTextColor={theme.colors.textMuted}
                 maxLength={60}
-                style={[type.bodyStrong, { color: theme.colors.text, flex: 1, paddingVertical: 4 }]}
+                style={[type.bodyStrong, { color: theme.colors.text, flex: 1, paddingVertical: 4, letterSpacing: 0 }]}
               />
               <Pressable onPress={() => setBills((list) => list.filter((x) => x.key !== bill.key))} hitSlop={10} accessibilityLabel={`Remove ${bill.name || 'bill'}`}>
                 <X color={theme.colors.textMuted} size={18} />
@@ -489,6 +543,7 @@ export default function SetupPlanScreen() {
           </Card>
         );
       })}
+      {livePreview}
     </View>
   );
 
@@ -508,16 +563,31 @@ export default function SetupPlanScreen() {
         <>
           <HeroCard style={{ marginTop: 14 }}>
             <View style={styles.rowBetween}>
-              <Text style={[type.eyebrow, { color: theme.colors.inkText, opacity: 0.72 }]}>Each month</Text>
+              <Text style={[type.eyebrow, { color: theme.colors.inkText, opacity: 0.72 }]}>{planDaily > 0 ? 'Everyday spending' : 'Each month'}</Text>
               <Chip
                 tone={plan.status === 'healthy' ? 'onInk' : 'brass'}
                 label={plan.status === 'healthy' ? 'Looks good' : plan.status === 'tight' ? 'Tight but doable' : 'Bills are more than income'}
               />
             </View>
-            <Amount value={plan.monthlyIncome} currency={glyph} size="hero" color={theme.colors.inkText} style={{ marginTop: 8 }} />
-            <Text style={[type.small, { color: theme.colors.inkText, opacity: 0.75 }]}>
-              {plan.committed > 0 ? `${glyph}${plan.committed.toLocaleString()} already goes to bills` : 'No regular bills added'}
-            </Text>
+            {planDaily > 0 ? (
+              <>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 8 }}>
+                  <Amount value={planDaily} currency={glyph} size="hero" color={theme.colors.inkText} />
+                  <Text style={[type.body, { color: theme.colors.inkText, opacity: 0.8 }]}>a day</Text>
+                </View>
+                <Text style={[type.small, { color: theme.colors.inkText, opacity: 0.75 }]}>
+                  From {glyph}
+                  {plan.monthlyIncome.toLocaleString()} a month, after bills and savings
+                </Text>
+              </>
+            ) : (
+              <>
+                <Amount value={plan.monthlyIncome} currency={glyph} size="hero" color={theme.colors.inkText} style={{ marginTop: 8 }} />
+                <Text style={[type.small, { color: theme.colors.inkText, opacity: 0.75 }]}>
+                  {plan.committed > 0 ? `${glyph}${plan.committed.toLocaleString()} already goes to bills` : 'No regular bills added'}
+                </Text>
+              </>
+            )}
           </HeroCard>
           <Card style={{ marginTop: 12 }}>
             <PlanSplit split={plan.split} percents={plan.percents} glyph={glyph} />
@@ -534,6 +604,7 @@ export default function SetupPlanScreen() {
               <TextButton title="Add another income now" onPress={() => go(order.indexOf('income'))} style={{ alignItems: 'flex-start', paddingBottom: 0 }} />
             </Card>
           ) : null}
+          {plan.status !== 'short' ? <QuoteLine quote={pickQuote(['planning'], user?.id ?? 'plan')} style={{ marginTop: 16, marginBottom: 4 }} /> : null}
           <Card style={{ marginTop: 12, gap: 10 }}>
             {plan.tips.map((tip) => (
               <View key={tip} style={styles.tip}>
@@ -739,7 +810,7 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   input: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, minHeight: 48 },
-  inputText: { flex: 1, fontFamily: fonts.medium, fontSize: 16, paddingVertical: 10 },
+  inputText: { flex: 1, fontFamily: fonts.medium, fontSize: 16, paddingVertical: 10, letterSpacing: 0 },
   tip: { flexDirection: 'row', gap: 8 },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 14, marginTop: 12 },
   footer: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth }

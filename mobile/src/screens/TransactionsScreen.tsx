@@ -385,7 +385,7 @@ export function TransactionsScreen() {
 const styles = StyleSheet.create({
   queuedRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
   search: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 46, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, marginTop: 10 },
-  searchInput: { flex: 1, fontFamily: fonts.regular, fontSize: 15, paddingVertical: 0 },
+  searchInput: { flex: 1, fontFamily: fonts.regular, fontSize: 15, paddingVertical: 0, letterSpacing: 0 },
   filters: { flexDirection: 'row', gap: 8, marginTop: 12 },
   filter: { height: 34, paddingHorizontal: 14, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   periodRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 },

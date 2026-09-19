@@ -69,20 +69,13 @@ export async function getRememberedPushToken(): Promise<string | null> {
   return AsyncStorage.getItem(PUSH_TOKEN_KEY);
 }
 
-/** Sunday 18:00 on this phone's clock. */
-export async function scheduleWeeklyCheckIn(enabled: boolean): Promise<void> {
+/**
+ * The weekly message now comes from the server on Sundays, with real numbers (see the API's lib/weekly.ts), and
+ * follows the same "Weekly check-in" switch. This only clears the old on-phone reminder so nobody gets both.
+ */
+export async function scheduleWeeklyCheckIn(_enabled: boolean): Promise<void> {
   if (!Notifications) return;
   await Notifications.cancelScheduledNotificationAsync(WEEKLY_ID).catch(() => undefined);
-  if (!enabled) return;
-  await Notifications.scheduleNotificationAsync({
-    identifier: WEEKLY_ID,
-    content: {
-      title: 'Your week in money is ready, Boss 📊',
-      body: 'Two minutes to see how you did and set up next week.',
-      data: { screen: 'WeeklyCheckInDetail' }
-    },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: 1, hour: 18, minute: 0 }
-  });
 }
 
 const DAILY_ID = 'bf-daily-log';
@@ -101,12 +94,12 @@ export async function getDailyReminder(): Promise<DailyReminder> {
 
 // A different nudge for each day of the week (index 0 = Sunday), so the daily reminder never feels stale.
 const DAILY_COPY: Array<{ title: string; body: string }> = [
-  { title: 'Sunday check-in, Boss 🙌', body: 'How the week go? Log anything you missed before the new week starts.' },
+  { title: 'Sunday check-in 🙌', body: 'How did the week go? Log anything you missed before the new week starts.' },
   { title: 'New week, new money moves 💼', body: 'Log today’s spending so your plan stays on point.' },
-  { title: 'Boss, quick one 👋', body: 'Wetin you spend today? Two minutes to log am.' },
+  { title: 'Quick one 👋', body: 'What did you spend today? Two minutes to log it.' },
   { title: 'Midweek check ✨', body: 'Log today’s spending and see what’s still safe to spend.' },
-  { title: 'Chief, no forget o', body: 'Log today’s spending before e slip your mind.' },
-  { title: 'Na Friday o 🎉', body: 'Enjoy yourself, but log am so weekend no scatter the budget.' },
+  { title: 'Don’t forget today’s spending', body: 'Log it now before it slips your mind.' },
+  { title: 'It’s Friday 🎉', body: 'Enjoy yourself, but log what you spend so sapa doesn’t find you on Monday 😅' },
   { title: 'Saturday vibes 😎', body: 'Spent anything today? Log it quick, then relax.' }
 ];
 
@@ -166,8 +159,8 @@ export async function scheduleLocalBillReminders(items: ReminderItem[], enabled:
     await Notifications.scheduleNotificationAsync({
       identifier: `${BILL_PREFIX}${item.id}`,
       content: {
-        title: `Heads up, Boss: ${item.name} is due ${days === 1 ? 'tomorrow' : `in ${days} days`}`,
-        body: `${item.amountLabel}. Make sure the money dey ground.`,
+        title: `Heads up: ${item.name} is due ${days === 1 ? 'tomorrow' : `in ${days} days`}`,
+        body: `${item.amountLabel}. Make sure the money is ready.`,
         data: { screen: 'Recurring' }
       },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when }

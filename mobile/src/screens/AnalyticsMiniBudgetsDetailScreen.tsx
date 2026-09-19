@@ -82,7 +82,7 @@ export default function AnalyticsMiniBudgetsDetailScreen() {
       {isLoading && !data ? (
         <ActivityIndicator color={theme.colors.primary} />
       ) : items.length === 0 ? (
-        <EmptyState title="No mini budget spending yet" body="Link an expense to a mini budget and e go show here." />
+        <EmptyState title="No mini budget spending yet" body="Link an expense to a mini budget and it will show here." />
       ) : (
         <ListCard>
           {items.map(({ mini, amount }) => {

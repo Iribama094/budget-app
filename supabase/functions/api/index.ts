@@ -44,6 +44,7 @@ import { goalAddMoney, goalContributionAction, goalContributionsIndex } from './
 import { voiceTranscribe } from './routes/voice.ts';
 import { sendBusinessReminders } from './lib/business.ts';
 import { voice } from './lib/voice.ts';
+import { weeklySummary } from './lib/weekly.ts';
 
 export type Ctx = {
   req: Request;
@@ -90,8 +91,38 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
     summary.bankSync = { links: stale.length, imported, failed };
   }
 
-  // On Sundays (or on demand with ?insights=1), push each active person's most useful insight.
-  if (new Date(`${today}T12:00:00Z`).getUTCDay() === 0 || ctx.query.get('insights') === '1') {
+  const weekday = new Date(`${today}T12:00:00Z`).getUTCDay();
+
+  // Sundays (or on demand with ?weekly=1): one summary of the week for everyone active in their Personal space.
+  if (weekday === 0 || ctx.query.get('weekly') === '1') {
+    const people = await sql`
+      select distinct user_id from public.transactions
+      where space_id = 'personal' and occurred_at > now() - interval '14 days' limit 5000
+    `;
+    let sent = 0;
+    for (const { userId } of people) {
+      try {
+        const note = await weeklySummary(userId, today);
+        if (!note) continue;
+        const delivered = await notifyUser(userId, {
+          kind: 'weekly',
+          ...note,
+          data: { screen: 'WeeklyCheckInDetail' },
+          spaceId: 'personal',
+          dedupeKey: `weekly:${today}`,
+          dedupeTtlSec: 6 * 86400
+        });
+        if (delivered) sent++;
+      } catch (err) {
+        console.error('[cron] weekly summary failed', err);
+      }
+    }
+    summary.weekly = { users: people.length, sent };
+  }
+
+  // Wednesdays (or on demand with ?insights=1), push each active person's most useful insight. It moved off
+  // Sunday so it doesn't land on the same day as the weekly summary.
+  if (weekday === 3 || ctx.query.get('insights') === '1') {
     const active = await sql`select distinct user_id, space_id from public.transactions where occurred_at > now() - interval '14 days' limit 1000`;
     let sent = 0;
     for (const { userId, spaceId } of active) {

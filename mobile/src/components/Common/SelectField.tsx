@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   sheet: { maxHeight: '80%', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingTop: 20 },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12, paddingHorizontal: 4 },
   search: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 12, minHeight: 42, marginBottom: 8 },
-  searchInput: { flex: 1, fontFamily: fonts.medium, fontSize: 15, paddingVertical: 8 },
+  searchInput: { flex: 1, fontFamily: fonts.medium, fontSize: 15, paddingVertical: 8, letterSpacing: 0 },
   field: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, minHeight: 50, paddingVertical: 6 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12 }
 });

@@ -119,5 +119,5 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   label: { marginTop: 16, marginBottom: 8 },
   input: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, minHeight: 50 },
-  inputText: { flex: 1, fontFamily: fonts.medium, fontSize: 16, paddingVertical: 10 }
+  inputText: { flex: 1, fontFamily: fonts.medium, fontSize: 16, paddingVertical: 10, letterSpacing: 0 }
 });

@@ -73,7 +73,7 @@ export default function InvoicesScreen() {
           {totals.overdueCount
             ? `${hide ? '••••' : formatAmount(totals.overdue, glyph)} is overdue on ${totals.overdueCount} invoice${totals.overdueCount === 1 ? '' : 's'}. A friendly nudge usually does it.`
             : totals.owed > 0
-              ? 'Nothing overdue. You dey try 👌'
+              ? 'Nothing overdue. Nice work 👌'
               : 'All settled. Nobody owes you right now 🙌'}
         </Text>
       </HeroCard>

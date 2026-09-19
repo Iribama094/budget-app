@@ -114,6 +114,20 @@ export function blankBill(preset?: Omit<DraftBill, 'key' | 'amount' | 'dueDay'>)
   return { key: draftKey(), amount: '', dueDay: null, ...(preset ?? { name: '', category: 'Other', bucket: 'Needs', frequency: 'monthly' }) };
 }
 
+const MONTH_DAYS = 365 / 12;
+const monthlyBill = (b: BillInput) => (b.frequency === 'weekly' ? (b.amount * 52) / 12 : b.frequency === 'yearly' ? b.amount / 12 : b.amount);
+
+/**
+ * Everyday spending money per day: income minus bills minus savings, spread over an average month. Bills sit
+ * inside Needs, so Needs + Wants alone would count rent as spending money. Savings bills (like ajo) are part of
+ * the Savings split already, so they're only taken off once.
+ */
+export function everydayPerDay(plan: { monthlyIncome: number; committed: number; split: Record<Bucket, number> }, bills: BillInput[]): number {
+  const savingsBills = bills.filter((b) => b.bucket === 'Savings').reduce((s, b) => s + monthlyBill(b), 0);
+  const monthly = plan.monthlyIncome - plan.committed - Math.max(0, plan.split.Savings - savingsBills);
+  return Math.max(0, Math.floor(monthly / MONTH_DAYS / 50) * 50);
+}
+
 export function toBillInput(d: DraftBill): BillInput | null {
   const amount = parseNumberInput(d.amount);
   if (!d.name.trim() || !Number.isFinite(amount) || amount <= 0) return null;

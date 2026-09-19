@@ -11,7 +11,7 @@ import { confirmSaving, listPendingSavings, skipSaving, type PendingSaving } fro
 import { currencySymbol } from '../../utils/format';
 import { type } from '../../theme/typography';
 
-const CHEERS = ['My Oga, you’re really trying o 💪', 'Small small, the goal dey grow 🌱', 'Nice one, Boss 🎉'];
+const CHEERS = ['Well done o 💪', 'Your goal is growing 🌱', 'Nice one 🎉'];
 
 /**
  * Auto-save only suggests an amount. Nothing counts until the person says they actually moved the money,
@@ -47,7 +47,7 @@ export function PendingSavingsCard({ goalId, onAnswered }: { goalId?: string; on
         toast.show(`${CHEERS[Math.floor(Math.random() * CHEERS.length)]} ${formatAmount(res.amount, glyph)} added to ${item.goal.name}.`, 'success', 3500);
       } else {
         await skipSaving(item.id);
-        toast.show('No wahala. Next payday we go try again 👍', 'info');
+        toast.show('No wahala. We’ll try again next payday 👍', 'info');
       }
       setItems((list) => list.filter((x) => x.id !== item.id));
       onAnswered?.();

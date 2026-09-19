@@ -192,7 +192,7 @@ export default function WrappedScreen() {
                   {data.topMerchant.name}
                 </Text>
                 <Text style={[styles.line, { color: SOFT }]}>
-                  {data.topMerchant.visits} visit{data.topMerchant.visits === 1 ? '' : 's'}{hide ? '' : ` · ${formatAmount(data.topMerchant.amount, glyph)}`}. Na your favourite place be that 😄
+                  {data.topMerchant.visits} visit{data.topMerchant.visits === 1 ? '' : 's'}{hide ? '' : ` · ${formatAmount(data.topMerchant.amount, glyph)}`}. Looks like your favourite spot 😄
                 </Text>
               </>
             ) : null}

@@ -103,7 +103,7 @@ export default function InvoiceDetailScreen() {
     }
     await recordInvoicePayment(invoice.id, { amount, paidOn: payDate });
     setPayOpen(false);
-    toast.show(`Oya! ${formatAmount(amount, glyph)} from ${invoice.customerName} don land 🎉`, 'success', 3500);
+    toast.show(`Credit alert 🎉 ${formatAmount(amount, glyph)} from ${invoice.customerName}`, 'success', 3500);
     await load();
   });
 

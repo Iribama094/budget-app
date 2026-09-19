@@ -184,7 +184,8 @@ export default function ShareBudgetScreen() {
           autoCapitalize="characters"
           autoCorrect={false}
           placeholder="e.g. K7PQ2M"
-          style={{ fontFamily: fonts.display, letterSpacing: 4, fontSize: 20 }}
+          // Spaced letters make a typed code easy to check, but they'd also stretch the "e.g." hint.
+          style={code ? { fontFamily: fonts.display, letterSpacing: 4, fontSize: 20 } : undefined}
         />
         <PrimaryButton title="Join budget" onPress={join} disabled={code.length < 4} loading={joining} />
       </Card>

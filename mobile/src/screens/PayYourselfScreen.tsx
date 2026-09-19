@@ -111,7 +111,7 @@ export default function PayYourselfScreen() {
         </View>
         <Amount value={s.suggested} currency={glyph} size="hero" color={inkText} style={{ marginTop: 8 }} />
         <Text style={[type.small, { color: inkText, opacity: 0.78 }]}>
-          {s.suggested > 0 ? 'Oga at the top 😎 This keeps the business safe and still pays you.' : `Boss, e no safe to pay yourself yet. ${reason}`}
+          {s.suggested > 0 ? 'Soft life, approved 😎 This keeps the business safe and still pays you.' : `It isn’t safe to pay yourself yet. ${reason}`}
         </Text>
         {s.alreadyPaid > 0 ? <Text style={[type.caption, { color: inkText, opacity: 0.7, marginTop: 8 }]}>You’ve already paid yourself {formatAmount(s.alreadyPaid, glyph)} this month.</Text> : null}
       </HeroCard>

@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   label: { marginTop: 16, marginBottom: 8 },
   input: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, minHeight: 50 },
-  inputText: { flex: 1, fontFamily: fonts.display, fontSize: 22, paddingVertical: 10 },
+  inputText: { flex: 1, fontFamily: fonts.display, fontSize: 22, paddingVertical: 10, letterSpacing: 0 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { height: 34, paddingHorizontal: 12, borderRadius: 17, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth }

@@ -28,6 +28,8 @@ import { useToast } from '../components/Common/Toast';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { haptic } from '../lib/haptics';
+import { pickQuote } from '../lib/quotes';
+import { QuoteLine } from '../components/Common/QuoteLine';
 import { useSpace } from '../contexts/SpaceContext';
 import { currencySymbol, formatNumberInput, formatShortDate } from '../utils/format';
 import { type as typo } from '../theme/typography';
@@ -201,7 +203,7 @@ export default function GoalDetailScreen() {
           : before < 0.5 && after >= 0.5
             ? `Halfway to ${goal.name} 🔥 ${formatAmount(Math.max(0, goal.targetAmount - result.goal.currentAmount), glyph)} to go.`
             : recordInBudget
-              ? `Small small, e go full 🌱 ${formatAmount(result.amount, glyph)} added to ${goal.name} and counted under Savings.`
+              ? `${formatAmount(result.amount, glyph)} added to ${goal.name} and counted under Savings 🌱`
               : `${formatAmount(result.amount, glyph)} added to ${goal.name} 💪`,
         'success',
         4000
@@ -311,14 +313,16 @@ export default function GoalDetailScreen() {
 
             <Text style={[typo.caption, { color: inkText, opacity: 0.7, marginTop: 12 }]}>
               {done
-                ? 'Oga at the top 🎉 You hit your target. Enjoy am!'
+                ? 'You hit your target 🎉 E choke!'
                 : daysRemaining == null
-                  ? 'Keep adding small small, e go full.'
+                  ? 'Keep adding a little at a time. It adds up.'
                   : daysRemaining > 0
-                    ? `${formatShortDate(goal.targetDate)} · ${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left. You fit do am 💪`
-                    : `The target date (${formatShortDate(goal.targetDate)}) don pass. Tap the pencil to pick a new one.`}
+                    ? `${formatShortDate(goal.targetDate)} · ${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left. You can do this 💪`
+                    : `The target date (${formatShortDate(goal.targetDate)}) has passed. Tap the pencil to pick a new one.`}
             </Text>
           </HeroCard>
+
+          {done ? <QuoteLine quote={pickQuote(['saving', 'patience'], goal.id)} style={{ marginTop: 16 }} /> : null}
 
           {!done ? <PrimaryButton title="Add money" onPress={openAddMoney} iconLeft={<Plus color={theme.colors.onPrimary} size={18} />} style={{ marginTop: 14 }} /> : null}
 

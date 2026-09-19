@@ -153,7 +153,7 @@ export default function BillsScreen() {
           {totals.overdueCount
             ? `${totals.overdueCount} bill${totals.overdueCount === 1 ? ' is' : 's are'} past due. Sort it before the supplier starts calling 😅`
             : totals.dueThisWeek > 0
-              ? `${hide ? '••••' : formatAmount(totals.dueThisWeek, glyph)} is due in the next 7 days. Make sure the money dey ground.`
+              ? `${hide ? '••••' : formatAmount(totals.dueThisWeek, glyph)} is due in the next 7 days. Make sure the money is ready.`
               : totals.owe > 0
                 ? 'Nothing due this week. You’re in control 👌'
                 : 'No open bills. Clean slate 🙌'}
