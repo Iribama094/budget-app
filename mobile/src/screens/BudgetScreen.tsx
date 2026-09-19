@@ -1,17 +1,41 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator, Switch, Modal, TouchableOpacity, ScrollView, Animated, useWindowDimensions, FlatList } from 'react-native';
+import { getPlan, type ApiPlan } from '../api/personal';
+import { bucketDescription, bucketDisplayName, normalizeBucket, type Bucket } from '../theme/buckets';
+import { View, Text, Pressable, ActivityIndicator, Modal, ScrollView, Animated, useWindowDimensions, FlatList, TextInput, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import Slider from '@react-native-community/slider';
-
-import { createBudget, listBudgets, listTransactions, patchBudget, patchBudgetInSpace, calcTax, type ApiBudget, type ApiTransaction } from '../api/endpoints';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Plus, Eye, EyeOff, ChevronLeft } from 'lucide-react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { createBudget, listBudgets, listTransactions, patchBudget, patchBudgetInSpace, calcTax, type ApiBudget, type ApiTransaction, type BudgetPurpose } from '../api/endpoints';
+import { ArrowRightLeft, CalendarDays, Check, ChevronLeft, ChevronRight, Eye, EyeOff, Minus, PartyPopper, Plus, Users, X } from 'lucide-react-native';
+import { applyRollover, getRollover, type RolloverPreview } from '../api/features';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Card, InlineError, P, PrimaryButton, SecondaryButton, Screen, TextField, H1 } from '../components/Common/ui';
-import { formatMoney, toIsoDate, toIsoDateTime } from '../utils/format';
-import { tokens } from '../theme/tokens';
+import {
+  Amount,
+  Card,
+  Chip,
+  EmptyState,
+  IconButton,
+  IconTile,
+  InlineError,
+  ListCard,
+  ListRow,
+  PrimaryButton,
+  ProgressBar,
+  Screen,
+  ScreenHeader,
+  SecondaryButton,
+  SectionHeader,
+  SegmentedControl,
+  Skeleton,
+  formatAmount
+} from '../components/Common/ui';
+import { TextField } from '../components/Common/ui';
+import { SelectField } from '../components/Common/SelectField';
+import { KeyboardAwareScrollView, KeyboardStickyView } from 'react-native-keyboard-controller';
+import { currencySymbol, formatMoney, monthName, toIsoDate, toIsoDateTime } from '../utils/format';
+import { bucketColor } from '../theme/theme';
+import { fonts, type } from '../theme/typography';
 import { useToast } from '../components/Common/Toast';
 import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
 import { useSpace } from '../contexts/SpaceContext';
@@ -19,6 +43,13 @@ import { SpaceSwitcher } from '../components/Common/SpaceSwitcher';
 import { useTour, useTourAnchor } from '../contexts/TourContext';
 import { useNudges } from '../contexts/NudgesContext';
 import { NudgeTooltip } from '../components/Common/NudgeTooltip';
+
+/** One model for every use case: your own plan, a household budget you share every month, or a one-off event or trip. */
+const PURPOSE_OPTIONS: Array<{ value: BudgetPurpose; label: string; subtitle: string }> = [
+  { value: 'personal', label: 'My monthly plan', subtitle: 'Your own budget for the month or pay period' },
+  { value: 'household', label: 'Shared household', subtitle: 'With a partner, family or housemates; repeats every month' },
+  { value: 'event', label: 'Event or trip', subtitle: 'A one-off like a wedding, trip or burial; runs alongside your plan' }
+];
 
 export function BudgetScreen() {
   const { user } = useAuth();
@@ -36,14 +67,7 @@ export function BudgetScreen() {
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
   const bucketLabel = useCallback(
     (key: string) => {
-      if (!isBusiness) return key;
-      if (key === 'Essential') return 'Operating Costs';
-      if (key === 'Savings') return 'Reserves';
-      if (key === 'Free Spending') return 'Discretionary';
-      if (key === 'Investments') return 'Growth';
-      if (key === 'Miscellaneous') return 'Misc Ops';
-      if (key === 'Debt Financing') return 'Loans & Credit';
-      return key;
+      return bucketDisplayName(key, isBusiness);
     },
     [isBusiness]
   );
@@ -117,17 +141,22 @@ export function BudgetScreen() {
   const [endMonthSel, setEndMonthSel] = useState<number>(now.getMonth());
   const [endYearSel, setEndYearSel] = useState<number>(now.getFullYear());
 
+  // The saved plan sets payday-to-payday dates and the smart split.
+  const [plan, setPlan] = useState<ApiPlan | null>(null);
+  const [payRange, setPayRange] = useState<{ start: string; end: string; label: string } | null>(null);
+
   const [showStartMonthPicker, setShowStartMonthPicker] = useState(false);
   const [showStartYearPicker, setShowStartYearPicker] = useState(false);
   const [showEndMonthPicker, setShowEndMonthPicker] = useState(false);
   const [showEndYearPicker, setShowEndYearPicker] = useState(false);
 
   const durationMonths = useMemo(() => {
+    if (payRange) return 1;
     const s = new Date(startYearSel, startMonthSel, 1);
     const e = new Date(endYearSel, endMonthSel, 1);
     const months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()) + 1;
     return Math.max(1, months);
-  }, [startMonthSel, startYearSel, endMonthSel, endYearSel]);
+  }, [payRange, startMonthSel, startYearSel, endMonthSel, endYearSel]);
 
   const [timeframe, setTimeframe] = useState<'daily' | 'weekly' | 'monthly'>(durationMonths > 1 ? 'monthly' : 'weekly');
 
@@ -173,22 +202,24 @@ export function BudgetScreen() {
     setTotalBudget(intPart);
   };
   const [period, setPeriod] = useState<'monthly' | 'weekly'>('monthly');
+  const [purpose, setPurpose] = useState<BudgetPurpose>('personal');
+  const [budgetTitle, setBudgetTitle] = useState('');
 
   // Category selection & percentages (including Debt Financing)
   // Only preselect core categories, not all
   const [includeEssential, setIncludeEssential] = useState(true);
-  const [includeSavings, setIncludeSavings] = useState(false);
-  const [includeFree, setIncludeFree] = useState(false);
+  const [includeSavings, setIncludeSavings] = useState(true);
+  const [includeFree, setIncludeFree] = useState(true);
   const [includeInvestments, setIncludeInvestments] = useState(false);
   const [includeMisc, setIncludeMisc] = useState(false);
   const [includeDebt, setIncludeDebt] = useState(false);
 
-  const [essentialPct, setEssentialPct] = useState<number>(45);
-  const [savingsPct, setSavingsPct] = useState<number>(15);
-  const [freePct, setFreePct] = useState<number>(15);
-  const [investmentsPct, setInvestmentsPct] = useState<number>(15);
-  const [miscPct, setMiscPct] = useState<number>(5);
-  const [debtPct, setDebtPct] = useState<number>(5);
+  const [essentialPct, setEssentialPct] = useState<number>(50);
+  const [savingsPct, setSavingsPct] = useState<number>(20);
+  const [freePct, setFreePct] = useState<number>(30);
+  const [investmentsPct, setInvestmentsPct] = useState<number>(0);
+  const [miscPct, setMiscPct] = useState<number>(0);
+  const [debtPct, setDebtPct] = useState<number>(0);
 
   // Multi-step wizard for budget setup
   const [setupStep, setSetupStep] = useState<1 | 2 | 3 | 4>(1);
@@ -200,6 +231,10 @@ export function BudgetScreen() {
   const [showLegend, setShowLegend] = useState(true);
 
   const [smartBalanceEnabled, setSmartBalanceEnabled] = useState(false);
+
+  useEffect(() => {
+    getPlan().then(setPlan).catch(() => setPlan(null));
+  }, [showSetup]);
 
   const parsedTotal = useMemo(() => {
     const n = Number(totalBudget.replace(/,/g, ''));
@@ -335,7 +370,18 @@ export function BudgetScreen() {
         cursor = res.nextCursor ?? null;
       } while (cursor);
 
-      const map: Record<string, { income: number; expenses: number; spentByCategory: Record<string, number> }> = {};
+      type Tally = { income: number; expenses: number; spentByCategory: Record<string, number> };
+      const tally = (entry: Tally, t: ApiTransaction) => {
+        if (t.type === 'income') {
+          entry.income += t.amount;
+          return;
+        }
+        entry.expenses += t.amount;
+        const cat = (t.budgetCategory || (t as any).category || '').trim();
+        if (cat) entry.spentByCategory[cat] = (entry.spentByCategory[cat] ?? 0) + t.amount;
+      };
+
+      const map: Record<string, Tally> = {};
       for (const b of items) {
         map[String(b.id)] = { income: 0, expenses: 0, spentByCategory: {} };
       }
@@ -343,15 +389,32 @@ export function BudgetScreen() {
       for (const t of all) {
         const bid = t.budgetId ? String(t.budgetId) : '';
         if (!bid || !map[bid]) continue;
+        tally(map[bid], t);
+      }
 
-        if (t.type === 'income') {
-          map[bid].income += t.amount;
-          continue;
-        }
-
-        map[bid].expenses += t.amount;
-        const cat = (t.budgetCategory || (t as any).category || '').trim();
-        if (cat) map[bid].spentByCategory[cat] = (map[bid].spentByCategory[cat] ?? 0) + t.amount;
+      // A shared budget also counts other members' transactions, which only come back when filtering by that budget.
+      for (const b of items.filter((x) => x.isShared)) {
+        const r = getBudgetRange(b);
+        if (!r) continue;
+        const start = new Date(r.start);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(r.end);
+        end.setHours(23, 59, 59, 999);
+        const entry: Tally = { income: 0, expenses: 0, spentByCategory: {} };
+        let sharedCursor: string | null = null;
+        do {
+          const res = await listTransactions({
+            start: toIsoDateTime(start),
+            end: toIsoDateTime(end),
+            limit: 200,
+            cursor: sharedCursor ?? undefined,
+            budgetId: String(b.id),
+            spaceId: spacesEnabled ? activeSpaceId : undefined
+          });
+          for (const t of res.items || []) tally(entry, t);
+          sharedCursor = res.nextCursor ?? null;
+        } while (sharedCursor);
+        map[String(b.id)] = entry;
       }
 
       setBudgetTxByBudgetId(map);
@@ -431,12 +494,13 @@ export function BudgetScreen() {
       return Math.max(0, base || 0);
     };
 
-    const valEssential = getVal('Essential');
-    const valSavings = getVal('Savings');
-    const valFree = getVal('Free Spending');
-    const valInvestments = getVal('Investments');
-    const valMisc = getVal('Miscellaneous');
-    const valDebt = getVal('Debt Financing');
+    const sumBucket = (bucket: Bucket) => Object.keys(cats).filter((k) => normalizeBucket(k) === bucket).reduce((sum, k) => sum + getVal(k), 0);
+    const valEssential = sumBucket('Needs');
+    const valSavings = sumBucket('Savings');
+    const valFree = sumBucket('Wants');
+    const valInvestments = 0;
+    const valMisc = 0;
+    const valDebt = 0;
 
     const total = valEssential + valSavings + valFree + valInvestments + valMisc + valDebt;
     if (!total || total <= 0) return;
@@ -495,6 +559,9 @@ export function BudgetScreen() {
       setStartYearSel(start.getFullYear());
       setEndMonthSel(end.getMonth());
       setEndYearSel(end.getFullYear());
+      setPayRange(start.getDate() !== 1 && b.endDate ? { start: b.startDate, end: b.endDate, label: b.name.replace(/^My Budget \((.*)\)$/, '$1') } : null);
+      setPurpose(b.purpose ?? 'personal');
+      setBudgetTitle(/^My Budget \(/.test(b.name) ? '' : b.name);
       setPeriod(b.period);
       setTotalBudget(String(Math.round(b.totalBudget)).replace(/\B(?=(\d{3})+(?!\d))/g, ','));
 
@@ -507,12 +574,13 @@ export function BudgetScreen() {
         return Math.round((c.budgeted / total) * 100);
       };
 
-      const ePct = getPct('Essential');
-      const sPct = getPct('Savings');
-      const fPct = getPct('Free Spending');
-      const iPct = getPct('Investments');
-      const mPct = getPct('Miscellaneous');
-      const dPct = getPct('Debt Financing');
+      const pctFor = (bucket: Bucket) => Object.keys(cats).filter((k) => normalizeBucket(k) === bucket).reduce((sum, k) => sum + getPct(k), 0);
+      const ePct = pctFor('Needs');
+      const sPct = pctFor('Savings');
+      const fPct = pctFor('Wants');
+      const iPct = 0;
+      const mPct = 0;
+      const dPct = 0;
 
       setIncludeEssential(ePct > 0);
       setIncludeSavings(sPct > 0);
@@ -534,6 +602,15 @@ export function BudgetScreen() {
     },
     [parseIsoDateLocal]
   );
+
+  // Home can open the setup straight away, e.g. "Create your budget" from the plan.
+  useEffect(() => {
+    if (!route.params?.startNew || showSetup) return;
+    const requested = route.params?.purpose as BudgetPurpose | undefined;
+    (nav as any).setParams?.({ startNew: undefined, purpose: undefined });
+    openNewBudget(requested);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.params?.startNew]);
 
   // Allow other screens to jump straight into the edit flow.
   useEffect(() => {
@@ -569,17 +646,15 @@ export function BudgetScreen() {
       const miscAmt = Math.round((gross * miscPct) / 100);
       const debtAmt = Math.round((gross * debtPct) / 100);
 
-      if (includeEssential && essentialAmt > 0) categories['Essential'] = { budgeted: essentialAmt };
-      if (includeSavings && savingsAmt > 0) categories['Savings'] = { budgeted: savingsAmt };
-      if (includeFree && freeAmt > 0) categories['Free Spending'] = { budgeted: freeAmt };
-      if (includeInvestments && investmentsAmt > 0) categories['Investments'] = { budgeted: investmentsAmt };
-      if (includeMisc && miscAmt > 0) categories['Miscellaneous'] = { budgeted: miscAmt };
-      if (includeDebt && debtAmt > 0) categories['Debt Financing'] = { budgeted: debtAmt };
+      if (includeEssential) categories.Needs = { budgeted: essentialAmt };
+      if (includeFree) categories.Wants = { budgeted: freeAmt };
+      if (includeSavings) categories.Savings = { budgeted: savingsAmt };
 
-      const startDateObj = new Date(startYearSel, startMonthSel, 1);
-      const endDateObj = new Date(endYearSel, endMonthSel + 1, 0);
+      const startDateObj = payRange ? new Date(`${payRange.start}T12:00:00`) : new Date(startYearSel, startMonthSel, 1);
+      const endDateObj = payRange ? new Date(`${payRange.end}T12:00:00`) : new Date(endYearSel, endMonthSel + 1, 0);
 
       const nameForBudget = (() => {
+        if (payRange) return `My Budget (${payRange.label})`;
         if (startYearSel === endYearSel && startMonthSel === endMonthSel) {
           return `My Budget (${MONTHS[startMonthSel]} ${startYearSel})`;
         }
@@ -590,12 +665,13 @@ export function BudgetScreen() {
       })();
 
       const baseInput = {
-        name: nameForBudget,
+        name: purpose !== 'personal' && budgetTitle.trim() ? budgetTitle.trim() : purpose === 'household' ? 'Household budget' : nameForBudget,
         totalBudget: parsedTotal,
         period,
         startDate: toIsoDate(startDateObj),
         endDate: toIsoDate(endDateObj),
-        categories
+        categories,
+        purpose: isBusiness ? ('personal' as BudgetPurpose) : purpose
       };
 
       const created = editingBudgetId
@@ -607,13 +683,18 @@ export function BudgetScreen() {
             ...(spacesEnabled ? { spaceId: activeSpaceId } : {})
           });
       setBudget(created);
+      // A new shared budget is only useful once people are in it.
+      if (!editingBudgetId && purpose === 'household' && created && !created.isShared) {
+        toast.show('Shared budget created. Now invite your people 👇', 'success', 3500);
+        (nav as any).navigate('ShareBudget', { budgetId: String(created.id), budgetName: created.name });
+      }
       setEditingBudgetId(null);
       // reload list after creation
       await load();
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to save budget';
-      if (/Budget dates overlap an existing budget/i.test(message)) {
-        toast.show('A budget already exists for that timeline.', 'error', 3500);
+      if (/overlap an existing budget|already covers those dates/i.test(message)) {
+        toast.show(purpose === 'household' ? 'You already have a shared budget for those dates.' : 'A budget already exists for that timeline.', 'error', 3500);
         return;
       }
       setError(message);
@@ -639,7 +720,7 @@ export function BudgetScreen() {
 
   const remaining = useMemo(() => {
     if (!budget) return 0;
-    return Math.max(0, effectiveTotal - used);
+    return effectiveTotal - used;
   }, [budget, effectiveTotal, used]);
 
   const progress = useMemo(() => {
@@ -671,833 +752,886 @@ export function BudgetScreen() {
     }
   };
 
-  const headerTitle = showSetup ? (editingBudgetId ? 'Edit Budget' : 'Budget Setup') : 'Your Budgets';
+  const insets = useSafeAreaInsets();
+  const glyph = currencySymbol(currency);
+  const hide = !showAmounts;
+  const [preset, setPreset] = useState<'smart' | 'history' | 'custom'>('custom');
+  const [expandedBucket, setExpandedBucket] = useState<string | null>('Needs');
+  const [monthSheet, setMonthSheet] = useState<null | 'start' | 'end'>(null);
+  const [sheetYear, setSheetYear] = useState(now.getFullYear());
+  const [rolloverFor, setRolloverFor] = useState<{ budget: ApiBudget; preview: RolloverPreview } | null>(null);
+  const [rolloverSheet, setRolloverSheet] = useState(false);
+  const [rollingOver, setRollingOver] = useState(false);
+
+  // Offer to move leftover money from the most recent budget that has ended.
+  useEffect(() => {
+    const today = toIsoDate(new Date());
+    const candidate = budgetsSorted.find((b) => b.role !== 'member' && !b.rollover && (getBudgetRange(b)?.endIso ?? today) < today);
+    if (!candidate) {
+      setRolloverFor(null);
+      return;
+    }
+    let cancelled = false;
+    getRollover(String(candidate.id))
+      .then((preview) => !cancelled && setRolloverFor(preview.eligible ? { budget: candidate, preview } : null))
+      .catch(() => !cancelled && setRolloverFor(null));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [budgetsSorted]);
+
+  const doRollover = async (body: { destination: 'goal'; goalId: string } | { destination: 'next-budget' }) => {
+    if (!rolloverFor || rollingOver) return;
+    setRollingOver(true);
+    try {
+      const r = await applyRollover(String(rolloverFor.budget.id), body);
+      toast.show(`${formatAmount(r.moved, glyph)} moved`, 'success');
+      setRolloverSheet(false);
+      setRolloverFor(null);
+      await load();
+    } catch (err) {
+      toast.show(err instanceof Error ? err.message : 'Could not move the money.', 'error');
+    } finally {
+      setRollingOver(false);
+    }
+  };
+
+  // The setup flow is full screen: hide the tab bar while it's open.
+  useEffect(() => {
+    (nav as any).setOptions?.({ tabBarStyle: showSetup ? { display: 'none' } : undefined });
+  }, [nav, showSetup]);
+
+  const openNewBudget = (nextPurpose: BudgetPurpose = 'personal') => {
+    setPurpose(nextPurpose);
+    setBudgetTitle('');
+    setShowSetup(true);
+    setSetupStep(1);
+    setBudget(null);
+    setEditingBudgetId(null);
+    const onPayday = plan?.period?.basis === 'payday';
+    setPayRange(onPayday && plan ? { start: plan.period.start, end: plan.period.end, label: plan.period.label } : null);
+    const suggested = plan && plan.monthlyIncome > 0 ? Math.round((plan.monthlyIncome * (onPayday ? plan.period.days / (365 / 12) : 1)) / 100) * 100 : 0;
+    setTotalBudget(suggested ? String(suggested).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '');
+    setStartMonthSel(now.getMonth());
+    setStartYearSel(now.getFullYear());
+    setEndMonthSel(now.getMonth());
+    setEndYearSel(now.getFullYear());
+    setPreset('custom');
+  };
+
+  const closeSetup = () => {
+    setShowSetup(false);
+    setSetupStep(1);
+    setEditingBudgetId(null);
+  };
+
+  const markCustom = () => {
+    setAllocTouched(true);
+    setPreset('custom');
+  };
+
+  const bucketDefs = [
+    { key: 'Needs', desc: bucketDescription('Needs', isBusiness), include: includeEssential, setInclude: setIncludeEssential, pct: essentialPct, setPct: setEssentialPct },
+    { key: 'Wants', desc: bucketDescription('Wants', isBusiness), include: includeFree, setInclude: setIncludeFree, pct: freePct, setPct: setFreePct },
+    { key: 'Savings', desc: bucketDescription('Savings', isBusiness), include: includeSavings, setInclude: setIncludeSavings, pct: savingsPct, setPct: setSavingsPct }
+  ];
+
+  const applySmartBalance = () => {
+    // Use the split from the person's plan when there is one; otherwise the 50/30/20 guide.
+    const fromPlan = plan && plan.monthlyIncome > 0 ? plan.percents : null;
+    const needs = Math.min(100, fromPlan ? fromPlan.Needs : 50);
+    const savings = Math.min(100 - needs, fromPlan ? fromPlan.Savings : durationMonths <= 1 ? 20 : 25);
+    const wants = Math.max(0, 100 - needs - savings);
+    setIncludeEssential(true);
+    setIncludeSavings(savings > 0);
+    setIncludeFree(wants > 0);
+    setIncludeInvestments(false);
+    setIncludeMisc(false);
+    setIncludeDebt(false);
+    setEssentialPct(needs);
+    setSavingsPct(savings);
+    setFreePct(wants);
+    setInvestmentsPct(0);
+    setMiscPct(0);
+    setDebtPct(0);
+    setAllocTouched(true);
+    setSmartBalanceEnabled(true);
+    setPreset('smart');
+  };
+
+  const startDateSel = new Date(startYearSel, startMonthSel, 1);
+  const endDateSel = new Date(endYearSel, endMonthSel, 1);
+  const datesInvalid = endDateSel < startDateSel;
+  const periodName = payRange
+    ? payRange.label
+    : durationMonths > 1 ? `${monthName(startMonthSel)} – ${monthName(endMonthSel)} ${endYearSel}` : `${monthName(startMonthSel, true)} ${startYearSel}`;
+  const unassignedPct = 100 - Math.round(allocatedPercent);
+  const unassignedAmount = Number.isFinite(parsedTotal) ? Math.round((parsedTotal * unassignedPct) / 100) : 0;
+
+  const applyQuickRange = (offset: number, months: number) => {
+    setPayRange(null);
+    const s = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+    const e = new Date(s.getFullYear(), s.getMonth() + months - 1, 1);
+    setStartMonthSel(s.getMonth());
+    setStartYearSel(s.getFullYear());
+    setEndMonthSel(e.getMonth());
+    setEndYearSel(e.getFullYear());
+  };
+
+  const nextDisabled =
+    (setupStep === 1 && (datesInvalid || (purpose === 'event' && !budgetTitle.trim()))) ||
+    (setupStep === 2 && (!Number.isFinite(parsedTotal) || parsedTotal <= 0)) ||
+    ((setupStep === 3 || setupStep === 4) && !canSave);
+
+  const displayName = (b: ApiBudget) => {
+    if (!/^My Budget \(/.test(b.name)) return b.name;
+    const r = getBudgetRange(b);
+    if (!r) return b.name;
+    const s = r.start;
+    const e = r.end;
+    if (s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth()) return `${monthName(s.getMonth(), true)} ${s.getFullYear()}`;
+    if (s.getFullYear() === e.getFullYear()) return `${monthName(s.getMonth())} – ${monthName(e.getMonth())} ${s.getFullYear()}`;
+    return `${monthName(s.getMonth())} ${s.getFullYear()} – ${monthName(e.getMonth())} ${e.getFullYear()}`;
+  };
+
+  /* ------------------------------------------------------------ setup flow */
+  if (showSetup) {
+    return (
+      <Screen scrollable={false} style={{ paddingHorizontal: 0 }}>
+        <View style={{ paddingHorizontal: 20 }}>
+          <View style={styles.setupHeader}>
+            <IconButton accessibilityLabel="Cancel" onPress={closeSetup}>
+              <X color={theme.colors.text} size={20} />
+            </IconButton>
+            <Text style={[type.bodyStrong, { color: theme.colors.text, fontSize: 16 }]}>{editingBudgetId ? 'Edit budget' : 'New budget'}</Text>
+            <Text style={[type.caption, { color: theme.colors.textMuted, width: 40, textAlign: 'right' }]}>{setupStep} of 4</Text>
+          </View>
+          <View style={styles.steps}>
+            {[1, 2, 3, 4].map((n) => (
+              <View key={n} style={[styles.step, { backgroundColor: n <= setupStep ? theme.colors.primary : theme.colors.border }]} />
+            ))}
+          </View>
+        </View>
+
+        <KeyboardAwareScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          bottomOffset={96}
+        >
+          {error ? <InlineError message={error} /> : null}
+
+          {setupStep === 1 ? (
+            <>
+              {!isBusiness ? (
+                <>
+                  <SelectField label="What’s this budget for?" value={purpose} options={PURPOSE_OPTIONS} onChange={setPurpose} />
+                  {purpose !== 'personal' ? (
+                    <TextField
+                      label={purpose === 'event' ? 'Name it' : 'Name (optional)'}
+                      value={budgetTitle}
+                      onChangeText={setBudgetTitle}
+                      placeholder={purpose === 'event' ? 'e.g. Ada’s wedding, Easter trip' : 'e.g. Home budget, Flat 4B'}
+                      maxLength={60}
+                    />
+                  ) : null}
+                </>
+              ) : null}
+              <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Dates</Text>
+              <Text style={[type.h2, { color: theme.colors.text, marginTop: 6 }]}>When does this budget run?</Text>
+              <View style={styles.wrap}>
+                {plan?.period?.basis === 'payday' ? (
+                  <Pressable
+                    onPress={() => setPayRange({ start: plan.period.start, end: plan.period.end, label: plan.period.label })}
+                    style={[styles.chip, { backgroundColor: payRange ? theme.colors.primarySoft : theme.colors.surface, borderColor: payRange ? theme.colors.primary : theme.colors.border }]}
+                  >
+                    <Text style={[type.smallStrong, { color: payRange ? theme.colors.primary : theme.colors.text }]}>Payday to payday · {plan.period.label}</Text>
+                  </Pressable>
+                ) : null}
+                {[
+                  { label: 'This month', offset: 0, months: 1 },
+                  { label: 'Next month', offset: 1, months: 1 },
+                  { label: 'Next 3 months', offset: 0, months: 3 }
+                ].map((q) => (
+                  <Pressable key={q.label} onPress={() => applyQuickRange(q.offset, q.months)} style={[styles.chip, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                    <Text style={[type.smallStrong, { color: theme.colors.text }]}>{q.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              {payRange ? (
+                <Card style={{ marginTop: 16 }}>
+                  <Text style={[type.bodyStrong, { color: theme.colors.text }]}>{payRange.label}</Text>
+                  <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 4 }]}>From your last payday to the day before the next one, so the money you get lasts the whole way.</Text>
+                </Card>
+              ) : (
+                <ListCard style={{ marginTop: 16 }}>
+                <ListRow
+                  icon={<CalendarDays color={theme.colors.textMuted} size={18} />}
+                  title={`${monthName(startMonthSel, true)} ${startYearSel}`}
+                  subtitle="Starts"
+                  onPress={() => {
+                    setSheetYear(startYearSel);
+                    setMonthSheet('start');
+                  }}
+                  chevron
+                />
+                <ListRow
+                  icon={<CalendarDays color={theme.colors.textMuted} size={18} />}
+                  title={`${monthName(endMonthSel, true)} ${endYearSel}`}
+                  subtitle="Ends"
+                  onPress={() => {
+                    setSheetYear(endYearSel);
+                    setMonthSheet('end');
+                  }}
+                  chevron
+                />
+              </ListCard>
+              )}
+              <Text style={[type.small, { color: datesInvalid ? theme.colors.error : theme.colors.textMuted, marginTop: 10 }]}>
+                {datesInvalid ? 'The end month must be the same as or after the start month.' : `${durationMonths} month${durationMonths === 1 ? '' : 's'} · ${periodName}`}
+              </Text>
+            </>
+          ) : null}
+
+          {setupStep === 2 ? (
+            <>
+              <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Amount</Text>
+              <Text style={[type.h2, { color: theme.colors.text, marginTop: 6 }]}>How much can you spend in {periodName}?</Text>
+              <View style={[styles.bigInput, { borderColor: theme.colors.primary, backgroundColor: theme.colors.surface }]}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 24, color: theme.colors.textMuted }}>{glyph}</Text>
+                <TextInput
+                  value={totalBudget}
+                  onChangeText={handleTotalBudgetChange}
+                  keyboardType="number-pad"
+                  placeholder="0"
+                  placeholderTextColor={theme.colors.textMuted}
+                  autoFocus
+                  style={[styles.bigInputText, { color: theme.colors.text }]}
+                  accessibilityLabel="Total budget"
+                />
+              </View>
+              <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 10 }]}>
+                {perMonthTotal != null ? `About ${formatAmount(Math.round(perMonthTotal), glyph)} a month across ${durationMonths} months.` : 'Everything you plan to spend or set aside this month.'}
+              </Text>
+              {user?.monthlyIncome ? (
+                <Pressable
+                  onPress={() => handleTotalBudgetChange(String(Math.round((user.monthlyIncome ?? 0) * durationMonths)))}
+                  style={[styles.chip, { alignSelf: 'flex-start', marginTop: 12, backgroundColor: theme.colors.primarySoft, borderColor: theme.colors.primarySoft }]}
+                >
+                  <Text style={[type.smallStrong, { color: theme.colors.primary }]}>
+                    Use my income · {formatAmount(Math.round((user.monthlyIncome ?? 0) * durationMonths), glyph)}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </>
+          ) : null}
+
+          {setupStep === 3 ? (
+            <>
+              <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Allocate</Text>
+              <Text style={[type.h2, { color: theme.colors.text, marginTop: 6 }]}>
+                Split {formatAmount(Number.isFinite(parsedTotal) ? parsedTotal : 0, glyph)} across {periodName}
+              </Text>
+
+              <View style={[styles.allocBar, { backgroundColor: theme.colors.surfaceAlt }]}>
+                {bucketDefs
+                  .filter((b) => b.include && b.pct > 0)
+                  .map((b) => (
+                    <View key={b.key} style={{ width: `${Math.min(100, b.pct)}%`, backgroundColor: bucketColor(theme, b.key) }} />
+                  ))}
+              </View>
+              <View style={[styles.rowBetween, { marginTop: 10 }]}>
+                {unassignedPct === 0 ? (
+                  <Chip tone="positive" label="100% allocated" icon={<Check color={theme.colors.success} size={12} strokeWidth={3} />} />
+                ) : unassignedPct > 0 ? (
+                  <Chip tone="brass" label={`${unassignedPct}% left to assign`} />
+                ) : (
+                  <Chip tone="negative" label={`${Math.abs(unassignedPct)}% over`} />
+                )}
+                <Text style={[type.caption, { color: theme.colors.textMuted }]}>
+                  {unassignedPct >= 0 ? `${formatAmount(unassignedAmount, glyph)} unassigned` : `Reduce a bucket by ${formatAmount(Math.abs(unassignedAmount), glyph)}`}
+                </Text>
+              </View>
+
+              <SegmentedControl
+                options={[
+                  { key: 'smart', label: 'Smart balance' },
+                  ...(previousBudget ? [{ key: 'history' as const, label: 'Like last time' }] : []),
+                  { key: 'custom', label: 'Custom' }
+                ]}
+                value={preset}
+                onChange={(k) => {
+                  if (k === 'smart') applySmartBalance();
+                  else if (k === 'history') {
+                    applyHistoryPreset();
+                    setPreset('history');
+                  } else setPreset('custom');
+                }}
+                style={{ marginTop: 18 }}
+              />
+              <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 8 }]}>
+                {preset === 'smart'
+                  ? plan && plan.monthlyIncome > 0
+                    ? 'Uses the Needs, Wants and Savings split from your plan. Tap a bucket to fine-tune it.'
+                    : 'Half for needs, 30% for wants and 20% for savings. Tap a bucket to fine-tune it.'
+                  : preset === 'history'
+                    ? 'Based on how you actually spent in your last budget.'
+                    : 'Tick the buckets you want, then tap one to set its share.'}
+              </Text>
+
+              <Card style={{ marginTop: 14, paddingVertical: 4 }}>
+                {bucketDefs.map((b, idx) => {
+                  const color = bucketColor(theme, b.key);
+                  const amountFor = Number.isFinite(parsedTotal) ? Math.round((parsedTotal * b.pct) / 100) : 0;
+                  const expanded = expandedBucket === b.key && b.include;
+                  return (
+                    <View key={b.key} style={[styles.bucket, idx > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border }]}>
+                      <Pressable
+                        onPress={() => {
+                          if (!b.include) {
+                            b.setInclude(true);
+                            markCustom();
+                          }
+                          setExpandedBucket(expanded ? null : b.key);
+                        }}
+                        style={styles.row}
+                        accessibilityRole="button"
+                        accessibilityHint="Adjust this bucket's share"
+                      >
+                        <Pressable
+                          onPress={() => {
+                            b.setInclude(!b.include);
+                            markCustom();
+                          }}
+                          hitSlop={10}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: b.include }}
+                          accessibilityLabel={`Include ${bucketLabel(b.key)}`}
+                          style={[styles.check, { borderColor: b.include ? color : theme.colors.border, backgroundColor: b.include ? color : 'transparent' }]}
+                        >
+                          {b.include ? <Check color="#FFFFFF" size={13} strokeWidth={3} /> : null}
+                        </Pressable>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={[type.bodyStrong, { color: b.include ? theme.colors.text : theme.colors.textMuted }]}>{bucketLabel(b.key)}</Text>
+                          <Text numberOfLines={1} style={[type.caption, { color: theme.colors.textMuted }]}>
+                            {b.desc}
+                          </Text>
+                        </View>
+                        {b.include ? (
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Amount value={amountFor} currency={glyph} size="sm" />
+                            <Text style={[type.caption, { color: theme.colors.textMuted }]}>{b.pct}%</Text>
+                          </View>
+                        ) : (
+                          <Text style={[type.caption, { color: theme.colors.textMuted }]}>Off</Text>
+                        )}
+                      </Pressable>
+                      {expanded ? (
+                        <View style={[styles.row, { marginTop: 10, gap: 8 }]}>
+                          <Pressable
+                            onPress={() => {
+                              b.setPct(Math.max(0, b.pct - 5));
+                              markCustom();
+                            }}
+                            accessibilityLabel={`Lower ${bucketLabel(b.key)} by 5 percent`}
+                            style={[styles.stepper, { backgroundColor: theme.colors.surfaceAlt }]}
+                          >
+                            <Minus color={theme.colors.text} size={16} />
+                          </Pressable>
+                          <Slider
+                            style={{ flex: 1, height: 36 }}
+                            value={b.pct}
+                            minimumValue={0}
+                            maximumValue={100}
+                            step={1}
+                            onValueChange={(v) => {
+                              b.setPct(Math.round(v));
+                              markCustom();
+                            }}
+                            minimumTrackTintColor={color}
+                            maximumTrackTintColor={theme.colors.border}
+                            thumbTintColor={color}
+                          />
+                          <Pressable
+                            onPress={() => {
+                              b.setPct(Math.min(100, b.pct + 5));
+                              markCustom();
+                            }}
+                            accessibilityLabel={`Raise ${bucketLabel(b.key)} by 5 percent`}
+                            style={[styles.stepper, { backgroundColor: theme.colors.surfaceAlt }]}
+                          >
+                            <Plus color={theme.colors.text} size={16} />
+                          </Pressable>
+                        </View>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </Card>
+
+              {showSavingsNudge ? (
+                <Text style={[type.caption, { color: theme.colors.warn, marginTop: 10 }]}>Many people aim to save 10–20% of their budget. You’re below that.</Text>
+              ) : null}
+              {showDebtNudge ? (
+                <Text style={[type.caption, { color: theme.colors.warn, marginTop: 6 }]}>A little more toward debt pays it down faster.</Text>
+              ) : null}
+            </>
+          ) : null}
+
+          {setupStep === 4 ? (
+            <>
+              <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Review</Text>
+              <Text style={[type.h2, { color: theme.colors.text, marginTop: 6 }]}>{periodName}</Text>
+              <Amount value={Number.isFinite(parsedTotal) ? parsedTotal : 0} currency={glyph} size="lg" style={{ marginTop: 6 }} />
+              <ListCard style={{ marginTop: 16 }}>
+                {bucketDefs
+                  .filter((b) => b.include && b.pct > 0)
+                  .map((b) => {
+                    const amt = Math.round(((Number.isFinite(parsedTotal) ? parsedTotal : 0) * b.pct) / 100);
+                    return (
+                      <ListRow
+                        key={b.key}
+                        icon={<View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: bucketColor(theme, b.key) }} />}
+                        title={bucketLabel(b.key)}
+                        subtitle={durationMonths > 1 ? `${b.pct}% · about ${formatAmount(Math.round(amt / durationMonths), glyph)} a month` : `${b.pct}% · ${b.desc}`}
+                        right={<Amount value={amt} currency={glyph} size="sm" />}
+                      />
+                    );
+                  })}
+              </ListCard>
+              <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 12 }]}>
+                {editingBudgetId ? 'Save to update this budget.' : 'Create the budget and we’ll track spending against it as you add transactions.'}
+              </Text>
+            </>
+          ) : null}
+        </KeyboardAwareScrollView>
+
+        <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom }}>
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12), borderTopColor: theme.colors.border, backgroundColor: theme.colors.surface }]}>
+          <SecondaryButton
+            title={setupStep === 1 ? 'Cancel' : 'Back'}
+            onPress={() => (setupStep === 1 ? closeSetup() : setSetupStep((p) => (p > 1 ? ((p - 1) as 1 | 2 | 3 | 4) : p)))}
+            style={{ flex: 1 }}
+          />
+          <PrimaryButton
+            title={setupStep < 4 ? 'Continue' : editingBudgetId ? 'Save changes' : 'Create budget'}
+            disabled={nextDisabled}
+            loading={isSaving}
+            style={{ flex: 2 }}
+            onPress={async () => {
+              if (setupStep < 4) {
+                if (setupStep === 2 && preset === 'custom' && !allocTouched && !editingBudgetId) applySmartBalance();
+                setSetupStep((p) => (p + 1) as 1 | 2 | 3 | 4);
+                return;
+              }
+              await save();
+              closeSetup();
+              await load();
+            }}
+          />
+        </View>
+        </KeyboardStickyView>
+
+        <Modal transparent visible={monthSheet != null} animationType="slide" onRequestClose={() => setMonthSheet(null)}>
+          <Pressable style={[styles.backdrop, { backgroundColor: theme.colors.overlay }]} onPress={() => setMonthSheet(null)}>
+            <Pressable style={[styles.sheet, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 16) }]} onPress={() => undefined}>
+              <View style={styles.rowBetween}>
+                <Pressable hitSlop={10} onPress={() => setSheetYear((y) => y - 1)} accessibilityLabel="Previous year">
+                  <ChevronLeft color={theme.colors.text} size={20} />
+                </Pressable>
+                <Text style={[type.title, { color: theme.colors.text }]}>
+                  {monthSheet === 'end' ? 'Ends' : 'Starts'} · {sheetYear}
+                </Text>
+                <Pressable hitSlop={10} onPress={() => setSheetYear((y) => y + 1)} accessibilityLabel="Next year">
+                  <ChevronRight color={theme.colors.text} size={20} />
+                </Pressable>
+              </View>
+              <View style={[styles.wrap, { marginTop: 16 }]}>
+                {Array.from({ length: 12 }, (_, m) => {
+                  const selected =
+                    monthSheet === 'end' ? m === endMonthSel && sheetYear === endYearSel : m === startMonthSel && sheetYear === startYearSel;
+                  return (
+                    <Pressable
+                      key={m}
+                      onPress={() => {
+                        if (monthSheet === 'end') {
+                          setEndMonthSel(m);
+                          setEndYearSel(sheetYear);
+                        } else {
+                          setStartMonthSel(m);
+                          setStartYearSel(sheetYear);
+                          if (new Date(sheetYear, m, 1) > endDateSel) {
+                            setEndMonthSel(m);
+                            setEndYearSel(sheetYear);
+                          }
+                        }
+                        setMonthSheet(null);
+                      }}
+                      style={[styles.monthCell, { backgroundColor: selected ? theme.colors.primary : theme.colors.surfaceAlt }]}
+                    >
+                      <Text style={[type.bodyStrong, { color: selected ? theme.colors.onPrimary : theme.colors.text }]}>{monthName(m)}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      </Screen>
+    );
+  }
+
+  /* ------------------------------------------------------------- list view */
+  // Your own plan leads. Shared budgets and events that are running get their own sections; the rest is history.
+  const running = budgetsSorted.filter((b) => isBudgetCurrent(b));
+  const current =
+    running.find((b) => b.role !== 'member' && (b.purpose ?? 'personal') === 'personal') ?? running.find((b) => b.purpose !== 'event') ?? running[0] ?? null;
+  const sharedRunning = running.filter((b) => b !== current && (b.purpose === 'household' || b.isShared) && b.purpose !== 'event');
+  const eventsActive = budgetsSorted.filter((b) => b !== current && b.purpose === 'event' && (getBudgetRange(b)?.end.getTime() ?? 0) >= Date.now() - 86400000);
+  const history = budgetsSorted.filter((b) => b !== current && !sharedRunning.includes(b) && !eventsActive.includes(b));
+  const currentTx = current ? budgetTxByBudgetId[String(current.id)] ?? { income: 0, expenses: 0, spentByCategory: {} } : null;
+  const currentRange = current ? getBudgetRange(current) : null;
+  const currentPace = (() => {
+    if (!current || !currentRange || !currentTx) return null;
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    const elapsed = Math.min(currentRange.days, Math.max(1, Math.floor((today.getTime() - currentRange.start.getTime()) / 86400000) + 1));
+    const spent = currentTx.expenses;
+    const total = current.totalBudget ?? 0;
+    return { elapsed, days: currentRange.days, daysLeft: Math.max(0, currentRange.days - elapsed), spent, total, left: total - spent, spentRatio: total > 0 ? spent / total : 0, timeRatio: elapsed / currentRange.days };
+  })();
 
   return (
-    <Screen scrollable={showSetup} onRefresh={handleRefresh} refreshing={isLoading || isSaving}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', zIndex: 10, elevation: 10 }}>
-        <H1 style={{ marginBottom: 0 }}>{headerTitle}</H1>
+    <Screen scrollable={false}>
+      <FlatList
+        data={history}
+        keyExtractor={(b) => String(b.id)}
+        refreshing={isLoading || isSaving}
+        onRefresh={handleRefresh}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 130 }}
+        ListHeaderComponent={
+          <View>
+            <ScreenHeader
+              title="Budgets"
+              right={
+                <View style={styles.row}>
+                  <IconButton accessibilityLabel="Join a shared budget" onPress={() => (nav as any).navigate('ShareBudget')}>
+                    <Users color={theme.colors.text} size={18} />
+                  </IconButton>
+                  <IconButton accessibilityLabel={showAmounts ? 'Hide amounts' : 'Show amounts'} onPress={toggleShowAmounts}>
+                    {showAmounts ? <EyeOff color={theme.colors.text} size={18} /> : <Eye color={theme.colors.text} size={18} />}
+                  </IconButton>
+                  <Pressable
+                    ref={createBudgetAnchorRef as any}
+                    onPress={() => openNewBudget()}
+                    accessibilityRole="button"
+                    accessibilityLabel="New budget"
+                    style={({ pressed }) => [styles.newPill, { backgroundColor: theme.colors.primary, opacity: pressed ? 0.85 : 1 }]}
+                  >
+                    <Plus color={theme.colors.onPrimary} size={16} strokeWidth={2.6} />
+                    <Text style={[type.smallStrong, { color: theme.colors.onPrimary }]}>New</Text>
+                  </Pressable>
+                </View>
+              }
+            />
+            {spacesEnabled ? (
+              <View style={{ marginTop: 6 }}>
+                <SpaceSwitcher />
+              </View>
+            ) : null}
+            {error ? (
+              <View style={{ marginTop: 12 }}>
+                <InlineError message={error} />
+              </View>
+            ) : null}
 
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {!showSetup && (
+            {current && currentPace ? (
+              <Pressable onPress={() => (nav as any).navigate('BudgetDetail', { budgetId: String(current.id) })} accessibilityRole="button" style={{ marginTop: 12 }}>
+                <Card>
+                  <View style={styles.rowBetween}>
+                    <Text style={[type.title, { color: theme.colors.text, flexShrink: 1 }]}>
+                      {displayName(current)}
+                      {current.isShared ? <Text style={{ color: theme.colors.primary }}> · Shared</Text> : null}
+                    </Text>
+                    <Chip tone="primary" label={`Current · ${currentPace.daysLeft} day${currentPace.daysLeft === 1 ? '' : 's'} left`} />
+                  </View>
+                  <View style={[styles.row, { alignItems: 'baseline', gap: 6, marginTop: 12 }]}>
+                    {currentPace.left < 0 ? <Text style={[type.bodyStrong, { color: theme.colors.error }]}>Over by</Text> : null}
+                    <Amount value={Math.abs(currentPace.left)} currency={glyph} size="lg" hidden={hide} color={currentPace.left < 0 ? theme.colors.error : theme.colors.text} />
+                    {currentPace.left >= 0 ? (
+                      <Text style={[type.small, { color: theme.colors.textMuted }]}>left of {hide ? '••••' : formatAmount(currentPace.total, glyph)}</Text>
+                    ) : null}
+                  </View>
+                  <View style={{ marginTop: 12 }}>
+                    <ProgressBar
+                      value={currentPace.spentRatio}
+                      marker={currentPace.timeRatio}
+                      height={8}
+                      color={currentPace.left < 0 ? theme.colors.error : currentPace.spentRatio > currentPace.timeRatio + 0.05 ? theme.colors.brass : theme.colors.primary}
+                    />
+                  </View>
+                  <View style={[styles.rowBetween, { marginTop: 6 }]}>
+                    <Text style={[type.caption, { color: theme.colors.textMuted }]}>{hide ? 'Spent' : `${formatAmount(currentPace.spent, glyph)} spent`}</Text>
+                    <Text style={[type.caption, { color: theme.colors.textMuted }]}>
+                      Day {currentPace.elapsed} of {currentPace.days}
+                    </Text>
+                  </View>
+
+                  {Object.keys(current.categories || {}).length ? (
+                    <>
+                      <View style={[styles.hr, { backgroundColor: theme.colors.border }]} />
+                      <Text style={[type.eyebrow, { color: theme.colors.textMuted, marginBottom: 2 }]}>Buckets</Text>
+                      {Object.entries(current.categories || {}).map(([key, c]) => {
+                        const spent = currentTx?.spentByCategory?.[key] ?? 0;
+                        const budgeted = Number(c?.budgeted) || 0;
+                        const ratio = budgeted > 0 ? spent / budgeted : 0;
+                        const color = bucketColor(theme, key);
+                        const over = spent > budgeted && budgeted > 0;
+                        const hot = !over && ratio > currentPace.timeRatio + 0.1 && spent > 0;
+                        return (
+                          <View key={key} style={{ paddingVertical: 9 }}>
+                            <View style={styles.rowBetween}>
+                              <View style={[styles.row, { gap: 8 }]}>
+                                <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: color }} />
+                                <Text style={[type.bodyStrong, { color: theme.colors.text }]}>{bucketLabel(key)}</Text>
+                              </View>
+                              <Text style={[type.small, { color: theme.colors.textMuted }]}>
+                                <Text style={{ fontFamily: fonts.semibold, color: theme.colors.text }}>{hide ? '••••' : formatAmount(spent, glyph)}</Text>
+                                {hide ? '' : ` / ${formatAmount(budgeted, glyph)}`}
+                              </Text>
+                            </View>
+                            <View style={{ marginTop: 7 }}>
+                              <ProgressBar value={ratio} color={over ? theme.colors.error : color} />
+                            </View>
+                            {over ? (
+                              <Text style={[type.caption, { color: theme.colors.error, marginTop: 5, fontFamily: fonts.semibold }]}>
+                                Over by {hide ? '••••' : formatAmount(spent - budgeted, glyph)}
+                              </Text>
+                            ) : hot ? (
+                              <Text style={[type.caption, { color: theme.colors.warn, marginTop: 5, fontFamily: fonts.semibold }]}>
+                                Running hot · {Math.round(ratio * 100)}% used, {Math.round(currentPace.timeRatio * 100)}% of the time gone
+                              </Text>
+                            ) : null}
+                          </View>
+                        );
+                      })}
+                    </>
+                  ) : null}
+                </Card>
+              </Pressable>
+            ) : !isLoading ? (
+              <View style={{ marginTop: 12 }}>
+                <EmptyState
+                  title={budgetsSorted.length ? 'No budget running right now' : 'Create your first budget'}
+                  body="Plan what you’ll spend this month. We’ll track it as you add transactions and warn you before you overspend."
+                  actionLabel="Create a budget"
+                  onAction={() => openNewBudget()}
+                />
+              </View>
+            ) : (
+              <Skeleton rows={3} height={96} style={{ marginTop: 16 }} />
+            )}
+
+            {rolloverFor ? (
+              <Card style={{ marginTop: 12, borderColor: theme.colors.brass }}>
+                <View style={styles.row}>
+                  <IconTile bg={theme.colors.brassSoft}>
+                    <ArrowRightLeft color={theme.colors.brass} size={19} />
+                  </IconTile>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[type.bodyStrong, { color: theme.colors.text }]}>{displayName(rolloverFor.budget)} ended with money left</Text>
+                    <Text style={[type.caption, { color: theme.colors.textMuted }]}>
+                      {hide ? 'Move it into a goal or your next budget' : `${formatAmount(rolloverFor.preview.unspent, glyph)} unspent. Put it to work.`}
+                    </Text>
+                  </View>
+                </View>
+                <PrimaryButton title="Move leftover money" onPress={() => setRolloverSheet(true)} style={{ marginTop: 12 }} />
+              </Card>
+            ) : null}
+
+            {sharedRunning.length ? <SectionHeader title="Shared budgets" /> : null}
+            {sharedRunning.map((b) => {
+              const tx = budgetTxByBudgetId[String(b.id)] ?? { income: 0, expenses: 0, spentByCategory: {} };
+              const left = (b.totalBudget ?? 0) - tx.expenses;
+              const people = (b.members?.length ?? 0) + 1;
+              return (
+                <Pressable
+                  key={String(b.id)}
+                  onPress={() => (nav as any).navigate('BudgetDetail', { budgetId: String(b.id) })}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.historyRow, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, opacity: pressed ? 0.85 : 1 }]}
+                >
+                  <IconTile bg={theme.colors.primarySoft}>
+                    <Users color={theme.colors.primary} size={18} />
+                  </IconTile>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text numberOfLines={1} style={[type.bodyStrong, { color: theme.colors.text }]}>
+                      {displayName(b)}
+                    </Text>
+                    <Text style={[type.caption, { color: theme.colors.textMuted }]}>
+                      {people} {people === 1 ? 'person' : 'people'} · {b.role === 'member' ? 'shared with you' : 'you manage it'}
+                    </Text>
+                  </View>
+                  <Chip tone={left < 0 ? 'negative' : 'primary'} label={hide ? (left < 0 ? 'Over' : 'Running') : left < 0 ? `Over by ${formatAmount(-left, glyph)}` : `${formatAmount(left, glyph)} left`} />
+                </Pressable>
+              );
+            })}
+
+            {eventsActive.length ? <SectionHeader title="Events & trips" /> : null}
+            {eventsActive.map((b) => {
+              const tx = budgetTxByBudgetId[String(b.id)] ?? { income: 0, expenses: 0, spentByCategory: {} };
+              const r = getBudgetRange(b);
+              const upcoming = !!r && r.start.getTime() > Date.now();
+              const left = (b.totalBudget ?? 0) - tx.expenses;
+              return (
+                <Pressable
+                  key={String(b.id)}
+                  onPress={() => (nav as any).navigate('BudgetDetail', { budgetId: String(b.id) })}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.historyRow, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, opacity: pressed ? 0.85 : 1 }]}
+                >
+                  <IconTile bg={theme.colors.brassSoft}>
+                    <PartyPopper color={theme.colors.brass} size={18} />
+                  </IconTile>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text numberOfLines={1} style={[type.bodyStrong, { color: theme.colors.text }]}>
+                      {displayName(b)}
+                    </Text>
+                    <Text style={[type.caption, { color: theme.colors.textMuted }]}>
+                      {r ? `${r.start.getDate()} ${monthName(r.start.getMonth())} – ${r.end.getDate()} ${monthName(r.end.getMonth())}` : ''}
+                      {b.isShared ? ' · shared' : ''}
+                    </Text>
+                  </View>
+                  {upcoming ? (
+                    <Chip label="Upcoming" />
+                  ) : (
+                    <Chip tone={left < 0 ? 'negative' : 'brass'} label={hide ? (left < 0 ? 'Over' : 'On') : left < 0 ? `Over by ${formatAmount(-left, glyph)}` : `${formatAmount(left, glyph)} left`} />
+                  )}
+                </Pressable>
+              );
+            })}
+
+            {history.length ? <SectionHeader title="Other budgets" /> : null}
+          </View>
+        }
+        renderItem={({ item }) => {
+          const tx = budgetTxByBudgetId[String(item.id)] ?? { income: 0, expenses: 0, spentByCategory: {} };
+          const total = item.totalBudget ?? 0;
+          const spent = tx.expenses ?? 0;
+          const r = getBudgetRange(item);
+          const upcoming = !!r && r.start.getTime() > Date.now();
+          const diff = total - spent;
+          return (
             <Pressable
-              onPress={toggleShowAmounts}
+              onPress={() => (nav as any).navigate('BudgetDetail', { budgetId: String(item.id) })}
               accessibilityRole="button"
-              accessibilityLabel={showAmounts ? 'Hide amounts' : 'Show amounts'}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={({ pressed }) => [
-                {
-                  width: 44,
-                  height: 44,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  opacity: pressed ? 0.7 : 1
-                }
-              ]}
+              style={({ pressed }) => [styles.historyRow, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, opacity: pressed ? 0.85 : 1 }]}
             >
-              {showAmounts ? (
-                <EyeOff color={theme.colors.textMuted} size={18} />
+              <IconTile bg={theme.colors.surfaceAlt}>
+                <CalendarDays color={theme.colors.textMuted} size={18} />
+              </IconTile>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text numberOfLines={1} style={[type.bodyStrong, { color: theme.colors.text }]}>
+                  {displayName(item)}
+                </Text>
+                <Text style={[type.caption, { color: theme.colors.textMuted }]}>
+                  {hide ? 'Tap to view' : upcoming ? `${formatAmount(total, glyph)} planned` : `${formatAmount(spent, glyph)} of ${formatAmount(total, glyph)}`}
+                </Text>
+              </View>
+              {upcoming ? (
+                <Chip label="Upcoming" />
+              ) : diff < 0 ? (
+                <Chip tone="negative" label={hide ? 'Over' : `Over by ${formatAmount(Math.abs(diff), glyph)}`} />
               ) : (
-                <Eye color={theme.colors.textMuted} size={18} />
+                <Chip tone="positive" label={hide ? 'Under' : `Under by ${formatAmount(diff, glyph)}`} />
               )}
             </Pressable>
-          )}
-
-          <Pressable
-            ref={createBudgetAnchorRef as any}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            onPress={() => {
-              // open setup view to create a new budget
-              setShowSetup(true);
-              setSetupStep(1);
-              setBudget(null);
-              setEditingBudgetId(null);
-              setTotalBudget('');
-              setStartMonthSel(now.getMonth());
-              setStartYearSel(now.getFullYear());
-              setEndMonthSel(now.getMonth());
-              setEndYearSel(now.getFullYear());
-            }}
-            style={({ pressed }) => [
-              {
-                width: 44,
-                height: 44,
-                borderRadius: 999,
-                backgroundColor: theme.colors.primary,
-                alignItems: 'center',
-                justifyContent: 'center',
-                shadowColor: '#000',
-                shadowOpacity: 0.12,
-                shadowOffset: { width: 0, height: 6 },
-                shadowRadius: 12,
-                opacity: pressed ? 0.92 : 1
-              }
-            ]}
-          >
-            <Plus color={tokens.colors.white} size={18} />
-          </Pressable>
-        </View>
-      </View>
-
-      {spacesEnabled ? (
-        <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>
-            Viewing: {activeSpace?.name ?? 'Personal'}
-          </Text>
-          <SpaceSwitcher />
-        </View>
-      ) : null}
-
-      <View style={{ marginTop: 14 }}>
-        {error ? <InlineError message={error} /> : null}
-        {isLoading || isSaving ? <ActivityIndicator color={theme.colors.primary} /> : null}
-      </View>
+          );
+        }}
+      />
 
       <NudgeTooltip
         visible={!isTourActive && !seen['budget.create'] && !showSetup && !isLoading && !isSaving && !error && budgetsList.length === 0}
         targetRef={createBudgetAnchorRef}
         title="Quick tip"
-        body="Tap + to create your first budget. We’ll track spent vs remaining automatically as you add transactions."
+        body="Tap New to create your first budget. We’ll track spent vs remaining automatically as you add transactions."
         onDismiss={() => markSeen('budget.create')}
       />
 
-      {showSetup ? (
-        // Budget setup wizard (step-by-step)
-        <View style={{ marginTop: 10 }}>
-          <View>
-            <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>
-              Step {setupStep} of 4
-            </Text>
-            <View style={{ marginTop: 6, height: 4, borderRadius: 999, backgroundColor: theme.colors.surfaceAlt, overflow: 'hidden' }}>
-              <Animated.View
-                style={{
-                  height: '100%',
-                  borderRadius: 999,
-                  backgroundColor: theme.colors.primary,
-                  width: progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] })
-                }}
-              />
-            </View>
-          </View>
-
-          {/* Step 1: Date range */}
-          {setupStep === 1 && (
-            <>
-              <P style={{ marginTop: 8 }}>Choose the start and end months for this budget.</P>
-
-              {/* Date range selectors */}
-              <View style={{ marginTop: 12, flexDirection: 'row', gap: 10 }}>
-                <Card style={{ flex: 1, padding: 10 }}>
-                  <Text style={{ color: theme.colors.textMuted, fontWeight: '700' }}>Start</Text>
-                  <View style={{ flexDirection: 'row', marginTop: 8, gap: 8 }}>
-                    <Pressable onPress={() => setShowStartMonthPicker(true)} style={({ pressed }) => [{ padding: 10, backgroundColor: theme.colors.surface, borderRadius: 8, flex: 1, opacity: pressed ? 0.9 : 1 }]}>
-                      <Text style={{ color: theme.colors.text }}>{MONTHS[startMonthSel]}</Text>
-                    </Pressable>
-                    <Pressable onPress={() => setShowStartYearPicker(true)} style={({ pressed }) => [{ padding: 10, backgroundColor: theme.colors.surface, borderRadius: 8, width: 92, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.9 : 1 }]}>
-                      <Text style={{ color: theme.colors.text }}>{startYearSel}</Text>
-                    </Pressable>
-                  </View>
-                </Card>
-
-                <Card style={{ flex: 1, padding: 10 }}>
-                  <Text style={{ color: theme.colors.textMuted, fontWeight: '700' }}>End</Text>
-                  <View style={{ flexDirection: 'row', marginTop: 8, gap: 8 }}>
-                    <Pressable onPress={() => setShowEndMonthPicker(true)} style={({ pressed }) => [{ padding: 10, backgroundColor: theme.colors.surface, borderRadius: 8, flex: 1, opacity: pressed ? 0.9 : 1 }]}>
-                      <Text style={{ color: theme.colors.text }}>{MONTHS[endMonthSel]}</Text>
-                    </Pressable>
-                    <Pressable onPress={() => setShowEndYearPicker(true)} style={({ pressed }) => [{ padding: 10, backgroundColor: theme.colors.surface, borderRadius: 8, width: 92, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.9 : 1 }]}>
-                      <Text style={{ color: theme.colors.text }}>{endYearSel}</Text>
-                    </Pressable>
-                  </View>
-                </Card>
-              </View>
-
-              {/* Month/year pickers (modals) */}
-              {showStartMonthPicker ? (
-                <Modal transparent animationType="fade" onRequestClose={() => setShowStartMonthPicker(false)}>
-                  <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center' }}>
-                    <View style={{ margin: 20, backgroundColor: theme.colors.background, borderRadius: 16, overflow: 'hidden' }}>
-                      <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderColor: theme.colors.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Select start month</Text>
-                        <Pressable onPress={() => setShowStartMonthPicker(false)}>
-                          <Text style={{ color: theme.colors.primary, fontWeight: '700' }}>Close</Text>
-                        </Pressable>
-                      </View>
-                      <ScrollView style={{ maxHeight: 320 }} contentContainerStyle={{ padding: 12 }}>
-                        {MONTHS.map((m, idx) => (
-                          <Pressable key={m} onPress={() => { setStartMonthSel(idx); setShowStartMonthPicker(false); }} style={({ pressed }) => [{ paddingVertical: 12, paddingHorizontal: 8, borderRadius: 8, backgroundColor: pressed || idx === startMonthSel ? theme.colors.surfaceAlt : 'transparent' }]}>
-                            <Text style={{ color: theme.colors.text }}>{m}</Text>
-                          </Pressable>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  </View>
-                </Modal>
-              ) : null}
-
-              {showEndMonthPicker ? (
-                <Modal transparent animationType="fade" onRequestClose={() => setShowEndMonthPicker(false)}>
-                  <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center' }}>
-                    <View style={{ margin: 20, backgroundColor: theme.colors.background, borderRadius: 16, overflow: 'hidden' }}>
-                      <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderColor: theme.colors.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Select end month</Text>
-                        <Pressable onPress={() => setShowEndMonthPicker(false)}>
-                          <Text style={{ color: theme.colors.primary, fontWeight: '700' }}>Close</Text>
-                        </Pressable>
-                      </View>
-                      <ScrollView style={{ maxHeight: 320 }} contentContainerStyle={{ padding: 12 }}>
-                        {MONTHS.map((m, idx) => (
-                          <Pressable key={m} onPress={() => { setEndMonthSel(idx); setShowEndMonthPicker(false); }} style={({ pressed }) => [{ paddingVertical: 12, paddingHorizontal: 8, borderRadius: 8, backgroundColor: pressed || idx === endMonthSel ? theme.colors.surfaceAlt : 'transparent' }]}>
-                            <Text style={{ color: theme.colors.text }}>{m}</Text>
-                          </Pressable>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  </View>
-                </Modal>
-              ) : null}
-
-              {showStartYearPicker ? (
-                <Modal transparent animationType="fade" onRequestClose={() => setShowStartYearPicker(false)}>
-                  <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center' }}>
-                    <View style={{ margin: 20, backgroundColor: theme.colors.background, borderRadius: 16, overflow: 'hidden' }}>
-                      <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderColor: theme.colors.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Select start year</Text>
-                        <Pressable onPress={() => setShowStartYearPicker(false)}>
-                          <Text style={{ color: theme.colors.primary, fontWeight: '700' }}>Close</Text>
-                        </Pressable>
-                      </View>
-                      <ScrollView style={{ maxHeight: 320 }} contentContainerStyle={{ padding: 12 }}>
-                        {years.map((y) => (
-                          <Pressable key={y} onPress={() => { setStartYearSel(y); setShowStartYearPicker(false); }} style={({ pressed }) => [{ paddingVertical: 12, paddingHorizontal: 8, borderRadius: 8, backgroundColor: pressed || y === startYearSel ? theme.colors.surfaceAlt : 'transparent' }]}>
-                            <Text style={{ color: theme.colors.text }}>{y}</Text>
-                          </Pressable>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  </View>
-                </Modal>
-              ) : null}
-
-              {showEndYearPicker ? (
-                <Modal transparent animationType="fade" onRequestClose={() => setShowEndYearPicker(false)}>
-                  <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center' }}>
-                    <View style={{ margin: 20, backgroundColor: theme.colors.background, borderRadius: 16, overflow: 'hidden' }}>
-                      <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderColor: theme.colors.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Select end year</Text>
-                        <Pressable onPress={() => setShowEndYearPicker(false)}>
-                          <Text style={{ color: theme.colors.primary, fontWeight: '700' }}>Close</Text>
-                        </Pressable>
-                      </View>
-                      <ScrollView style={{ maxHeight: 320 }} contentContainerStyle={{ padding: 12 }}>
-                        {years.map((y) => (
-                          <Pressable key={y} onPress={() => { setEndYearSel(y); setShowEndYearPicker(false); }} style={({ pressed }) => [{ paddingVertical: 12, paddingHorizontal: 8, borderRadius: 8, backgroundColor: pressed || y === endYearSel ? theme.colors.surfaceAlt : 'transparent' }]}>
-                            <Text style={{ color: theme.colors.text }}>{y}</Text>
-                          </Pressable>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  </View>
-                </Modal>
-              ) : null}
-            </>
-          )}
-
-          {/* Step 2: Total budget amount */}
-          {setupStep === 2 && (
-            <>
-              <P style={{ marginTop: 8 }}>Set how much you want to spend over this budget period.</P>
-
-              {/* Total budget input (text) */}
-              <View style={{ marginTop: 16 }}>
-                <TextField
-                  label={durationMonths > 1 ? `Total Budget (${durationMonths} months)` : 'Total Budget (this month)'}
-                  value={totalBudget}
-                  onChangeText={handleTotalBudgetChange}
-                  keyboardType="numeric"
-                  placeholder="0"
-                />
-                <Text style={{ color: theme.colors.textMuted, fontSize: 13, marginTop: -6 }}>
-                  {durationMonths > 1
-                    ? `Enter the total budget you want to use across these ${durationMonths} months.`
-                    : 'Enter the total budget you want to use this month.'}
+      <Modal transparent visible={rolloverSheet && !!rolloverFor} animationType="slide" onRequestClose={() => setRolloverSheet(false)}>
+        <Pressable style={[styles.backdrop, { backgroundColor: theme.colors.overlay }]} onPress={() => setRolloverSheet(false)}>
+          <Pressable style={[styles.sheet, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 16) }]} onPress={() => undefined}>
+            {rolloverFor ? (
+              <>
+                <Text style={[type.title, { color: theme.colors.text }]}>Move {formatAmount(rolloverFor.preview.unspent, glyph)}</Text>
+                <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 4 }]}>
+                  From {displayName(rolloverFor.budget)}. Choose where it goes; you can only do this once.
                 </Text>
-                {perMonthTotal != null && (
-                  <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginTop: 2 }}>
-                    ≈ {formatMoney(Math.round(perMonthTotal), user?.currency ?? '₦')} per month
-                  </Text>
-                )}
-              </View>
-            </>
-          )}
-
-          {/* Step 3: Category selection & allocation */}
-          {setupStep === 3 && (
-            <>
-              <P style={{ marginTop: 8 }}>Allocate your total budget across categories.</P>
-
-              {/* Allocation completion toast handled programmatically */}
-
-              {/* Category selection toggles */}
-              <View style={{ marginTop: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {(
-                  isBusiness
-                    ? [
-                        { key: 'Essential', label: bucketLabel('Essential'), active: includeEssential, setter: setIncludeEssential },
-                        { key: 'Savings', label: bucketLabel('Savings'), active: includeSavings, setter: setIncludeSavings },
-                        { key: 'Free', label: bucketLabel('Free Spending'), active: includeFree, setter: setIncludeFree },
-                        { key: 'Investments', label: bucketLabel('Investments'), active: includeInvestments, setter: setIncludeInvestments },
-                        { key: 'Debt', label: bucketLabel('Debt Financing'), active: includeDebt, setter: setIncludeDebt }
-                      ]
-                    : [
-                        { key: 'Essential', label: bucketLabel('Essential'), active: includeEssential, setter: setIncludeEssential },
-                        { key: 'Savings', label: bucketLabel('Savings'), active: includeSavings, setter: setIncludeSavings },
-                        { key: 'Free', label: bucketLabel('Free Spending'), active: includeFree, setter: setIncludeFree },
-                        { key: 'Investments', label: bucketLabel('Investments'), active: includeInvestments, setter: setIncludeInvestments },
-                        { key: 'Misc', label: bucketLabel('Miscellaneous'), active: includeMisc, setter: setIncludeMisc },
-                        { key: 'Debt', label: bucketLabel('Debt Financing'), active: includeDebt, setter: setIncludeDebt }
-                      ]
-                ).map((c) => (
-                  <Pressable
-                    key={c.key}
-                    onPress={() => {
-                      c.setter(!c.active);
-                      setAllocTouched(true);
-                    }}
-                    style={({ pressed }) => [{
-                      paddingHorizontal: 10,
-                      paddingVertical: 6,
-                      borderRadius: 999,
-                      borderWidth: 1,
-                      borderColor: c.active ? theme.colors.primary : theme.colors.border,
-                      backgroundColor: c.active ? theme.colors.primary : theme.colors.surface,
-                      opacity: pressed ? 0.9 : 1
-                    }]}
-                  >
-                    <Text style={{ color: c.active ? tokens.colors.white : theme.colors.text, fontWeight: '700', fontSize: 12 }}>
-                      {c.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              {/* Smart Balance */}
-              <View style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
-                  <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: theme.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                    <Text style={{ color: theme.colors.primary }}>★</Text>
-                  </View>
-                  <View style={{ flexShrink: 1 }}>
-                    <Text style={{ color: theme.colors.text, fontWeight: '800' }} numberOfLines={1}>
-                      Smart Balance
-                    </Text>
-                    <P style={{ marginTop: 4 }} numberOfLines={2}>
-                      Recommended budget allocation
-                    </P>
-                  </View>
-                </View>
-                <View style={{ padding: 6, borderRadius: 12, backgroundColor: theme.colors.surfaceAlt }}>
-                  <Switch
-                    value={smartBalanceEnabled}
-                    onValueChange={(val) => {
-                      setSmartBalanceEnabled(val);
-                      if (val) {
-                        // Duration-aware balanced preset across currently selected categories only
-                        let baseEssential = 45;
-                        let baseSavings = 15;
-                        let baseFree = 15;
-                        let baseInvestments = 15;
-                        let baseMisc = 5;
-                        let baseDebt = 5;
-
-                        if (durationMonths <= 1) {
-                          // Short, single-month budget: slightly higher essentials and fun
-                          baseEssential = 55;
-                          baseSavings = 10;
-                          baseFree = 20;
-                          baseInvestments = 5;
-                          baseMisc = 5;
-                          baseDebt = 5;
-                        } else if (durationMonths <= 3) {
-                          // Medium horizon: stronger savings and some debt focus
-                          baseEssential = 50;
-                          baseSavings = 15;
-                          baseFree = 15;
-                          baseInvestments = 10;
-                          baseMisc = 5;
-                          baseDebt = 5;
-                        } else {
-                          // Longer-term plan: emphasise savings and investments
-                          baseEssential = 45;
-                          baseSavings = 20;
-                          baseFree = 15;
-                          baseInvestments = 10;
-                          baseMisc = 5;
-                          baseDebt = 5;
-                        }
-
-                        const totalSelected =
-                          (includeEssential ? baseEssential : 0) +
-                          (includeSavings ? baseSavings : 0) +
-                          (includeFree ? baseFree : 0) +
-                          (includeInvestments ? baseInvestments : 0) +
-                          (includeMisc ? baseMisc : 0) +
-                          (includeDebt ? baseDebt : 0);
-
-                        const scale = totalSelected > 0 ? 100 / totalSelected : 0;
-
-                        if (includeEssential) setEssentialPct(Math.round(baseEssential * scale));
-                        if (includeSavings) setSavingsPct(Math.round(baseSavings * scale));
-                        if (includeFree) setFreePct(Math.round(baseFree * scale));
-                        if (includeInvestments) setInvestmentsPct(Math.round(baseInvestments * scale));
-                        if (includeMisc) setMiscPct(Math.round(baseMisc * scale));
-                        if (includeDebt) setDebtPct(Math.round(baseDebt * scale));
-                        setAllocTouched(true);
+                <ListCard style={{ marginTop: 14 }}>
+                  {rolloverFor.preview.nextBudget ? (
+                    <ListRow
+                      icon={
+                        <IconTile bg={theme.colors.primarySoft}>
+                          <CalendarDays color={theme.colors.primary} size={18} />
+                        </IconTile>
                       }
-                    }}
-                  />
-                </View>
-              </View>
-
-              {previousBudget && (
-                <Pressable
-                  onPress={applyHistoryPreset}
-                  style={({ pressed }) => [{ marginTop: 8, alignSelf: 'flex-start', opacity: pressed ? 0.7 : 1 }]}
-                >
-                  <Text style={{ color: theme.colors.primary, fontSize: 12, fontWeight: '700' }}>
-                    Use my past spending pattern
-                  </Text>
-                </Pressable>
-              )}
-
-              {/* Allocation bar */}
-              <View style={{ marginTop: 14 }}>
-                <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Budget Allocation</Text>
-                <View style={{ marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border }}>
-                  <View style={{ flexDirection: 'row', height: 28, borderRadius: 999, overflow: 'hidden' }}>
-                    {(() => {
-                      const clampPct = (v: number) => Math.max(0, Math.min(100, v));
-                      const segments = [
-                        includeEssential ? { pct: clampPct(essentialPct), colors: [tokens.colors.primary[600], tokens.colors.primary[400]] } : null,
-                        includeSavings ? { pct: clampPct(savingsPct), colors: [tokens.colors.secondary[500], tokens.colors.secondary[400]] } : null,
-                        includeFree ? { pct: clampPct(freePct), colors: [tokens.colors.success[500], tokens.colors.success[400]] } : null,
-                        includeInvestments ? { pct: clampPct(investmentsPct), colors: [tokens.colors.accent[500], tokens.colors.accent[400]] } : null,
-                        includeMisc ? { pct: clampPct(miscPct), colors: [tokens.colors.warning[500], tokens.colors.warning[400]] } : null,
-                        includeDebt ? { pct: clampPct(debtPct), colors: [tokens.colors.error[500], tokens.colors.error[400]] } : null
-                      ].filter(Boolean) as Array<{ pct: number; colors: [string, string] }>;
-                      return segments.map((s, i) => (
-                        <LinearGradient key={i} colors={s.colors as [string, string]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${s.pct}%`, height: '100%' }} />
-                      ));
-                    })()}
-                  </View>
-
-                  {showLegend ? (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 10 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, marginBottom: 4, opacity: includeEssential ? 1 : 0.4 }}>
-                        <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: tokens.colors.primary[500], marginRight: 8 }} />
-                        <Text style={{ color: theme.colors.text, fontWeight: '700' }}>Essential</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, marginBottom: 4, opacity: includeSavings ? 1 : 0.4 }}>
-                        <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: tokens.colors.secondary[500], marginRight: 8 }} />
-                        <Text style={{ color: theme.colors.text, fontWeight: '700' }}>Savings</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, marginBottom: 4, opacity: includeFree ? 1 : 0.4 }}>
-                        <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: tokens.colors.success[500], marginRight: 8 }} />
-                        <Text style={{ color: theme.colors.text, fontWeight: '700' }}>Free Spend</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, marginBottom: 4, opacity: includeInvestments ? 1 : 0.4 }}>
-                        <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: tokens.colors.accent[500], marginRight: 8 }} />
-                        <Text style={{ color: theme.colors.text, fontWeight: '700' }}>Investments</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, marginBottom: 4, opacity: includeMisc ? 1 : 0.4 }}>
-                        <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: tokens.colors.warning[500], marginRight: 8 }} />
-                        <Text style={{ color: theme.colors.text, fontWeight: '700' }}>Misc</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, marginBottom: 4, opacity: includeDebt ? 1 : 0.4 }}>
-                        <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: tokens.colors.error[500], marginRight: 8 }} />
-                        <Text style={{ color: theme.colors.text, fontWeight: '700' }}>Debt</Text>
-                      </View>
-                    </View>
-                  ) : (
-                    <Pressable onPress={() => setShowLegend(true)} style={({ pressed }) => [{ marginTop: 10, opacity: pressed ? 0.7 : 1 }] }>
-                      <Text style={{ color: theme.colors.primary, fontSize: 12, fontWeight: '700' }}>Show color legend</Text>
-                    </Pressable>
-                  )}
-
-                  {/* Slider-based allocation: one slider per category */}
-                  <View style={{ marginTop: 12 }}>
-                    {includeEssential && (
-                      <View style={{ marginBottom: 12 }}>
-                        <Text style={{ color: theme.colors.text, fontWeight: '800' }}>
-                          Essential — {essentialPct}%
-                        </Text>
-                        <Slider value={essentialPct} minimumValue={0} maximumValue={100} step={1} onValueChange={(v) => { setEssentialPct(v); setAllocTouched(true); }} style={{ marginTop: 8 }} minimumTrackTintColor={tokens.colors.primary[500]} />
-                      </View>
-                    )}
-
-                    {includeSavings && (
-                      <View style={{ marginBottom: 12 }}>
-                        <Text style={{ color: theme.colors.text, fontWeight: '800' }}>
-                          Savings — {savingsPct}%
-                        </Text>
-                        <Slider value={savingsPct} minimumValue={0} maximumValue={100} step={1} onValueChange={(v) => { setSavingsPct(v); setAllocTouched(true); }} style={{ marginTop: 8 }} minimumTrackTintColor={tokens.colors.secondary[500]} />
-                      </View>
-                    )}
-
-                    {includeFree && (
-                      <View style={{ marginBottom: 12 }}>
-                        <Text style={{ color: theme.colors.text, fontWeight: '800' }}>
-                          Free Spend — {freePct}%
-                        </Text>
-                        <Slider value={freePct} minimumValue={0} maximumValue={100} step={1} onValueChange={(v) => { setFreePct(v); setAllocTouched(true); }} style={{ marginTop: 8 }} minimumTrackTintColor={tokens.colors.success[500]} />
-                      </View>
-                    )}
-
-                    {includeInvestments && (
-                      <View style={{ marginBottom: 12 }}>
-                        <Text style={{ color: theme.colors.text, fontWeight: '800' }}>
-                          Investments — {investmentsPct}%
-                        </Text>
-                        <Slider value={investmentsPct} minimumValue={0} maximumValue={100} step={1} onValueChange={(v) => { setInvestmentsPct(v); setAllocTouched(true); }} style={{ marginTop: 8 }} minimumTrackTintColor={tokens.colors.accent[500]} />
-                      </View>
-                    )}
-
-                    {includeMisc && (
-                      <View style={{ marginBottom: 12 }}>
-                        <Text style={{ color: theme.colors.text, fontWeight: '800' }}>
-                          Miscellaneous — {miscPct}%
-                        </Text>
-                        <Slider value={miscPct} minimumValue={0} maximumValue={100} step={1} onValueChange={(v) => { setMiscPct(v); setAllocTouched(true); }} style={{ marginTop: 8 }} minimumTrackTintColor={tokens.colors.warning[500]} />
-                      </View>
-                    )}
-
-                    {includeDebt && (
-                      <View style={{ marginBottom: 4 }}>
-                        <Text style={{ color: theme.colors.text, fontWeight: '800' }}>
-                          Debt Financing — {debtPct}%
-                        </Text>
-                        <Slider value={debtPct} minimumValue={0} maximumValue={100} step={1} onValueChange={(v) => { setDebtPct(v); setAllocTouched(true); }} style={{ marginTop: 8 }} minimumTrackTintColor={tokens.colors.error[500]} />
-                      </View>
-                    )}
-
-                    <View style={{ marginTop: 8 }}>
-                      <Text
-                        style={{
-                          color: allocatedPercent > 100 ? tokens.colors.error[600] : theme.colors.textMuted,
-                          fontWeight: '700',
-                          fontSize: 13
-                        }}
-                      >
-                        Allocated: {Math.round(allocatedPercent)}% of budget (max 100%)
-                      </Text>
-                      {(showDebtNudge || showSavingsNudge) && (
-                        <View style={{ marginTop: 4 }}>
-                          {showDebtNudge && (
-                            <Text style={{ color: tokens.colors.warning[600], fontSize: 12, fontWeight: '600' }}>
-                              Consider allocating a bit more to Debt Financing so you can pay down what you owe faster.
-                            </Text>
-                          )}
-                          {showSavingsNudge && (
-                            <Text style={{ color: tokens.colors.warning[600], fontSize: 12, fontWeight: '600', marginTop: 4 }}>
-                              Many people aim to save around 10–20% of their budget. You’re currently below that.
-                            </Text>
-                          )}
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                </View>
-              </View>
-            </>
-          )}
-
-          {/* Step 4: Preview per-category amounts */}
-          {setupStep === 4 && (
-            <>
-              <P style={{ marginTop: 8 }}>Here’s how your budget breaks down by category.</P>
-
-              <View style={{ marginTop: 16 }}>
-                {(() => {
-                  const gross = Number.isFinite(parsedTotal) ? parsedTotal : 0;
-                  const essentialAmt = Math.round((gross * essentialPct) / 100);
-                  const savingsAmt = Math.round((gross * savingsPct) / 100);
-                  const freeAmt = Math.round((gross * freePct) / 100);
-                  const investmentsAmt = Math.round((gross * investmentsPct) / 100);
-                  const miscAmt = Math.round((gross * miscPct) / 100);
-                  const debtAmt = Math.round((gross * debtPct) / 100);
-                  const remainingAmt = Math.max(0, Math.round((gross * (100 - allocatedPercent)) / 100));
-
-                  return (
-                    <>
-                      {includeEssential && (
-                        <Card style={{ marginBottom: 12 }}>
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <View style={{ flexShrink: 1, paddingRight: 8 }}>
-                              <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{isBusiness ? 'Operating Costs' : 'Essential Spending'}</Text>
-                              <P style={{ marginTop: 4 }} numberOfLines={2}>{isBusiness ? 'Payroll, tools, bills' : 'Rent, utilities, groceries'}</P>
-                            </View>
-                            <View style={{ alignItems: 'flex-end' }}>
-                              <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{formatMoney(essentialAmt, user?.currency ?? '₦')}</Text>
-                              {durationMonths > 1 && (
-                                <Text style={{ color: theme.colors.textMuted, fontSize: 11, marginTop: 2 }}>
-                                  ≈ {formatMoney(Math.round(essentialAmt / durationMonths), user?.currency ?? '₦')} / month
-                                </Text>
-                              )}
-                            </View>
-                          </View>
-                        </Card>
-                      )}
-
-                      {includeSavings && (
-                        <Card style={{ marginBottom: 12 }}>
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <View style={{ flexShrink: 1, paddingRight: 8 }}>
-                              <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{isBusiness ? 'Reserves' : 'Savings Goal'}</Text>
-                              <P style={{ marginTop: 4 }} numberOfLines={2}>{isBusiness ? 'Cash buffer & runway' : 'Future investments'}</P>
-                            </View>
-                            <View style={{ alignItems: 'flex-end' }}>
-                              <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{formatMoney(savingsAmt, user?.currency ?? '₦')}</Text>
-                              {durationMonths > 1 && (
-                                <Text style={{ color: theme.colors.textMuted, fontSize: 11, marginTop: 2 }}>
-                                  ≈ {formatMoney(Math.round(savingsAmt / durationMonths), user?.currency ?? '₦')} / month
-                                </Text>
-                              )}
-                            </View>
-                          </View>
-                        </Card>
-                      )}
-
-                      {includeFree && (
-                        <Card style={{ marginBottom: 12 }}>
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <View style={{ flexShrink: 1, paddingRight: 8 }}>
-                              <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{isBusiness ? 'Discretionary' : 'Free Spending'}</Text>
-                              <P style={{ marginTop: 4 }} numberOfLines={2}>{isBusiness ? 'Nice-to-haves & perks' : 'Entertainment, dining out'}</P>
-                            </View>
-                            <View style={{ alignItems: 'flex-end' }}>
-                              <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{formatMoney(freeAmt, user?.currency ?? '₦')}</Text>
-                              {durationMonths > 1 && (
-                                <Text style={{ color: theme.colors.textMuted, fontSize: 11, marginTop: 2 }}>
-                                  ≈ {formatMoney(Math.round(freeAmt / durationMonths), user?.currency ?? '₦')} / month
-                                </Text>
-                              )}
-                            </View>
-                          </View>
-                        </Card>
-                      )}
-
-                      {includeInvestments && (
-                        <Card style={{ marginBottom: 12 }}>
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <View style={{ flexShrink: 1, paddingRight: 8 }}>
-                              <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{isBusiness ? 'Growth' : 'Investments'}</Text>
-                              <P style={{ marginTop: 4 }} numberOfLines={2}>{isBusiness ? 'Marketing, new hires, expansion' : 'Long-term wealth building'}</P>
-                            </View>
-                            <View style={{ alignItems: 'flex-end' }}>
-                              <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{formatMoney(investmentsAmt, user?.currency ?? '₦')}</Text>
-                              {durationMonths > 1 && (
-                                <Text style={{ color: theme.colors.textMuted, fontSize: 11, marginTop: 2 }}>
-                                  ≈ {formatMoney(Math.round(investmentsAmt / durationMonths), user?.currency ?? '₦')} / month
-                                </Text>
-                              )}
-                            </View>
-                          </View>
-                        </Card>
-                      )}
-
-                      {includeMisc && (
-                        <Card style={{ marginBottom: 12 }}>
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <View style={{ flexShrink: 1, paddingRight: 8 }}>
-                              <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{isBusiness ? 'Misc Ops' : 'Miscellaneous'}</Text>
-                              <P style={{ marginTop: 4 }} numberOfLines={2}>{isBusiness ? 'One-offs & incidentals' : 'One-off or unexpected costs'}</P>
-                            </View>
-                            <View style={{ alignItems: 'flex-end' }}>
-                              <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{formatMoney(miscAmt, user?.currency ?? '₦')}</Text>
-                              {durationMonths > 1 && (
-                                <Text style={{ color: theme.colors.textMuted, fontSize: 11, marginTop: 2 }}>
-                                  ≈ {formatMoney(Math.round(miscAmt / durationMonths), user?.currency ?? '₦')} / month
-                                </Text>
-                              )}
-                            </View>
-                          </View>
-                        </Card>
-                      )}
-
-                      {includeDebt && (
-                        <Card style={{ marginBottom: 12 }}>
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <View style={{ flexShrink: 1, paddingRight: 8 }}>
-                              <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{isBusiness ? 'Loans & Credit' : 'Debt Financing'}</Text>
-                              <P style={{ marginTop: 4 }} numberOfLines={2}>{isBusiness ? 'Loan repayments & credit cards' : 'Loans, credit payments'}</P>
-                            </View>
-                            <View style={{ alignItems: 'flex-end' }}>
-                              <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{formatMoney(debtAmt, user?.currency ?? '₦')}</Text>
-                              {durationMonths > 1 && (
-                                <Text style={{ color: theme.colors.textMuted, fontSize: 11, marginTop: 2 }}>
-                                  ≈ {formatMoney(Math.round(debtAmt / durationMonths), user?.currency ?? '₦')} / month
-                                </Text>
-                              )}
-                            </View>
-                          </View>
-                        </Card>
-                      )}
-
-                      <Card>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <View style={{ flexShrink: 1, paddingRight: 8 }}>
-                            <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Remaining Balance</Text>
-                            <P style={{ marginTop: 4 }} numberOfLines={2}>Still unallocated</P>
-                          </View>
-                          <Text style={{ color: theme.colors.primary, fontWeight: '900' }}>{formatMoney(remainingAmt, user?.currency ?? '₦')}</Text>
-                        </View>
-                      </Card>
-                    </>
-                  );
-                })()}
-              </View>
-
-              <Text style={{ marginTop: 12, color: theme.colors.textMuted, fontWeight: '700', fontSize: 13 }}>
-                You’re all set! Review these amounts, then tap 
-                <Text style={{ fontWeight: '900' }}> Create budget</Text> to save.
-              </Text>
-            </>
-          )}
-
-          {/* Step navigation buttons */}
-          <View style={{ marginTop: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <View style={{ flex: 1, marginRight: 8 }}>
-              <SecondaryButton
-                title={setupStep === 1 ? 'Cancel' : 'Back'}
-                onPress={() => {
-                  if (setupStep === 1) {
-                    setShowSetup(false);
-                    setSetupStep(1);
-                    setEditingBudgetId(null);
-                  } else {
-                    setSetupStep((prev) => (prev > 1 ? ((prev - 1) as 1 | 2 | 3 | 4) : prev));
-                  }
-                }}
-              />
-            </View>
-            <View style={{ flex: 1, marginLeft: 8 }}>
-              <PrimaryButton
-                title={setupStep < 4 ? 'Next' : editingBudgetId ? 'Save changes' : 'Create budget'}
-                disabled={
-                  (setupStep === 2 && (!Number.isFinite(parsedTotal) || parsedTotal <= 0)) ||
-                  ((setupStep === 3 || setupStep === 4) && !canSave)
-                }
-                onPress={async () => {
-                  if (setupStep < 4) {
-                    setSetupStep((prev) => (prev + 1) as 1 | 2 | 3 | 4);
-                    return;
-                  }
-                  await save();
-                  setShowSetup(false);
-                  setSetupStep(1);
-                  await load();
-                }}
-              />
-            </View>
-          </View>
-        </View>
-      ) : (
-        <View style={{ marginTop: 10, flex: 1 }}>
-          {budgetsSorted.length > 0 ? (
-            <FlatList
-              data={budgetsSorted}
-              keyExtractor={(b) => String(b.id)}
-              style={{ flex: 1 }}
-              refreshing={isLoading || isSaving}
-              onRefresh={handleRefresh}
-              contentContainerStyle={{ paddingBottom: 16 }}
-              renderItem={({ item }) => {
-                const r = getBudgetRange(item);
-                const title = r ? formatBudgetTitle(item, r) : item.name;
-                const current = isBudgetCurrent(item);
-                const tx = budgetTxByBudgetId[String(item.id)] ?? { income: 0, expenses: 0, spentByCategory: {} };
-                const effective = item.totalBudget ?? 0;
-                const spent = tx.expenses ?? 0;
-                const remainingList = Math.max(0, effective - spent);
-                const pct = effective > 0 ? Math.min(1, Math.max(0, spent / effective)) : 0;
-
-                return (
-                  <Pressable
-                    onPress={() => {
-                      (nav as any).navigate('BudgetDetail', { budgetId: String(item.id) });
-                    }}
-                    style={({ pressed }) => ({ marginBottom: 12, opacity: pressed ? 0.95 : 1 })}
-                  >
-                    <Card style={{ padding: 0, overflow: 'hidden' }}>
-                      <LinearGradient
-                        colors={[tokens.colors.secondary[400], tokens.colors.primary[500]]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={{ padding: 14 }}
-                      >
-                        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                          <View style={{ flex: 1, paddingRight: 10 }}>
-                            <Text style={{ color: tokens.colors.white, fontWeight: '900', fontSize: 18 }} numberOfLines={2}>
-                              {title}
-                            </Text>
-                          </View>
-
-                          {current ? (
-                            <View style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.28)' }}>
-                              <Text style={{ color: tokens.colors.white, fontWeight: '900', fontSize: 11, letterSpacing: 0.4 }}>CURRENT</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      </LinearGradient>
-
-                      <View style={{ padding: 14, backgroundColor: theme.colors.surface }}>
-                        <View style={{ flexDirection: 'row', gap: 10 }}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Total</Text>
-                            <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 4 }}>
-                              {showAmounts ? formatMoney(effective, currency) : '••••'}
-                            </Text>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Spent</Text>
-                            <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 4 }}>
-                              {showAmounts ? formatMoney(spent, currency) : '••••'}
-                            </Text>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Remaining</Text>
-                            <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 4 }}>
-                              {showAmounts ? formatMoney(remainingList, currency) : '••••'}
-                            </Text>
-                          </View>
-                        </View>
-
-                        <View style={{ height: 10, backgroundColor: theme.colors.surfaceAlt, borderRadius: 999, overflow: 'hidden', marginTop: 12 }}>
-                          <LinearGradient
-                            colors={[theme.colors.primary, tokens.colors.secondary[400]]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={{ width: `${Math.round(pct * 100)}%`, height: '100%' }}
-                          />
-                        </View>
-
-                        <Text style={{ color: theme.colors.textMuted, marginTop: 10, fontWeight: '700', fontSize: 12 }}>
-                          Created {formatIsoDateLocal(item.createdAt)}
-                        </Text>
-                      </View>
-                    </Card>
-                  </Pressable>
-                );
-              }}
-            />
-          ) : (
-            <View style={{ marginTop: 10, alignItems: 'center', paddingVertical: 24 }}>
-              <Text style={{ color: theme.colors.textMuted, fontSize: 16 }}>No budgets yet.</Text>
-              <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginTop: 8 }}>Tap the + button to create your first budget.</Text>
-            </View>
-          )}
-        </View>
-      )}
+                      title="Savings in your next budget"
+                      subtitle={rolloverFor.preview.nextBudget.name.replace(/^My Budget \((.*)\)$/, '$1')}
+                      onPress={() => void doRollover({ destination: 'next-budget' })}
+                      chevron
+                    />
+                  ) : null}
+                  {rolloverFor.preview.goals.map((g) => (
+                    <ListRow
+                      key={g.id}
+                      icon={
+                        <IconTile bg={theme.colors.surfaceAlt}>
+                          <Text style={{ fontSize: 18 }}>{g.emoji || '🎯'}</Text>
+                        </IconTile>
+                      }
+                      title={g.name}
+                      subtitle={`${formatAmount(g.remaining, glyph)} to go`}
+                      onPress={() => void doRollover({ destination: 'goal', goalId: g.id })}
+                      chevron
+                    />
+                  ))}
+                </ListCard>
+                {!rolloverFor.preview.nextBudget && !rolloverFor.preview.goals.length ? (
+                  <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 12 }]}>Create a goal or next month’s budget first, then come back.</Text>
+                ) : null}
+                {rollingOver ? <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 12 }} /> : null}
+                <SecondaryButton title="Not now" onPress={() => setRolloverSheet(false)} style={{ marginTop: 14 }} />
+              </>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  newPill: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingLeft: 10, paddingRight: 14, borderRadius: 18 },
+  hr: { height: StyleSheet.hairlineWidth, marginVertical: 14 },
+  historyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, marginBottom: 8 },
+  setupHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 52 },
+  steps: { flexDirection: 'row', gap: 6, marginTop: 8 },
+  step: { flex: 1, height: 4, borderRadius: 2 },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  chip: { height: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+  bigInput: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderRadius: 18, paddingHorizontal: 16, marginTop: 18, minHeight: 72 },
+  bigInputText: { flex: 1, fontFamily: fonts.display, fontSize: 34, letterSpacing: -1, paddingVertical: 10 },
+  allocBar: { flexDirection: 'row', height: 14, borderRadius: 7, overflow: 'hidden', marginTop: 16, gap: 2 },
+  bucket: { paddingVertical: 12 },
+  check: { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  stepper: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  footer: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  backdrop: { flex: 1, justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20 },
+  monthCell: { width: '31%', height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }
+});

@@ -1,3 +1,34 @@
+# Backend: Supabase
+
+The app's backend runs on the Supabase project **budgetfriendly** (ref `uggmyokbpwfdbustnggo`, region eu-west-2).
+
+| Piece | Where |
+| --- | --- |
+| Sign-up, sign-in, sessions, password recovery | Supabase Auth (the app uses `@supabase/supabase-js`) |
+| Every `/v1` API route | Edge Function `api` at `https://uggmyokbpwfdbustnggo.supabase.co/functions/v1/api/v1/...` (code in `supabase/functions/api`) |
+| Database | Postgres, schema in `supabase/migrations`. RLS is on for every table and the Data API roles have no grants, so only the `api` function reads and writes data |
+| Daily job | pg_cron job `budgetfriendly-daily` (05:00 UTC) calls `/v1/cron/daily` with the secret stored in Vault as `bf_cron_secret` |
+
+## Everyday commands (repo root)
+
+```bash
+npx supabase login
+npx supabase link --project-ref uggmyokbpwfdbustnggo
+npx supabase migration new <name>      # then write the SQL in supabase/migrations
+npx supabase db push                   # apply migrations
+npx supabase db advisors --linked      # security and performance checks
+npx supabase functions deploy api --use-api --no-verify-jwt
+npx --yes deno check supabase/functions/api/index.ts
+node supabase/scripts/e2e.mjs .
+npx supabase config diff               # always review this before: npx supabase config push
+```
+
+The end-to-end script exercises personal budgeting as well as invoices, bills, payroll, statement imports, confirmable goal savings and Money Wrapped against the linked live project. It creates and removes throwaway users.
+
+The database password and cron secret live only in the git-ignored `.env.supabase.local`. If you change `CRON_SECRET`, update both the function secret (`npx supabase secrets set`) and the Vault secret `bf_cron_secret`.
+
+The older Vercel + MongoDB backend (`api/`, `backend/`, `server/`) and the notes below are kept for reference; the app no longer uses them.
+
 Temporary deployment options for the mock API
 
 Quick summary
@@ -124,3 +155,21 @@ TestFlight requires the paid Apple Developer Program ($99/year). If you’re not
 - Build/run on an iOS Simulator (Mac required)
 - Use Android internal testing without Apple membership
 
+## Features that need extra setup
+
+Set function secrets with `npx supabase secrets set NAME=value`.
+
+| Feature | Function secret | App / build |
+| --- | --- | --- |
+| Flux, the AI money coach | `ANTHROPIC_API_KEY` (Claude, used first when set) or `GROQ_API_KEY` (console.groq.com); optional `ASSISTANT_MODEL` / `GROQ_MODEL` | — |
+| Password reset emails | `BREVO_API_KEY` (the v3 API key, starting `xkeysib-`, not the SMTP relay password), `EMAIL_FROM` (a sender verified in Brevo) | — |
+| Reset codes shown in the app (test projects only, never with real users) | `AUTH_DEV_EXPOSE_RESET_CODE=1` | — |
+| Daily job: recurring transactions, bill reminders, bank sync | `CRON_SECRET` (already set), `APP_TZ_OFFSET_MINUTES` (default 60) | — |
+| Push notifications (pace alerts, bills, auto-save, security) | `EXPO_ACCESS_TOKEN` only if Expo enhanced push security is on | An EAS project id (`npx eas init`) and a development or store build |
+| Live bank connections (Mono) | `MONO_SECRET_KEY` | `EXPO_PUBLIC_MONO_PUBLIC_KEY` |
+| Business statement uploads | — | CSV upload works now for Paystack, Moniepoint and bank exports; live provider sync is deliberately not enabled yet |
+| Face ID, home-screen widgets | — | A development or store build. Widgets run `npx expo prebuild`; iOS needs `ios.appleTeamId` and the App Group `group.com.budgetfriendly.app` enabled for the app id |
+
+Without these, the app still works (Flux explains that it isn’t switched on yet): the in-app notification feed fills without push, the demo bank flow stays available, and bill reminders are scheduled on the phone.
+
+Email confirmation on sign-up is off, because Supabase's built-in email only reaches members of the project's team. Turn it back on (`enable_confirmations` in `supabase/config.toml`) after adding custom SMTP.

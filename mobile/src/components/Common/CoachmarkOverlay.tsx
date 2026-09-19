@@ -252,11 +252,11 @@ export function CoachmarkOverlay({
           ) : null}
 
           {stepLabel ? (
-            <Text style={{ color: theme.colors.textMuted, fontWeight: '800', fontSize: 12, marginBottom: 6 }}>
+            <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12, marginBottom: 6 }}>
               {stepLabel}
             </Text>
           ) : null}
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>{title}</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>{title}</Text>
           <Text style={{ color: theme.colors.textMuted, marginTop: 6, fontSize: 13, lineHeight: 19 }}>{body}</Text>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
@@ -271,7 +271,7 @@ export function CoachmarkOverlay({
                     opacity: pressed ? 0.8 : 1
                   })}
                 >
-                  <Text style={{ color: theme.colors.textMuted, fontWeight: '900' }}>{backLabel}</Text>
+                  <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_700Bold' }}>{backLabel}</Text>
                 </Pressable>
               ) : null}
 
@@ -284,7 +284,7 @@ export function CoachmarkOverlay({
                   opacity: pressed ? 0.8 : 1
                 })}
               >
-                <Text style={{ color: theme.colors.textMuted, fontWeight: '800' }}>{skipLabel}</Text>
+                <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>{skipLabel}</Text>
               </Pressable>
             </View>
 
@@ -298,7 +298,7 @@ export function CoachmarkOverlay({
                 opacity: pressed ? 0.92 : 1
               })}
             >
-              <Text style={{ color: tokens.colors.white, fontWeight: '900' }}>{primaryLabel}</Text>
+              <Text style={{ color: tokens.colors.white, fontFamily: 'Figtree_700Bold' }}>{primaryLabel}</Text>
             </Pressable>
           </View>
         </View>

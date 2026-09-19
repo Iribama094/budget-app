@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { Pressable, Text } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ArrowLeft } from 'lucide-react-native';
-import { Screen, TextField, H1, P, SecondaryButton, PrimaryButton } from '../components/Common/ui';
+import { Eye, EyeOff } from 'lucide-react-native';
+import { InlineError, PrimaryButton, Screen, ScreenHeader, TextField } from '../components/Common/ui';
 import { useToast } from '../components/Common/Toast';
 import { changePassword } from '../api/endpoints';
 import { useTheme } from '../contexts/ThemeContext';
+import { type } from '../theme/typography';
+
+const MIN_PASSWORD = 8;
 
 export default function ChangePasswordScreen() {
   const nav = useNavigation<any>();
@@ -14,81 +17,63 @@ export default function ChangePasswordScreen() {
   const [currPass, setCurrPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
+  const [show, setShow] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isChanging, setIsChanging] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+
+  const mismatch = confirmPass.length > 0 && newPass !== confirmPass;
+  const canSubmit = !!currPass && newPass.length >= MIN_PASSWORD && newPass === confirmPass && !isChanging;
 
   const handleUpdate = async () => {
-    if (!currPass || !newPass) return toast.show('Please fill current and new password', 'error');
-    if (newPass !== confirmPass) return toast.show('New password and confirmation do not match', 'error');
+    setError(null);
     setIsChanging(true);
     try {
       await changePassword(currPass, newPass);
-      setCurrPass('');
-      setNewPass('');
-      setConfirmPass('');
       toast.show('Password updated', 'success');
       nav.goBack();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to change password';
-      toast.show(msg, 'error');
+      setError(e instanceof Error ? e.message : 'Could not update your password. Try again.');
     } finally {
       setIsChanging(false);
     }
   };
 
+  const eye = (
+    <Pressable onPress={() => setShow((v) => !v)} hitSlop={10} accessibilityLabel={show ? 'Hide passwords' : 'Show passwords'}>
+      {show ? <EyeOff color={theme.colors.textMuted} size={20} /> : <Eye color={theme.colors.textMuted} size={20} />}
+    </Pressable>
+  );
+
   return (
-    <Screen>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <Pressable
-          onPress={() => nav.goBack()}
-          style={({ pressed }) => [{
-            width: 44,
-            height: 44,
-            borderRadius: 18,
-            backgroundColor: theme.colors.surface,
-            borderWidth: 1,
-            borderColor: theme.colors.border,
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: pressed ? 0.92 : 1
-          }]}
-        >
-          <ArrowLeft color={theme.colors.text} size={20} />
-        </Pressable>
+    <Screen bottomInset={40}>
+      <ScreenHeader title="Password" onBack={() => nav.goBack()} />
+      <Text style={[type.body, { color: theme.colors.textMuted, marginTop: 12, marginBottom: 20 }]}>
+        Enter your current password, then choose a new one with at least {MIN_PASSWORD} characters.
+      </Text>
 
-        <View style={{ marginLeft: 12, flex: 1 }}>
-          <H1 style={{ marginBottom: 0 }}>Change password</H1>
-        </View>
-      </View>
+      {error ? <InlineError message={error} /> : null}
 
-      <View style={{ marginTop: 12 }}>
-        <P>For your security, you will need to enter your current password before setting a new one.</P>
+      <TextField label="Current password" value={currPass} onChangeText={setCurrPass} secureTextEntry={!show} autoComplete="password" textContentType="password" right={eye} />
+      <TextField
+        label="New password"
+        value={newPass}
+        onChangeText={setNewPass}
+        secureTextEntry={!show}
+        autoComplete="new-password"
+        textContentType="newPassword"
+        error={newPass.length > 0 && newPass.length < MIN_PASSWORD ? `Use at least ${MIN_PASSWORD} characters` : null}
+      />
+      <TextField
+        label="Confirm new password"
+        value={confirmPass}
+        onChangeText={setConfirmPass}
+        secureTextEntry={!show}
+        autoComplete="new-password"
+        textContentType="newPassword"
+        error={mismatch ? 'Passwords don’t match' : null}
+      />
 
-        {!isEditing ? (
-          <View style={{ marginTop: 16 }}>
-            <PrimaryButton title="Edit password" onPress={() => setIsEditing(true)} />
-          </View>
-        ) : (
-          <View style={{ marginTop: 12 }}>
-            <TextField label="Current password" value={currPass} onChangeText={setCurrPass} secureTextEntry />
-            <TextField label="New password" value={newPass} onChangeText={setNewPass} secureTextEntry />
-            <TextField label="Confirm new password" value={confirmPass} onChangeText={setConfirmPass} secureTextEntry />
-
-            <View style={{ marginTop: 12, flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
-              <SecondaryButton
-                title="Cancel"
-                onPress={() => {
-                  setIsEditing(false);
-                  setCurrPass('');
-                  setNewPass('');
-                  setConfirmPass('');
-                }}
-              />
-              <PrimaryButton title={isChanging ? 'Updating…' : 'Update password'} onPress={handleUpdate} disabled={isChanging} />
-            </View>
-          </View>
-        )}
-      </View>
+      <PrimaryButton title="Update password" onPress={handleUpdate} disabled={!canSubmit} loading={isChanging} style={{ marginTop: 8 }} />
     </Screen>
   );
 }

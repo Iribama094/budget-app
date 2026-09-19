@@ -13,7 +13,8 @@ const PatchSchema = z
     targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     emoji: z.string().max(8).optional(),
     color: z.string().max(80).optional(),
-    category: z.string().max(40).optional()
+    category: z.string().max(40).optional(),
+    autoSavePercent: z.number().min(0).max(50).nullable().optional()
   })
   .strict();
 
@@ -56,6 +57,7 @@ export default async function handler(req: any, res: any) {
         emoji: g.emoji ?? null,
         color: g.color ?? null,
         category: g.category ?? null,
+        autoSavePercent: g.autoSavePercent ?? null,
         createdAt: g.createdAt.toISOString(),
         updatedAt: g.updatedAt.toISOString()
       }
@@ -88,6 +90,7 @@ export default async function handler(req: any, res: any) {
         emoji: g!.emoji ?? null,
         color: g!.color ?? null,
         category: g!.category ?? null,
+        autoSavePercent: g!.autoSavePercent ?? null,
         createdAt: g!.createdAt.toISOString(),
         updatedAt: g!.updatedAt.toISOString()
       }

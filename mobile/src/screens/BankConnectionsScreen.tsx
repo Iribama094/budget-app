@@ -9,7 +9,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { Screen, Card, H1, P, PrimaryButton, SecondaryButton } from '../components/Common/ui';
 import { listBankLinks, deleteBankLink, type ApiBankLink } from '../api/endpoints';
-import { formatMoney } from '../utils/format';
+import { syncBankConnection } from '../api/features';
+import { formatMoney, formatRelativeDay } from '../utils/format';
 import { tokens } from '../theme/tokens';
 
 export default function BankConnectionsScreen() {
@@ -22,6 +23,23 @@ export default function BankConnectionsScreen() {
   const [links, setLinks] = useState<ApiBankLink[]>([]);
   const [loading, setLoading] = useState(false);
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+
+  const handleSync = async (id: string) => {
+    if (syncingId) return;
+    setSyncingId(id);
+    try {
+      const { imported } = await syncBankConnection(id);
+      toast.show(imported ? `${imported} new transaction${imported === 1 ? '' : 's'} to review` : 'You’re up to date', 'success');
+      await load();
+      if (imported) nav.navigate('PendingTransactions');
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not sync this bank', 'error');
+      await load();
+    } finally {
+      setSyncingId(null);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -99,7 +117,7 @@ export default function BankConnectionsScreen() {
               <View style={{ marginLeft: 12, flex: 1 }}>
                 <H1 style={{ marginBottom: 0 }}>Bank connections</H1>
                 {spacesEnabled ? (
-                  <Text style={{ marginTop: 4, color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>
+                  <Text style={{ marginTop: 4, color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>
                     Viewing: {activeSpace?.name ?? 'Personal'}
                   </Text>
                 ) : null}
@@ -112,7 +130,7 @@ export default function BankConnectionsScreen() {
 
             <View style={{ marginTop: 14 }}>
               <Card>
-                <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Summary</Text>
+                <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Summary</Text>
                 <Text style={{ color: theme.colors.textMuted, marginTop: 6 }}>
                   {summary.banks} connected bank{summary.banks === 1 ? '' : 's'} • {summary.accounts} account{summary.accounts === 1 ? '' : 's'}
                 </Text>
@@ -157,7 +175,7 @@ export default function BankConnectionsScreen() {
                     <LinkIcon color={theme.colors.primary} size={20} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: theme.colors.text, fontWeight: '900' }} numberOfLines={1}>
+                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }} numberOfLines={1}>
                       {item.bankName}
                     </Text>
                     <Text style={{ color: theme.colors.textMuted, marginTop: 4, fontSize: 12 }} numberOfLines={1}>
@@ -167,8 +185,8 @@ export default function BankConnectionsScreen() {
                 </View>
 
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontWeight: '800' }}>Total balance</Text>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 4 }}>
+                  <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontFamily: 'Figtree_600SemiBold' }}>Total balance</Text>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginTop: 4 }}>
                     {formatMoney(totalBalance, displayCurrency)}
                   </Text>
                 </View>
@@ -190,7 +208,7 @@ export default function BankConnectionsScreen() {
                     }}
                   >
                     <View style={{ flex: 1, paddingRight: 12 }}>
-                      <Text style={{ color: theme.colors.text, fontWeight: '900' }} numberOfLines={1}>
+                      <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }} numberOfLines={1}>
                         {acct.name}
                       </Text>
                       <Text style={{ color: theme.colors.textMuted, marginTop: 4, fontSize: 12 }}>
@@ -199,14 +217,47 @@ export default function BankConnectionsScreen() {
                     </View>
 
                     <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={{ color: theme.colors.textMuted, fontSize: 11, fontWeight: '800' }}>Balance</Text>
-                      <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 4 }}>
+                      <Text style={{ color: theme.colors.textMuted, fontSize: 11, fontFamily: 'Figtree_600SemiBold' }}>Balance</Text>
+                      <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginTop: 4 }}>
                         {formatMoney(acct.balance ?? 0, acct.currency ?? displayCurrency)}
                       </Text>
                     </View>
                   </View>
                 ))}
               </View>
+
+              {item.provider === 'mono' ? (
+                <View style={{ marginTop: 10 }}>
+                  {item.status === 'reauth_required' ? (
+                    <Text style={{ color: theme.colors.error, fontFamily: 'Figtree_600SemiBold', marginBottom: 8 }}>
+                      Access to this account expired. Reconnect to keep importing.
+                    </Text>
+                  ) : null}
+                  <Pressable
+                    onPress={() => (item.status === 'reauth_required' ? nav.navigate('MonoConnect') : void handleSync(item.id))}
+                    disabled={syncingId === item.id}
+                    accessibilityRole="button"
+                    style={({ pressed }) => ({
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingVertical: 10,
+                      borderRadius: 16,
+                      backgroundColor: theme.colors.primarySoft,
+                      opacity: syncingId === item.id ? 0.6 : pressed ? 0.9 : 1
+                    })}
+                  >
+                    <RefreshCw color={theme.colors.primary} size={16} />
+                    <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_600SemiBold', marginLeft: 6 }}>
+                      {item.status === 'reauth_required'
+                        ? 'Reconnect'
+                        : syncingId === item.id
+                          ? 'Syncing…'
+                          : `Sync now${item.lastSyncedAt ? ` · last ${formatRelativeDay(item.lastSyncedAt)}` : ''}`}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
 
               <Pressable
                 onPress={() => nav.navigate('PendingTransactions' as never)}
@@ -224,7 +275,7 @@ export default function BankConnectionsScreen() {
                 ]}
               >
                 <RefreshCw color={theme.colors.primary} size={16} />
-                <Text style={{ color: theme.colors.primary, fontWeight: '800', marginLeft: 6 }}>
+                <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_600SemiBold', marginLeft: 6 }}>
                   Review pending transactions
                 </Text>
               </Pressable>

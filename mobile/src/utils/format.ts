@@ -39,6 +39,78 @@ export function formatMoney(amount: number, currency?: string | null) {
   return `${amount < 0 ? '-' : ''}${symbol}${formatted}`;
 }
 
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_NAMES_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_NAMES_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+export function monthName(index: number, long = false) {
+  return (long ? MONTH_NAMES_LONG : MONTH_NAMES)[((index % 12) + 12) % 12];
+}
+
+function startOfDay(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function dayDiff(a: Date, b: Date) {
+  return Math.round((startOfDay(a).getTime() - startOfDay(b).getTime()) / 86400000);
+}
+
+/** "13 Sep 2026" */
+export function formatShortDate(value: string | Date) {
+  const d = typeof value === 'string' ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value) : value;
+  if (Number.isNaN(d.getTime())) return String(value);
+  return `${d.getDate()} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** "Sunday, 13 September" */
+export function formatLongToday(d = new Date()) {
+  return `${DAY_NAMES_LONG[d.getDay()]}, ${d.getDate()} ${MONTH_NAMES_LONG[d.getMonth()]}`;
+}
+
+/** Time today, "Yesterday", or "Thu 10 Sep" for list subtitles. */
+export function formatRelativeDay(iso: string, now = new Date()) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const diff = dayDiff(now, d);
+  if (diff === 0) return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  if (diff === 1) return 'Yesterday';
+  return `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
+}
+
+/** Section title for a day of transactions: "Today · Sun 13 Sep". */
+export function formatDayHeader(d: Date, now = new Date()) {
+  const label = `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
+  const diff = dayDiff(now, d);
+  if (diff === 0) return `Today · ${label}`;
+  if (diff === 1) return `Yesterday · ${label}`;
+  return label;
+}
+
+/** Local YYYY-MM-DD key for grouping. */
+export function dayKey(iso: string) {
+  return toIsoDate(new Date(iso));
+}
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  NGN: '₦',
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  GHS: 'GH₵',
+  KES: 'KSh',
+  ZAR: 'R',
+  CAD: '$',
+  INR: '₹'
+};
+
+/** Display glyph for a stored currency, which may be an ISO code (NGN) or a symbol (₦). */
+export function currencySymbol(currency?: string | null): string {
+  const c = String(currency ?? '').trim();
+  if (!c) return '₦';
+  return CURRENCY_SYMBOLS[c.toUpperCase()] ?? c;
+}
+
 // Formats a numeric input string with thousands separators, preserving an optional decimal part.
 // Examples: "1000" -> "1,000", "20000.5" -> "20,000.5"
 export function formatNumberInput(raw: string) {

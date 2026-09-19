@@ -33,8 +33,8 @@ export function TourWelcomeModal({
             elevation: 12
           }}
         >
-          <Text style={{ color: theme.colors.textMuted, fontWeight: '900', fontSize: 12 }}>WELCOME</Text>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 18, marginTop: 6 }}>Quick setup tour</Text>
+          <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_700Bold', fontSize: 12 }}>WELCOME</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 18, marginTop: 6 }}>Quick setup tour</Text>
           <Text style={{ color: theme.colors.textMuted, marginTop: 8, fontSize: 13, lineHeight: 19 }}>
             We’ll show you the fastest way to start: add a transaction, create a budget, view insights, and set a goal.
           </Text>
@@ -47,7 +47,7 @@ export function TourWelcomeModal({
             ].map((t) => (
               <View key={t} style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: theme.colors.primary, marginRight: 10 }} />
-                <Text style={{ color: theme.colors.text, fontWeight: '700', fontSize: 13, flex: 1 }}>{t}</Text>
+                <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold', fontSize: 13, flex: 1 }}>{t}</Text>
               </View>
             ))}
           </View>
@@ -66,7 +66,7 @@ export function TourWelcomeModal({
                   alignItems: 'center'
                 })}
               >
-                <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Not now</Text>
+                <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>Not now</Text>
               </Pressable>
             </View>
             <View style={{ flex: 1 }}>
@@ -80,7 +80,7 @@ export function TourWelcomeModal({
                   alignItems: 'center'
                 })}
               >
-                <Text style={{ color: tokens.colors.white, fontWeight: '900' }}>Start tour</Text>
+                <Text style={{ color: tokens.colors.white, fontFamily: 'Figtree_700Bold' }}>Start tour</Text>
               </Pressable>
             </View>
           </View>

@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { BUCKETS, bucketDisplayName, normalizeBucket } from '../theme/buckets';
+import { useCategories } from '../contexts/CategoriesContext';
+import { ActivityIndicator, Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { deleteWithUndo } from '../lib/undoDelete';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
 
@@ -23,26 +26,7 @@ import {
   type ApiTransaction
 } from '../api/endpoints';
 
-const PERSONAL_EXPENSE_CATEGORIES = ['Food', 'Transport', 'Housing', 'Bills', 'Shopping', 'Health', 'Entertainment', 'Other'] as const;
-const PERSONAL_INCOME_CATEGORIES = ['Salary', 'Bonus', 'Gift', 'Interest', 'Other'] as const;
 
-const BUSINESS_EXPENSE_CATEGORIES = [
-  'Payroll',
-  'Rent',
-  'Utilities',
-  'Office Supplies',
-  'Software & Subscriptions',
-  'Marketing',
-  'Travel',
-  'Professional Services',
-  'Taxes & Fees',
-  'Equipment',
-  'Shipping',
-  'Other'
-] as const;
-const BUSINESS_INCOME_CATEGORIES = ['Client Payment', 'Sales', 'Service Revenue', 'Interest', 'Other'] as const;
-
-const BUCKETS = ['Essential', 'Free Spending', 'Savings', 'Investments', 'Miscellaneous', 'Debt Financing'] as const;
 
 export default function TransactionDetailScreen() {
   const nav = useNavigation<any>();
@@ -81,7 +65,7 @@ export default function TransactionDetailScreen() {
   const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
   const [showBudgetPicker, setShowBudgetPicker] = useState(false);
 
-  const [bucket, setBucket] = useState<(typeof BUCKETS)[number]>('Essential');
+  const [bucket, setBucket] = useState<(typeof BUCKETS)[number]>('Needs');
   const [showBucketPicker, setShowBucketPicker] = useState(false);
 
   const [miniBudgets, setMiniBudgets] = useState<Array<{ id: string; name: string; category?: string | null }>>([]);
@@ -96,22 +80,13 @@ export default function TransactionDetailScreen() {
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
   const bucketLabel = useCallback(
     (key: string) => {
-      if (!isBusiness) return key;
-      if (key === 'Essential') return 'Operating Costs';
-      if (key === 'Savings') return 'Reserves';
-      if (key === 'Free Spending') return 'Discretionary';
-      if (key === 'Investments') return 'Growth';
-      if (key === 'Miscellaneous') return 'Misc Ops';
-      if (key === 'Debt Financing') return 'Loans & Credit';
-      return key;
+      return bucketDisplayName(key, isBusiness);
     },
     [isBusiness]
   );
 
-  const categories = useMemo(() => {
-    if (type === 'expense') return isBusiness ? [...BUSINESS_EXPENSE_CATEGORIES] : [...PERSONAL_EXPENSE_CATEGORIES];
-    return isBusiness ? [...BUSINESS_INCOME_CATEGORIES] : [...PERSONAL_INCOME_CATEGORIES];
-  }, [isBusiness, type]);
+  const { expense: expenseCats, income: incomeCats } = useCategories();
+  const categories = useMemo(() => (type === 'expense' ? expenseCats : incomeCats).map((c) => c.name), [expenseCats, incomeCats, type]);
 
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const monthLabel = useMemo(() => `${MONTHS[calendarCursor.getMonth()]} ${calendarCursor.getFullYear()}`, [calendarCursor]);
@@ -148,7 +123,7 @@ export default function TransactionDetailScreen() {
       setDescription(String(t.description ?? ''));
       setDate(toIsoDate(new Date(t.occurredAt)));
       setSelectedBudgetId(t.budgetId ? String(t.budgetId) : null);
-      setBucket(((t.budgetCategory as any) || 'Essential') as (typeof BUCKETS)[number]);
+      setBucket(normalizeBucket(t.budgetCategory) ?? 'Needs');
       setSelectedMiniBudgetId(t.miniBudgetId ? String(t.miniBudgetId) : null);
       setIsEditing(false);
     } catch (e) {
@@ -288,25 +263,18 @@ export default function TransactionDetailScreen() {
     }
   }, [activeSpaceId, bucket, date, description, parsedAmount, resolvedCategory, selectedBudgetId, selectedMiniBudgetId, spacesEnabled, toast, tx, type]);
 
+  // No "Are you sure?": it goes at once and the toast offers Undo for a few seconds.
   const confirmDelete = useCallback(() => {
     if (!tx) return;
-    Alert.alert('Delete transaction?', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            if (spacesEnabled) await deleteTransactionInSpace(tx.id, activeSpaceId);
-            else await deleteTransaction(tx.id);
-            toast.show('Transaction deleted', 'success');
-            nav.goBack();
-          } catch (e) {
-            setError(e instanceof Error ? e.message : 'Failed to delete transaction');
-          }
-        }
-      }
-    ]);
+    const id = String(tx.id);
+    const space = activeSpaceId;
+    deleteWithUndo({
+      id,
+      message: 'Transaction deleted',
+      toast,
+      commit: () => (spacesEnabled ? deleteTransactionInSpace(id, space) : deleteTransaction(id))
+    });
+    nav.goBack();
   }, [activeSpaceId, nav, spacesEnabled, toast, tx]);
 
   return (
@@ -318,7 +286,7 @@ export default function TransactionDetailScreen() {
           style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', opacity: pressed ? 0.8 : 1 })}
         >
           <ChevronLeft color={theme.colors.text} size={20} />
-          <Text style={{ color: theme.colors.text, fontWeight: '900', marginLeft: 6 }}>Back</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginLeft: 6 }}>Back</Text>
         </Pressable>
       </View>
 
@@ -330,29 +298,29 @@ export default function TransactionDetailScreen() {
       {tx ? (
         <View style={{ marginTop: 12 }}>
           <Card>
-            <Text style={{ color: theme.colors.textMuted, fontWeight: '800' }}>Amount</Text>
-            <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 22, marginTop: 6 }}>
+            <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Amount</Text>
+            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 22, marginTop: 6 }}>
               {formatMoney(tx.amount, currency)}
             </Text>
           </Card>
 
           <Card style={{ marginTop: 12 }}>
-            <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Details</Text>
+            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Details</Text>
 
             {!isEditing ? (
               <View style={{ marginTop: 10, gap: 8 }}>
-                <Text style={{ color: theme.colors.textMuted, fontWeight: '700' }}>Type: <Text style={{ color: theme.colors.text }}>{type === 'expense' ? 'Expense' : 'Income'}</Text></Text>
-                <Text style={{ color: theme.colors.textMuted, fontWeight: '700' }}>Category: <Text style={{ color: theme.colors.text }}>{resolvedCategory || '—'}</Text></Text>
-                <Text style={{ color: theme.colors.textMuted, fontWeight: '700' }}>Date: <Text style={{ color: theme.colors.text }}>{date}</Text></Text>
-                <Text style={{ color: theme.colors.textMuted, fontWeight: '700' }}>Budget: <Text style={{ color: theme.colors.text }}>{selectedBudgetId ? (budgets.find((b) => String(b.id) === String(selectedBudgetId))?.name ?? 'Selected') : 'None'}</Text></Text>
+                <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Type: <Text style={{ color: theme.colors.text }}>{type === 'expense' ? 'Expense' : 'Income'}</Text></Text>
+                <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Category: <Text style={{ color: theme.colors.text }}>{resolvedCategory || '—'}</Text></Text>
+                <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Date: <Text style={{ color: theme.colors.text }}>{date}</Text></Text>
+                <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Budget: <Text style={{ color: theme.colors.text }}>{selectedBudgetId ? (budgets.find((b) => String(b.id) === String(selectedBudgetId))?.name ?? 'Selected') : 'None'}</Text></Text>
                 {selectedBudgetId ? (
-                  <Text style={{ color: theme.colors.textMuted, fontWeight: '700' }}>Type of transaction: <Text style={{ color: theme.colors.text }}>{bucketLabel(bucket)}</Text></Text>
+                  <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Type of transaction: <Text style={{ color: theme.colors.text }}>{bucketLabel(bucket)}</Text></Text>
                 ) : null}
                 {selectedBudgetId ? (
-                  <Text style={{ color: theme.colors.textMuted, fontWeight: '700' }}>Mini budget: <Text style={{ color: theme.colors.text }}>{selectedMiniBudgetId ? (miniBudgets.find((m) => m.id === selectedMiniBudgetId)?.name ?? 'Selected') : 'None'}</Text></Text>
+                  <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Mini budget: <Text style={{ color: theme.colors.text }}>{selectedMiniBudgetId ? (miniBudgets.find((m) => m.id === selectedMiniBudgetId)?.name ?? 'Selected') : 'None'}</Text></Text>
                 ) : null}
                 {description.trim() ? (
-                  <Text style={{ color: theme.colors.textMuted, fontWeight: '700' }}>Note: <Text style={{ color: theme.colors.text }}>{description}</Text></Text>
+                  <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Note: <Text style={{ color: theme.colors.text }}>{description}</Text></Text>
                 ) : null}
               </View>
             ) : null}
@@ -375,7 +343,7 @@ export default function TransactionDetailScreen() {
                           opacity: pressed ? 0.92 : 1
                         })}
                       >
-                        <Text style={{ color: active ? '#fff' : theme.colors.text, fontWeight: '900' }}>
+                        <Text style={{ color: active ? '#fff' : theme.colors.text, fontFamily: 'Figtree_700Bold' }}>
                           {k === 'expense' ? 'Expense' : 'Income'}
                         </Text>
                       </Pressable>
@@ -388,7 +356,7 @@ export default function TransactionDetailScreen() {
                 </View>
 
                 <View style={{ marginTop: 2 }}>
-                  <Text style={{ color: theme.colors.text, fontSize: 13, fontWeight: '700', marginBottom: 6 }}>Date</Text>
+                  <Text style={{ color: theme.colors.text, fontSize: 13, fontFamily: 'Figtree_600SemiBold', marginBottom: 6 }}>Date</Text>
                   <Pressable
                     onPress={() => {
                       const now = Date.now();
@@ -423,16 +391,16 @@ export default function TransactionDetailScreen() {
                       editable={dateManual}
                       placeholder="YYYY-MM-DD"
                       placeholderTextColor={theme.colors.textMuted}
-                      style={{ color: theme.colors.text, fontSize: 16, fontWeight: '700', padding: 0, margin: 0 }}
+                      style={{ color: theme.colors.text, fontSize: 16, fontFamily: 'Figtree_600SemiBold', padding: 0, margin: 0, letterSpacing: 0 }}
                     />
-                    <Text style={{ color: theme.colors.textMuted, marginTop: 4, fontSize: 12, fontWeight: '700' }}>
+                    <Text style={{ color: theme.colors.textMuted, marginTop: 4, fontSize: 12, fontFamily: 'Figtree_600SemiBold' }}>
                       {dateManual ? 'Typing enabled' : 'Tap to pick a date • Double-tap to type'}
                     </Text>
                   </Pressable>
                 </View>
 
                 <View style={{ marginTop: 10 }}>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Category</Text>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Category</Text>
                   <View style={{ marginTop: 8, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface, overflow: 'hidden' }}>
                     <Pressable
                       onPress={() => {
@@ -441,7 +409,7 @@ export default function TransactionDetailScreen() {
                       }}
                       style={({ pressed }) => ({ paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', opacity: pressed ? 0.9 : 1 })}
                     >
-                      <Text style={{ color: category ? theme.colors.text : theme.colors.textMuted, fontWeight: '700' }}>
+                      <Text style={{ color: category ? theme.colors.text : theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>
                         {category ? category : 'Tap to choose category'}
                       </Text>
                       <Text style={{ color: theme.colors.textMuted }}>▼</Text>
@@ -480,7 +448,7 @@ export default function TransactionDetailScreen() {
                 ) : null}
 
                 <View style={{ marginTop: 10 }}>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Budget</Text>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Budget</Text>
                   <View style={{ marginTop: 8, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface, overflow: 'hidden' }}>
                     <Pressable
                       onPress={() => {
@@ -489,7 +457,7 @@ export default function TransactionDetailScreen() {
                       }}
                       style={({ pressed }) => ({ paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', opacity: pressed ? 0.9 : 1 })}
                     >
-                      <Text style={{ color: selectedBudgetId ? theme.colors.text : theme.colors.textMuted, fontWeight: '700' }}>
+                      <Text style={{ color: selectedBudgetId ? theme.colors.text : theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>
                         {selectedBudgetId
                           ? budgets.find((b) => String(b.id) === String(selectedBudgetId))?.name ?? 'Selected budget'
                           : budgets.length > 0
@@ -541,13 +509,13 @@ export default function TransactionDetailScreen() {
 
                 {selectedBudgetId ? (
                   <View style={{ marginTop: 10 }}>
-                    <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Type of transaction</Text>
+                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Type of transaction</Text>
                     <View style={{ marginTop: 8, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface, overflow: 'hidden' }}>
                       <Pressable
                         onPress={() => setShowBucketPicker((v) => !v)}
                         style={({ pressed }) => ({ paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', opacity: pressed ? 0.9 : 1 })}
                       >
-                        <Text style={{ color: theme.colors.text, fontWeight: '700' }}>{bucketLabel(bucket)}</Text>
+                        <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>{bucketLabel(bucket)}</Text>
                         <Text style={{ color: theme.colors.textMuted }}>▼</Text>
                       </Pressable>
                       {showBucketPicker ? (
@@ -579,8 +547,8 @@ export default function TransactionDetailScreen() {
 
                 {selectedBudgetId ? (
                   <View style={{ marginTop: 10 }}>
-                    <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Mini budget</Text>
-                    <Text style={{ color: theme.colors.textMuted, fontWeight: '700', marginTop: 4, fontSize: 12 }}>
+                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Mini budget</Text>
+                    <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', marginTop: 4, fontSize: 12 }}>
                       Shows mini budgets under: {bucketLabel(bucket)}
                     </Text>
                     <View style={{ marginTop: 8, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface, overflow: 'hidden' }}>
@@ -591,7 +559,7 @@ export default function TransactionDetailScreen() {
                         }}
                         style={({ pressed }) => ({ paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', opacity: pressed ? 0.9 : 1 })}
                       >
-                        <Text style={{ color: theme.colors.text, fontWeight: '700' }}>
+                        <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>
                           {miniBudgetsForBucket.length === 0
                             ? `No mini budgets for ${bucketLabel(bucket)}`
                             : selectedMiniBudgetId
@@ -688,9 +656,9 @@ export default function TransactionDetailScreen() {
                   alignItems: 'center'
                 }}
               >
-                <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Select date</Text>
+                <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>Select date</Text>
                 <Pressable onPress={() => setShowDatePicker(false)}>
-                  <Text style={{ color: theme.colors.primary, fontWeight: '700' }}>Close</Text>
+                  <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_600SemiBold' }}>Close</Text>
                 </Pressable>
               </View>
 
@@ -704,10 +672,10 @@ export default function TransactionDetailScreen() {
                     }}
                     style={({ pressed }) => ({ paddingVertical: 8, paddingHorizontal: 10, opacity: pressed ? 0.85 : 1 })}
                   >
-                    <Text style={{ color: theme.colors.primary, fontWeight: '900' }}>‹</Text>
+                    <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_700Bold' }}>‹</Text>
                   </Pressable>
 
-                  <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{monthLabel}</Text>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{monthLabel}</Text>
 
                   <Pressable
                     onPress={() => {
@@ -717,13 +685,13 @@ export default function TransactionDetailScreen() {
                     }}
                     style={({ pressed }) => ({ paddingVertical: 8, paddingHorizontal: 10, opacity: pressed ? 0.85 : 1 })}
                   >
-                    <Text style={{ color: theme.colors.primary, fontWeight: '900' }}>›</Text>
+                    <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_700Bold' }}>›</Text>
                   </Pressable>
                 </View>
 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                  {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d) => (
-                    <Text key={d} style={{ width: 36, textAlign: 'center', color: theme.colors.textMuted, fontWeight: '800' }}>{d}</Text>
+                  {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                    <Text key={i} style={{ width: 36, textAlign: 'center', color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>{d}</Text>
                   ))}
                 </View>
 

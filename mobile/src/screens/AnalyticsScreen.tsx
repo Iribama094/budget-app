@@ -1,16 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator, Animated, Easing } from 'react-native';
+import { bucketDisplayName } from '../theme/buckets';
+import { View, Text, Pressable, Animated, Easing, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { Calculator, Eye, EyeOff, Layers, PieChart, Wallet } from 'lucide-react-native';
 
 import { getAnalyticsSummary, type AnalyticsSummary, listBudgets, listTransactions } from '../api/endpoints';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Card, InlineError, P, PrimaryButton, Screen, H1 } from '../components/Common/ui';
-import { LinearGradient } from 'expo-linear-gradient';
-import { categoryDotColor, formatMoney, toIsoDate } from '../utils/format';
-import { tokens } from '../theme/tokens';
+import { Amount, Card, Chip, IconButton, IconTile, InlineError, ListCard, ListRow, Screen, ScreenHeader, SectionHeader, SegmentedControl, formatAmount } from '../components/Common/ui';
+import { DailyBars, compactNumber } from '../components/Charts/DailyBars';
+import { categoryDotColor, currencySymbol, toIsoDate } from '../utils/format';
+import { fonts, type } from '../theme/typography';
 import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
-import { Eye, EyeOff } from 'lucide-react-native';
 import { useSpace } from '../contexts/SpaceContext';
 import { SpaceSwitcher } from '../components/Common/SpaceSwitcher';
 import { useTour, useTourAnchor } from '../contexts/TourContext';
@@ -31,14 +32,7 @@ export function AnalyticsScreen() {
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
   const bucketLabel = useCallback(
     (key: string) => {
-      if (!isBusiness) return key;
-      if (key === 'Essential') return 'Operating Costs';
-      if (key === 'Savings') return 'Reserves';
-      if (key === 'Free Spending') return 'Discretionary';
-      if (key === 'Investments') return 'Growth';
-      if (key === 'Miscellaneous') return 'Misc Ops';
-      if (key === 'Debt Financing') return 'Loans & Credit';
-      return key;
+      return bucketDisplayName(key, isBusiness);
     },
     [isBusiness]
   );
@@ -189,7 +183,7 @@ export function AnalyticsScreen() {
   }, [activeSpaceId, spacesEnabled, range.end, range.start, timeframe]);
 
   const currentBudgetTotal = useMemo(() => Number(currentBudget?.totalBudget ?? 0) || 0, [currentBudget?.totalBudget]);
-  const currentBudgetRemaining = useMemo(() => Math.max(0, currentBudgetTotal - (Number(currentBudgetSpent) || 0)), [currentBudgetSpent, currentBudgetTotal]);
+  const currentBudgetRemaining = useMemo(() => currentBudgetTotal - (Number(currentBudgetSpent) || 0), [currentBudgetSpent, currentBudgetTotal]);
 
   useEffect(() => {
     void load();
@@ -311,311 +305,254 @@ export function AnalyticsScreen() {
   }, [bars, timeframe, data]);
 
   const totalSpending = data?.expenses ?? 0;
-  const timeframeLabel = timeframe === 'daily' ? 'Today' : timeframe === 'weekly' ? 'This Week' : 'This Month';
+  const timeframeLabel = timeframe === 'daily' ? 'Today' : timeframe === 'weekly' ? 'Last 7 days' : 'This month';
+  const glyph = currencySymbol(user?.currency);
+  const hide = !showAmounts;
+
+  // Spending in the equal-length period just before the active one, for a "better or worse" comparison.
+  const [prevExpenses, setPrevExpenses] = useState<number | null>(null);
+  useEffect(() => {
+    if (!activeRangeIso) return;
+    const s = parseIsoDateLocal(activeRangeIso.start);
+    const e = parseIsoDateLocal(activeRangeIso.end);
+    if (!s || !e) return;
+    const days = Math.round((e.getTime() - s.getTime()) / 86400000) + 1;
+    const prevEnd = new Date(s);
+    prevEnd.setDate(prevEnd.getDate() - 1);
+    const prevStart = new Date(prevEnd);
+    prevStart.setDate(prevStart.getDate() - (days - 1));
+    let cancelled = false;
+    getAnalyticsSummary(toIsoDate(prevStart), toIsoDate(prevEnd), spacesEnabled ? { spaceId: activeSpaceId } : undefined)
+      .then((r) => !cancelled && setPrevExpenses(Number(r?.expenses) || 0))
+      .catch(() => !cancelled && setPrevExpenses(null));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRangeIso?.start, activeRangeIso?.end, activeSpaceId, spacesEnabled]);
+
+  const dailyBars = useMemo(() => {
+    const daily = ((data as any)?.dailySpendingByCategory ?? []) as Array<{ date: string; expenses: number }>;
+    return daily.slice(-7).map((d) => {
+      const dt = parseIsoDateLocal(d.date);
+      return { label: dt ? ['S', 'M', 'T', 'W', 'T', 'F', 'S'][dt.getDay()] : '', value: Number(d.expenses) || 0 };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
+  const safePerDay = useMemo(() => {
+    if (!currentBudget) return null;
+    const end = parseIsoDateLocal(budgetEffectiveEndIso(currentBudget));
+    if (!end) return null;
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    const daysLeft = Math.max(1, Math.floor((end.getTime() - today.getTime()) / 86400000) + 1);
+    return currentBudgetRemaining > 0 ? currentBudgetRemaining / daysLeft : 0;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBudget, currentBudgetRemaining]);
+
+  const delta = prevExpenses != null && prevExpenses > 0 ? (totalSpending - prevExpenses) / prevExpenses : null;
+  const overDays = safePerDay ? dailyBars.filter((b) => b.value > safePerDay).length : 0;
+  const topCategories = categories.slice(0, 5);
+  const otherTotal = categories.slice(5).reduce((s, c) => s + c.amount, 0);
+  const categoryRows = otherTotal > 0 ? [...topCategories, { category: 'Other', amount: otherTotal }] : topCategories;
+  const categoryTotal = categoryRows.reduce((s, c) => s + c.amount, 0) || 1;
 
   return (
     <Screen onRefresh={load} refreshing={isLoading}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <H1 style={{ marginBottom: 0 }}>Spending Insights</H1>
-        <Pressable
-          onPress={toggleShowAmounts}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-        >
-          {showAmounts ? (
-            <EyeOff color={theme.colors.textMuted} size={18} />
-          ) : (
-            <Eye color={theme.colors.textMuted} size={18} />
-          )}
-        </Pressable>
-      </View>
+      <ScreenHeader
+        title="Insights"
+        right={
+          <IconButton accessibilityLabel={showAmounts ? 'Hide amounts' : 'Show amounts'} onPress={toggleShowAmounts}>
+            {showAmounts ? <EyeOff color={theme.colors.text} size={18} /> : <Eye color={theme.colors.text} size={18} />}
+          </IconButton>
+        }
+      />
 
       {spacesEnabled ? (
-        <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>
-            Viewing: {activeSpace?.name ?? 'Personal'}
-          </Text>
+        <View style={{ marginTop: 6 }}>
           <SpaceSwitcher />
         </View>
       ) : null}
 
-      <View style={{ marginTop: 14 }}>
-        {error ? <InlineError message={error} /> : null}
-        {isLoading ? <ActivityIndicator color={theme.colors.primary} /> : null}
-      </View>
-
-      {/* Timeframe filters moved here - just above Spending by Category */}
-      <View style={{ marginTop: 12 }}>
-        <View ref={timeframeAnchorRef} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', borderRadius: tokens.radius['3xl'], backgroundColor: theme.colors.surfaceAlt, padding: 4 }}>
-          {(['daily', 'weekly', ...(spanMonths > 1 ? ['monthly'] : [])] as const).map((k) => {
-            const active = timeframe === k;
-            return (
-              <Pressable key={k} onPress={() => setTimeframe(k as any)} style={({ pressed }) => [{ paddingHorizontal: 10, paddingVertical: 8, borderRadius: tokens.radius['3xl'], backgroundColor: active ? theme.colors.primary : 'transparent', margin: 4, opacity: pressed ? 0.9 : 1 }]}>
-                <Text style={{ color: active ? tokens.colors.white : theme.colors.text, fontWeight: '800' }}>{k.charAt(0).toUpperCase() + k.slice(1)}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+      <View ref={timeframeAnchorRef} style={{ marginTop: 12 }}>
+        <SegmentedControl
+          options={[
+            { key: 'daily', label: 'Today' },
+            { key: 'weekly', label: 'Last 7 days' },
+            ...(spanMonths > 1 ? [{ key: 'monthly' as const, label: 'This month' }] : [])
+          ]}
+          value={timeframe}
+          onChange={(k) => setTimeframe(k)}
+        />
       </View>
 
       <NudgeTooltip
         visible={!isTourActive && !seen['analytics.timeframe'] && !isLoading && !error && !!data}
         targetRef={timeframeAnchorRef}
         title="Try this"
-        body="Switch timeframe to see patterns (daily vs weekly vs monthly)."
+        body="Switch timeframe to see patterns (today vs the last 7 days)."
         onDismiss={() => markSeen('analytics.timeframe')}
       />
 
-      {/* Top highlight card: remaining budget for the current running budget */}
-      <Card
-        style={{
-          marginTop: 12,
-          paddingVertical: 16,
-          paddingHorizontal: 14
-        }}
-      >
-        <Text style={{ color: theme.colors.textMuted, fontSize: 13, fontWeight: '700' }}>Remaining budget</Text>
-        <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 26, marginTop: 4 }}>
-          {showAmounts ? formatMoney(currentBudgetRemaining, user?.currency ?? '₦') : '••••'}
-        </Text>
-        <Text style={{ color: theme.colors.textMuted, marginTop: 4, fontWeight: '600' }}>Current budget</Text>
-
-        <View style={{ flexDirection: 'row', marginTop: 10, gap: 16 }}>
-          <View>
-            <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontWeight: '600' }}>Income</Text>
-            <Text style={{ color: theme.colors.text, fontWeight: '800', marginTop: 2, fontSize: 14 }}>
-              {showAmounts ? formatMoney(data?.income ?? 0, user?.currency ?? '₦') : '••••'}
-            </Text>
-          </View>
-          <View>
-            <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontWeight: '600' }}>Total budget</Text>
-            <Text style={{ color: theme.colors.text, fontWeight: '800', marginTop: 2, fontSize: 14 }}>
-              {showAmounts ? formatMoney(currentBudgetTotal, user?.currency ?? '₦') : '••••'}
-            </Text>
-          </View>
+      {error ? (
+        <View style={{ marginTop: 12 }}>
+          <InlineError message={error} />
         </View>
+      ) : null}
+
+      <Pressable
+        onPress={() => activeRangeIso && nav.navigate('AnalyticsWeeklyDetail' as never, { range: activeRangeIso, timeframe } as never)}
+        disabled={!activeRangeIso}
+        accessibilityRole="button"
+        style={({ pressed }) => ({ marginTop: 12, opacity: pressed ? 0.92 : 1 })}
+      >
+        <Card>
+          <View style={styles.rowBetween}>
+            <Text style={[type.smallStrong, { color: theme.colors.textMuted }]}>{timeframeLabel}</Text>
+            {delta != null && !hide ? (
+              <Chip
+                tone={delta <= 0 ? 'positive' : 'brass'}
+                label={`${Math.abs(Math.round(delta * 100))}% ${delta <= 0 ? 'less' : 'more'} than before`}
+              />
+            ) : null}
+          </View>
+          <Amount value={totalSpending} currency={glyph} size="lg" hidden={hide} style={{ marginTop: 6 }} />
+          {timeframe !== 'daily' && dailyBars.length > 0 ? (
+            <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>
+              {hide ? 'Spent in this period' : `Averaging ${formatAmount(Math.round(totalSpending / Math.max(1, dailyBars.length)), glyph)} a day`}
+            </Text>
+          ) : (
+            <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>Spent so far</Text>
+          )}
+
+          {timeframe !== 'daily' && dailyBars.length > 1 ? (
+            <>
+              <View style={{ marginTop: 14 }}>
+                <DailyBars
+                  bars={dailyBars}
+                  reference={safePerDay}
+                  referenceLabel={safePerDay && !hide ? `${glyph}${compactNumber(safePerDay)} safe to spend / day` : undefined}
+                  hidden={hide}
+                />
+              </View>
+              {safePerDay ? (
+                <View style={[styles.rowBetween, { marginTop: 8 }]}>
+                  <View style={styles.legend}>
+                    <View style={[styles.swatch, { backgroundColor: theme.colors.primary }]} />
+                    <Text style={[type.caption, { color: theme.colors.textMuted }]}>Under</Text>
+                    <View style={[styles.swatch, { backgroundColor: theme.colors.brass, marginLeft: 10 }]} />
+                    <Text style={[type.caption, { color: theme.colors.textMuted }]}>Over safe to spend</Text>
+                  </View>
+                  <Text style={[type.caption, { color: theme.colors.text, fontFamily: fonts.semibold }]}>
+                    {overDays} of {dailyBars.length} days over
+                  </Text>
+                </View>
+              ) : null}
+            </>
+          ) : null}
+        </Card>
+      </Pressable>
+
+      <SectionHeader
+        title="Where it went"
+        actionLabel={categories.length ? 'Details' : undefined}
+        onAction={() => activeRangeIso && nav.navigate('AnalyticsCategoryDetail' as never, { range: activeRangeIso, timeframe } as never)}
+      />
+      <Card>
+        {categoryRows.length === 0 ? (
+          <>
+            <Text style={[type.small, { color: theme.colors.textMuted }]}>
+              Nothing spent in this period yet. Log what you spend and this shows where your money goes.
+            </Text>
+            <Pressable onPress={() => nav.navigate('AddTransaction' as never)} accessibilityRole="button" hitSlop={8} style={{ marginTop: 8, alignSelf: 'flex-start' }}>
+              <Text style={[type.smallStrong, { color: theme.colors.primary }]}>Log spending</Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <View style={styles.stack}>
+              {categoryRows.map((c, i) => (
+                <View key={c.category} style={{ flex: Math.max(0.02, c.amount / categoryTotal), backgroundColor: theme.categories.fg[i % 6], borderRadius: 3 }} />
+              ))}
+            </View>
+            {categoryRows.map((c, i) => (
+              <View key={c.category} style={styles.catRow}>
+                <View style={[styles.swatch, { backgroundColor: theme.categories.fg[i % 6] }]} />
+                <Text numberOfLines={1} style={[type.body, { color: theme.colors.text, flex: 1 }]}>
+                  {c.category}
+                </Text>
+                <Text style={[type.caption, { color: theme.colors.textMuted, width: 40, textAlign: 'right' }]}>{Math.round((c.amount / categoryTotal) * 100)}%</Text>
+                <Amount value={c.amount} currency={glyph} size="sm" hidden={hide} style={{ minWidth: 86, textAlign: 'right' }} />
+              </View>
+            ))}
+          </>
+        )}
       </Card>
 
-      <View style={{ marginTop: 8 }}>
-        <Pressable
+      <SectionHeader title="Dig deeper" />
+      <ListCard>
+        {currentBudget ? (
+          <ListRow
+            icon={
+              <IconTile bg={theme.colors.primarySoft}>
+                <Wallet color={theme.colors.primary} size={19} />
+              </IconTile>
+            }
+            title="Current budget"
+            subtitle={
+              hide
+                ? 'Open to see what’s left'
+                : currentBudgetRemaining < 0
+                  ? `Over by ${formatAmount(Math.abs(currentBudgetRemaining), glyph)}`
+                  : `${formatAmount(currentBudgetRemaining, glyph)} left of ${formatAmount(currentBudgetTotal, glyph)}`
+            }
+            onPress={() => nav.navigate('BudgetDetail', { budgetId: String(currentBudget.id) })}
+            chevron
+          />
+        ) : null}
+        <ListRow
+          icon={
+            <IconTile bg={theme.categories.bg[1]}>
+              <PieChart color={theme.categories.fg[1]} size={19} />
+            </IconTile>
+          }
+          title="Budget buckets"
+          subtitle={bucketSpend[0] ? `${bucketLabel(bucketSpend[0].bucket)} leads${hide ? '' : ` at ${formatAmount(bucketSpend[0].amount, glyph)}`}` : 'No bucket spending yet'}
+          onPress={() => activeRangeIso && nav.navigate('AnalyticsBucketDetail' as never, { range: activeRangeIso, timeframe } as never)}
+          chevron
+        />
+        <ListRow
+          icon={
+            <IconTile bg={theme.categories.bg[2]}>
+              <Layers color={theme.categories.fg[2]} size={19} />
+            </IconTile>
+          }
+          title="Mini budgets"
+          subtitle={miniSpend[0] ? `${miniSpend[0].mini} leads${hide ? '' : ` at ${formatAmount(miniSpend[0].amount, glyph)}`}` : 'No mini budget spending yet'}
+          onPress={() => activeRangeIso && nav.navigate('AnalyticsMiniBudgetsDetail' as never, { range: activeRangeIso, timeframe } as never)}
+          chevron
+        />
+        <ListRow
+          icon={
+            <IconTile bg={theme.colors.surfaceAlt}>
+              <Calculator color={theme.colors.text} size={19} />
+            </IconTile>
+          }
+          title="Tax estimates"
+          subtitle={user?.taxProfile?.optInTaxFeature ? 'Using your tax settings' : 'Set up to estimate take-home pay'}
           onPress={() => nav.navigate('TaxSettings' as never)}
-          style={({ pressed }) => [{
-            alignSelf: 'flex-start',
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-            borderRadius: 999,
-            backgroundColor: theme.colors.surfaceAlt,
-            opacity: pressed ? 0.85 : 1
-          }]}
-        >
-          <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontWeight: '600' }}>
-            {user?.taxProfile?.optInTaxFeature
-              ? 'Estimates assume your Tax Settings'
-              : 'Refine estimates with your Tax Settings'}
-          </Text>
-          <Text style={{ color: theme.colors.primary, fontSize: 12, fontWeight: '800', marginLeft: 6 }}>
-            Review
-          </Text>
-        </Pressable>
-      </View>
-
-      <View style={{ marginTop: 14 }}>
-        <Pressable
-          onPress={() => {
-            if (!activeRangeIso) return;
-            nav.navigate('AnalyticsCategoryDetail' as never, { range: activeRangeIso, timeframe } as never);
-          }}
-          disabled={!activeRangeIso}
-          style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
-        >
-        <Card>
-          <Text style={{ color: theme.colors.text, fontSize: 18, fontWeight: '900' }}>Spending by Category</Text>
-          <P style={{ marginTop: 6 }}>Where your money went this period.</P>
-
-          <View style={{ marginTop: 10, gap: 10 }}>
-            {categories.length === 0 ? (
-              <P>No category spending data yet.</P>
-            ) : (
-              categories.map(({ category, amount }) => {
-                const pct = Math.max(0.04, Math.min(1, amount / maxCat));
-                const dot = categoryDotColor(category);
-                return (
-                  <View key={category} style={{ paddingVertical: 10 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 12 }}>
-                        <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: dot, marginRight: 10 }} />
-                        <Text style={{ color: theme.colors.text, fontWeight: '900' }} numberOfLines={1}>
-                          {category}
-                        </Text>
-                      </View>
-                      <Text style={{ color: theme.colors.text, fontWeight: '900' }}>
-                        {showAmounts ? formatMoney(amount, user?.currency ?? '₦') : '••••'}
-                      </Text>
-                    </View>
-
-                    <View
-                      style={{
-                        height: 10,
-                        backgroundColor: theme.colors.surfaceAlt,
-                        borderRadius: 999,
-                        overflow: 'hidden',
-                        marginTop: 8
-                      }}
-                    >
-                      <LinearGradient
-                        colors={[theme.colors.primary, tokens.colors.secondary[400]]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={{ width: `${Math.round(pct * 100)}%`, height: '100%' }}
-                      />
-                    </View>
-                  </View>
-                );
-              })
-            )}
-          </View>
-        </Card>
-
-        </Pressable>
-
-        {/* Pull-to-refresh enabled on the screen — swipe down to refresh */}
-
-        <Pressable
-          onPress={() => {
-            if (!activeRangeIso) return;
-            nav.navigate('AnalyticsWeeklyDetail' as never, { range: activeRangeIso, timeframe } as never);
-          }}
-          disabled={!activeRangeIso}
-          style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1, marginTop: 18 })}
-        >
-        <Card style={{ paddingVertical: 14, paddingHorizontal: 12 }}>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 18, marginBottom: 8 }}>Weekly overview</Text>
-
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 140, gap: 10 }}>
-            {weekly.segmentsByDay.map((segments, idx) => {
-              const total = segments.reduce((s, seg) => s + seg.value, 0) || 1;
-              return (
-                <View key={idx} style={{ flex: 1, alignItems: 'center' }}>
-                  <View style={{ width: '60%', height: '100%', justifyContent: 'flex-end', overflow: 'hidden', borderRadius: 999 }}>
-                    {segments.reduceRight<React.ReactNode[]>((acc, seg, sIdx) => {
-                      const heightPct = seg.value / total; // relative portion
-                      const anim = bars[idx].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, heightPct * 120]
-                      });
-
-                      acc.push(
-                        <Animated.View
-                          key={`${idx}-${sIdx}`}
-                          style={{
-                            height: anim,
-                            backgroundColor: seg.color,
-                            width: '100%'
-                          }}
-                        />
-                      );
-                      return acc;
-                    }, [])}
-                  </View>
-                  <Text style={{ color: theme.colors.textMuted, marginTop: 6, fontSize: 12 }}>{weekly.labels[idx] ?? ''}</Text>
-                </View>
-              );
-            })}
-          </View>
-        </Card>
-
-        </Pressable>
-      </View>
-
-      <View style={{ marginTop: 14 }}>
-        <Pressable
-          onPress={() => {
-            if (!activeRangeIso) return;
-            nav.navigate('AnalyticsBucketDetail' as never, { range: activeRangeIso, timeframe } as never);
-          }}
-          disabled={!activeRangeIso}
-          style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
-        >
-        <Card>
-          <Text style={{ color: theme.colors.text, fontSize: 18, fontWeight: '900' }}>Spending by Budget Bucket</Text>
-          <P style={{ marginTop: 6 }}>How spending maps to your budget buckets.</P>
-
-          <View style={{ marginTop: 10, gap: 10 }}>
-            {bucketSpend.length === 0 ? (
-              <P>No bucket spending data yet.</P>
-            ) : (
-              bucketSpend.map(({ bucket, amount }) => {
-                const pct = Math.max(0.04, Math.min(1, amount / maxBucket));
-                return (
-                  <View key={bucket} style={{ paddingVertical: 10 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Text style={{ color: theme.colors.text, fontWeight: '900', flex: 1, paddingRight: 12 }} numberOfLines={1}>
-                        {bucketLabel(bucket)}
-                      </Text>
-                      <Text style={{ color: theme.colors.text, fontWeight: '900' }}>
-                        {showAmounts ? formatMoney(amount, user?.currency ?? '₦') : '••••'}
-                      </Text>
-                    </View>
-
-                    <View style={{ height: 8, backgroundColor: theme.colors.surfaceAlt, borderRadius: 999, overflow: 'hidden', marginTop: 8 }}>
-                      <View style={{ width: `${Math.round(pct * 100)}%`, height: '100%', backgroundColor: theme.colors.primary }} />
-                    </View>
-                  </View>
-                );
-              })
-            )}
-          </View>
-        </Card>
-
-        </Pressable>
-      </View>
-
-      <View style={{ marginTop: 14 }}>
-        <Pressable
-          onPress={() => {
-            if (!activeRangeIso) return;
-            nav.navigate('AnalyticsMiniBudgetsDetail' as never, { range: activeRangeIso, timeframe } as never);
-          }}
-          disabled={!activeRangeIso}
-          style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
-        >
-        <Card>
-          <Text style={{ color: theme.colors.text, fontSize: 18, fontWeight: '900' }}>Top Mini Budgets</Text>
-          <P style={{ marginTop: 6 }}>A quick look at spending inside your mini budgets.</P>
-
-          <View style={{ marginTop: 10, gap: 10 }}>
-            {miniSpend.length === 0 ? (
-              <P>No mini budget spending yet.</P>
-            ) : (
-              miniSpend.slice(0, 6).map(({ mini, amount }) => {
-                const pct = Math.max(0.04, Math.min(1, amount / maxMini));
-                return (
-                  <View key={mini} style={{ paddingVertical: 10 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Text style={{ color: theme.colors.text, fontWeight: '900', flex: 1, paddingRight: 12 }} numberOfLines={1}>
-                        {mini}
-                      </Text>
-                      <Text style={{ color: theme.colors.text, fontWeight: '900' }}>
-                        {showAmounts ? formatMoney(amount, user?.currency ?? '₦') : '••••'}
-                      </Text>
-                    </View>
-
-                    <View style={{ height: 8, backgroundColor: theme.colors.surfaceAlt, borderRadius: 999, overflow: 'hidden', marginTop: 8 }}>
-                      <View style={{ width: `${Math.round(pct * 100)}%`, height: '100%', backgroundColor: tokens.colors.secondary[500] }} />
-                    </View>
-                  </View>
-                );
-              })
-            )}
-          </View>
-        </Card>
-
-        </Pressable>
-      </View>
-
-      {/* Legacy QUICK TIP overlay removed in favor of Tour coachmarks */}
+          chevron
+        />
+      </ListCard>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  legend: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  swatch: { width: 10, height: 10, borderRadius: 3 },
+  stack: { flexDirection: 'row', gap: 3, height: 10, marginBottom: 8 },
+  catRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 }
+});

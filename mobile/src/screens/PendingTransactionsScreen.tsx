@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { BUCKETS, bucketDisplayName } from '../theme/buckets';
+import { useCategories } from '../contexts/CategoriesContext';
 import { View, Text, FlatList, Pressable, ActivityIndicator, type TextStyle, type ViewStyle } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft, CheckCircle2, XCircle, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react-native';
@@ -7,6 +9,7 @@ import * as SecureStore from 'expo-secure-store';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
 import { Screen, Card, H1, P, PrimaryButton, SecondaryButton } from '../components/Common/ui';
+import { SelectField } from '../components/Common/SelectField';
 import {
   listImportedTransactions,
   reconcileImportedTransaction,
@@ -36,39 +39,20 @@ function suggestedCategory(tx: ApiImportedTransaction): string {
   const base = `${tx.merchant || ''} ${tx.description || ''}`.toLowerCase();
 
   if (tx.direction === 'debit') {
-    if (/mart|supermarket|grocer|shoprite|market/.test(base)) return 'Groceries';
+    if (/mart|supermarket|grocer|shoprite|market/.test(base)) return 'Food & groceries';
     if (/uber|bolt|taxi|ride|transport|bus|fuel|gas|petrol/.test(base)) return 'Transport';
     if (/netflix|spotify|dstv|gotv|subscription|subs/.test(base)) return 'Subscriptions';
-    if (/airtime|data|mtn|airtel|glo|9mobile/.test(base)) return 'Airtime & data';
+    if (/airtime|data|mtn|airtel|glo|9mobile/.test(base)) return 'Data & airtime';
     if (/restaurant|food|eatery|kfc|chicken republic|pizza/.test(base)) return 'Eating out';
-    return 'General spending';
+    return 'Other';
   }
 
   if (/salary|payroll|wage|employer/.test(base)) return 'Salary';
   if (/interest|refund|reversal|cashback/.test(base)) return 'Other income';
-  return 'Income';
+  return 'Other income';
 }
 
-const PERSONAL_EXPENSE_CATEGORIES = ['Food', 'Transport', 'Housing', 'Bills', 'Shopping', 'Health', 'Entertainment', 'Other'] as const;
-const PERSONAL_INCOME_CATEGORIES = ['Salary', 'Bonus', 'Gift', 'Interest', 'Other'] as const;
 
-const BUSINESS_EXPENSE_CATEGORIES = [
-  'Payroll',
-  'Rent',
-  'Utilities',
-  'Office Supplies',
-  'Software & Subscriptions',
-  'Marketing',
-  'Travel',
-  'Professional Services',
-  'Taxes & Fees',
-  'Equipment',
-  'Shipping',
-  'Other'
-] as const;
-const BUSINESS_INCOME_CATEGORIES = ['Client Payment', 'Sales', 'Service Revenue', 'Interest', 'Other'] as const;
-
-const BUCKETS = ['Essential', 'Free Spending', 'Savings', 'Investments', 'Miscellaneous', 'Debt Financing'] as const;
 
 type PendingStep = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -107,6 +91,7 @@ export default function PendingTransactionsScreen() {
   const { theme } = useTheme();
   const toast = useToast();
   const { spacesEnabled, activeSpaceId, activeSpace } = useSpace();
+  const { expense: expenseCats, income: incomeCats } = useCategories();
 
   const [items, setItems] = useState<ApiImportedTransaction[]>([]);
   const [loading, setLoading] = useState(false);
@@ -126,14 +111,7 @@ export default function PendingTransactionsScreen() {
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
   const bucketLabel = useCallback(
     (key: string) => {
-      if (!isBusiness) return key;
-      if (key === 'Essential') return 'Operating Costs';
-      if (key === 'Savings') return 'Reserves';
-      if (key === 'Free Spending') return 'Discretionary';
-      if (key === 'Investments') return 'Growth';
-      if (key === 'Miscellaneous') return 'Misc Ops';
-      if (key === 'Debt Financing') return 'Loans & Credit';
-      return key;
+      return bucketDisplayName(key, isBusiness);
     },
     [isBusiness]
   );
@@ -244,7 +222,7 @@ export default function PendingTransactionsScreen() {
         next[tx.id] = {
           category: suggestedCategory(tx),
           budgetId: null,
-          budgetCategory: 'Essential',
+          budgetCategory: 'Needs',
           miniBudgetId: null,
           goalId: null,
           step: 1
@@ -278,7 +256,7 @@ export default function PendingTransactionsScreen() {
       const ensured: PendingDraft = existing ?? {
         category: '',
         budgetId: null,
-        budgetCategory: 'Essential',
+        budgetCategory: 'Needs',
         miniBudgetId: null,
         step: 1
       };
@@ -360,7 +338,7 @@ export default function PendingTransactionsScreen() {
         category,
         description,
         budgetId: draft?.budgetId ? String(draft.budgetId) : null,
-        budgetCategory: draft?.budgetId ? (draft?.budgetCategory ?? 'Essential') : null,
+        budgetCategory: draft?.budgetId ? (draft?.budgetCategory ?? 'Needs') : null,
         miniBudgetId: draft?.budgetId && draft?.miniBudgetId ? String(draft.miniBudgetId) : null
       };
 
@@ -459,7 +437,7 @@ export default function PendingTransactionsScreen() {
               <View style={{ marginLeft: 12, flex: 1 }}>
                 <H1 style={{ marginBottom: 0 }}>Pending transactions</H1>
                 {spacesEnabled ? (
-                  <Text style={{ marginTop: 4, color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>
+                  <Text style={{ marginTop: 4, color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>
                     Viewing: {activeSpace?.name ?? 'Personal'}
                   </Text>
                 ) : null}
@@ -475,7 +453,7 @@ export default function PendingTransactionsScreen() {
             {showTip ? (
               <View style={{ marginTop: 12 }}>
                 <Card>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900' }}>Tip</Text>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>Tip</Text>
                   <Text style={{ color: theme.colors.textMuted, marginTop: 6 }}>
                     Tap a transaction to open it. Choose: category → budget → type (Essential/Savings/etc) → mini budget (or NIL), then add.
                   </Text>
@@ -500,10 +478,10 @@ export default function PendingTransactionsScreen() {
               <Card>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontWeight: '700' }}>
+                    <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontFamily: 'Figtree_600SemiBold' }}>
                       Weekly reconciliation streak
                     </Text>
-                    <Text style={{ color: theme.colors.text, fontWeight: '900', marginTop: 4 }}>
+                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginTop: 4 }}>
                       {progress.done} of {progress.target} transactions cleared
                     </Text>
                     <Text style={{ color: theme.colors.textMuted, marginTop: 2, fontSize: 12 }}>Aim for inbox zero once a week.</Text>
@@ -519,7 +497,7 @@ export default function PendingTransactionsScreen() {
                       justifyContent: 'center'
                     }}
                   >
-                    <Text style={{ color: theme.colors.primary, fontWeight: '900' }}>{progress.pct}%</Text>
+                    <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_700Bold' }}>{progress.pct}%</Text>
                   </View>
                 </View>
               </Card>
@@ -545,7 +523,7 @@ export default function PendingTransactionsScreen() {
           const draft: PendingDraft = drafts[item.id] ?? {
             category: suggestedCategory(item),
             budgetId: null,
-            budgetCategory: 'Essential',
+            budgetCategory: 'Needs',
             miniBudgetId: null,
             goalId: null,
             step: 1
@@ -553,12 +531,8 @@ export default function PendingTransactionsScreen() {
 
           const categoryOptions = (() => {
             const base = item.direction === 'debit'
-              ? isBusiness
-                ? [...BUSINESS_EXPENSE_CATEGORIES]
-                : [...PERSONAL_EXPENSE_CATEGORIES]
-              : isBusiness
-                ? [...BUSINESS_INCOME_CATEGORIES]
-                : [...PERSONAL_INCOME_CATEGORIES];
+              ? expenseCats.map((c) => c.name)
+              : incomeCats.map((c) => c.name);
 
             const s = suggestedCategory(item);
             const opts = [s, ...base];
@@ -568,7 +542,7 @@ export default function PendingTransactionsScreen() {
           const budgetOptions = budgets.length > 0 ? budgets : (currentBudget ? [currentBudget] : []);
           const selectedBudget = draft.budgetId ? (budgetOptions.find((b) => String(b.id) === String(draft.budgetId)) ?? null) : null;
           const allowedBuckets = (() => {
-            const order = ['Essential', 'Free Spending', 'Savings', 'Investments', 'Miscellaneous', 'Debt Financing'] as const;
+            const order = BUCKETS;
             const cats = selectedBudget?.categories ? Object.keys(selectedBudget.categories) : [];
             const normalized = new Set(cats.map((x) => String(x).trim()).filter(Boolean));
             if (normalized.size === 0) return [...BUCKETS];
@@ -598,7 +572,7 @@ export default function PendingTransactionsScreen() {
                       [item.id]: {
                         category: suggestedCategory(item),
                         budgetId: null,
-                        budgetCategory: 'Essential',
+                        budgetCategory: 'Needs',
                         miniBudgetId: null,
                         goalId: null,
                         step: 1
@@ -611,7 +585,7 @@ export default function PendingTransactionsScreen() {
               >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <View style={{ flex: 1, paddingRight: 8 }}>
-                  <Text style={{ color: theme.colors.text, fontWeight: '900' }} numberOfLines={1}>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }} numberOfLines={1}>
                     {item.merchant || item.description || 'Transaction'}
                   </Text>
                   <Text style={{ color: theme.colors.textMuted, marginTop: 2 }} numberOfLines={1}>
@@ -622,7 +596,7 @@ export default function PendingTransactionsScreen() {
                   </Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color, fontWeight: '900' }}>
+                  <Text style={{ color, fontFamily: 'Figtree_700Bold' }}>
                     {sign}
                     {formatMoney(item.amount, item.currency === 'NGN' ? '₦' : item.currency)}
                   </Text>
@@ -634,7 +608,7 @@ export default function PendingTransactionsScreen() {
                 <View style={{ marginTop: 10 }}>
                   {/* Wizard header with < / > */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontWeight: '800' }}>
+                    <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontFamily: 'Figtree_600SemiBold' }}>
                       {draft.step <= 5 ? `Step ${draft.step} of ${draft.budgetCategory === 'Savings' ? 5 : 4}` : 'Confirm'} • {stepTitle(draft.step)}
                     </Text>
 
@@ -692,28 +666,28 @@ export default function PendingTransactionsScreen() {
                   {draft.step > 1 ? (
                     <View style={{ paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.border }}>
                       <Text style={{ color: theme.colors.textMuted, fontSize: 12 }} numberOfLines={1}>
-                        Category: <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{draft.category || '—'}</Text>
+                        Category: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{draft.category || '—'}</Text>
                       </Text>
                     </View>
                   ) : null}
                   {draft.step > 2 ? (
                     <View style={{ paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.border }}>
                       <Text style={{ color: theme.colors.textMuted, fontSize: 12 }} numberOfLines={1}>
-                        Budget: <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{(budgetOptions.find((b) => b.id === draft.budgetId)?.name ?? '—')}</Text>
+                        Budget: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{(budgetOptions.find((b) => b.id === draft.budgetId)?.name ?? '—')}</Text>
                       </Text>
                     </View>
                   ) : null}
                   {draft.step > 3 ? (
                     <View style={{ paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.border }}>
                       <Text style={{ color: theme.colors.textMuted, fontSize: 12 }} numberOfLines={1}>
-                        Type: <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{bucketLabel(draft.budgetCategory)}</Text>
+                        Type: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{bucketLabel(draft.budgetCategory)}</Text>
                       </Text>
                     </View>
                   ) : null}
                   {draft.step > 4 ? (
                     <View style={{ paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.border }}>
                       <Text style={{ color: theme.colors.textMuted, fontSize: 12 }} numberOfLines={1}>
-                        Mini budget: <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{draft.miniBudgetId ? (miniBudgetsForDraft.find((m) => m.id === draft.miniBudgetId)?.name ?? '—') : 'NIL'}</Text>
+                        Mini budget: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{draft.miniBudgetId ? (miniBudgetsForDraft.find((m) => m.id === draft.miniBudgetId)?.name ?? '—') : 'NIL'}</Text>
                       </Text>
                     </View>
                   ) : null}
@@ -721,65 +695,50 @@ export default function PendingTransactionsScreen() {
                   {draft.step > 5 && draft.budgetCategory === 'Savings' ? (
                     <View style={{ paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.border }}>
                       <Text style={{ color: theme.colors.textMuted, fontSize: 12 }} numberOfLines={1}>
-                        Goal: <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{draft.goalId ? (goals.find((g) => String(g.id) === String(draft.goalId))?.name ?? '—') : 'None'}</Text>
+                        Goal: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{draft.goalId ? (goals.find((g) => String(g.id) === String(draft.goalId))?.name ?? '—') : 'None'}</Text>
                       </Text>
                     </View>
                   ) : null}
 
                   {/* Current step options (only one appears at a time) */}
                   {draft.step === 1 ? (
-                    <View style={{ marginTop: 10 }}>
-                      <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginBottom: 6 }}>Choose a category</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                        {categoryOptions.map((c) => {
-                          const selected = draft.category === c;
-                          return (
-                            <Pressable
-                              key={c}
-                              onPress={() => {
-                                const next: PendingStep = draft.budgetId ? 3 : 2;
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [item.id]: { ...draft, category: c, step: next }
-                                }));
-                              }}
-                              style={pillStyle(theme, selected)}
-                            >
-                              <Text style={pillTextStyle(theme, selected)}>{c}</Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </View>
+                    <SelectField
+                      label="Category"
+                      placeholder="Choose a category"
+                      value={draft.category || null}
+                      options={categoryOptions.map((c) => ({ value: c, label: c }))}
+                      onChange={(c) => {
+                        if (!c) return;
+                        const next: PendingStep = draft.budgetId ? 3 : 2;
+                        setDrafts((prev) => ({
+                          ...prev,
+                          [item.id]: { ...draft, category: c, step: next }
+                        }));
+                      }}
+                      style={{ marginTop: 10, marginBottom: 0 }}
+                    />
                   ) : null}
 
                   {draft.step === 2 ? (
-                    <View style={{ marginTop: 10 }}>
-                      <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginBottom: 6 }}>Choose a budget</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                        {budgetOptions.map((b) => {
-                          const selected = draft.budgetId === b.id;
-                          const label = currentBudget?.id === b.id ? `${b.name} (current)` : b.name;
-                          return (
-                            <Pressable
-                              key={b.id}
-                              onPress={() => {
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [item.id]: { ...draft, budgetId: String(b.id), miniBudgetId: null, step: 3 }
-                                }));
-                                void loadMiniBudgetsForBudget(String(b.id));
-                              }}
-                              style={pillStyle(theme, selected)}
-                            >
-                              <Text style={pillTextStyle(theme, selected)} numberOfLines={1}>
-                                {label}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </View>
+                    <SelectField
+                      label="Budget"
+                      placeholder="Choose a budget"
+                      value={draft.budgetId ? String(draft.budgetId) : null}
+                      options={budgetOptions.map((b) => ({
+                        value: String(b.id),
+                        label: b.name.replace(/^My Budget \((.*)\)$/, '$1'),
+                        subtitle: [currentBudget?.id === b.id ? 'Current' : null, (b as { isShared?: boolean }).isShared ? 'Shared' : null].filter(Boolean).join(' · ') || undefined
+                      }))}
+                      onChange={(id) => {
+                        if (!id) return;
+                        setDrafts((prev) => ({
+                          ...prev,
+                          [item.id]: { ...draft, budgetId: id, miniBudgetId: null, step: 3 }
+                        }));
+                        void loadMiniBudgetsForBudget(id);
+                      }}
+                      style={{ marginTop: 10, marginBottom: 0 }}
+                    />
                   ) : null}
 
                   {draft.step === 3 ? (
@@ -809,83 +768,46 @@ export default function PendingTransactionsScreen() {
 
                   {draft.step === 4 ? (
                     <View style={{ marginTop: 10 }}>
-                      <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginBottom: 6 }}>Pick a mini budget (optional)</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                        <Pressable
-                          onPress={() => {
+                      {miniBudgetsForBucket.length ? (
+                        <SelectField
+                          label="Mini budget (optional)"
+                          value={draft.miniBudgetId ? String(draft.miniBudgetId) : null}
+                          options={[{ value: null, label: 'None' }, ...miniBudgetsForBucket.map((m) => ({ value: String(m.id), label: m.name }))]}
+                          onChange={(id) =>
                             setDrafts((prev) => ({
                               ...prev,
-                                  [item.id]: { ...draft, miniBudgetId: null, step: draft.budgetCategory === 'Savings' ? 5 : 6 }
-                            }));
-                          }}
-                          style={pillStyle(theme, draft.miniBudgetId === null)}
-                        >
-                          <Text style={pillTextStyle(theme, draft.miniBudgetId === null)}>NIL</Text>
-                        </Pressable>
-                        {miniBudgetsForBucket.map((m) => {
-                          const selected = draft.miniBudgetId === m.id;
-                          return (
-                            <Pressable
-                              key={m.id}
-                              onPress={() => {
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [item.id]: { ...draft, miniBudgetId: String(m.id), step: draft.budgetCategory === 'Savings' ? 5 : 6 }
-                                }));
-                              }}
-                              style={pillStyle(theme, selected)}
-                            >
-                              <Text style={pillTextStyle(theme, selected)} numberOfLines={1}>
-                                {m.name}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                      {draft.budgetId && miniBudgetsByBudget[draft.budgetId] && miniBudgetsForBucket.length === 0 ? (
-                        <Text style={{ color: theme.colors.textMuted, marginTop: 8, fontSize: 12 }}>
-                          No mini budgets under {bucketLabel(draft.budgetCategory)}.
-                        </Text>
-                      ) : null}
+                              [item.id]: { ...draft, miniBudgetId: id, step: draft.budgetCategory === 'Savings' ? 5 : 6 }
+                            }))
+                          }
+                          style={{ marginBottom: 0 }}
+                        />
+                      ) : (
+                        <>
+                          {draft.budgetId && miniBudgetsByBudget[draft.budgetId] ? (
+                            <Text style={{ color: theme.colors.textMuted, marginBottom: 8, fontSize: 12 }}>No mini budgets under {bucketLabel(draft.budgetCategory)}.</Text>
+                          ) : null}
+                          <SecondaryButton
+                            title="Continue"
+                            onPress={() =>
+                              setDrafts((prev) => ({
+                                ...prev,
+                                [item.id]: { ...draft, miniBudgetId: null, step: draft.budgetCategory === 'Savings' ? 5 : 6 }
+                              }))
+                            }
+                          />
+                        </>
+                      )}
                     </View>
                   ) : null}
 
                   {draft.step === 5 && draft.budgetCategory === 'Savings' ? (
-                    <View style={{ marginTop: 10 }}>
-                      <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginBottom: 6 }}>Add to existing goals? (optional)</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                        <Pressable
-                          onPress={() => {
-                            setDrafts((prev) => ({
-                              ...prev,
-                              [item.id]: { ...draft, goalId: null, step: 6 }
-                            }));
-                          }}
-                          style={pillStyle(theme, draft.goalId === null)}
-                        >
-                          <Text style={pillTextStyle(theme, draft.goalId === null)}>None</Text>
-                        </Pressable>
-                        {goals.map((g) => {
-                          const selected = String(draft.goalId ?? '') === String(g.id);
-                          return (
-                            <Pressable
-                              key={String(g.id)}
-                              onPress={() => {
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [item.id]: { ...draft, goalId: String(g.id), step: 6 }
-                                }));
-                              }}
-                              style={pillStyle(theme, selected)}
-                            >
-                              <Text style={pillTextStyle(theme, selected)} numberOfLines={1}>
-                                {g.emoji ? `${g.emoji} ` : ''}{g.name}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </View>
+                    <SelectField
+                      label="Add to a goal? (optional)"
+                      value={draft.goalId ? String(draft.goalId) : null}
+                      options={[{ value: null, label: 'No goal' }, ...goals.map((g) => ({ value: String(g.id), label: `${g.emoji ? `${g.emoji} ` : ''}${g.name}` }))]}
+                      onChange={(id) => setDrafts((prev) => ({ ...prev, [item.id]: { ...draft, goalId: id, step: 6 } }))}
+                      style={{ marginTop: 10, marginBottom: 0 }}
+                    />
                   ) : null}
 
                   {/* Actions */}

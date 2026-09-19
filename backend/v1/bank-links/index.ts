@@ -189,6 +189,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       spaceId: l.spaceId ?? 'personal',
       provider: l.provider,
       bankName: l.bankName,
+      status: l.status ?? 'active',
+      lastSyncedAt: l.lastSyncedAt ? l.lastSyncedAt.toISOString() : null,
       createdAt: l.createdAt.toISOString(),
       accounts: (accountByLink.get(l._id) ?? []).map((a) => ({
         id: a._id,

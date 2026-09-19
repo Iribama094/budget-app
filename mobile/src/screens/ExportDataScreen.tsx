@@ -43,7 +43,7 @@ export default function ExportDataScreen() {
 
       <View style={{ marginTop: 16 }}>
         <Card>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Export your data</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Export your data</Text>
           <P style={{ marginTop: 6 }}>Choose how you’d like to export your budgets and transactions.</P>
 
           <View style={{ marginTop: 12 }}>
@@ -62,7 +62,7 @@ export default function ExportDataScreen() {
 
       <View style={{ marginTop: 12 }}>
         <Card>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Request statements</Text>
+          <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Request statements</Text>
           <P style={{ marginTop: 6 }}>Prefer a bank-style statement? Request one directly from here.</P>
 
           <View style={{ marginTop: 12 }}>

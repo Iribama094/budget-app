@@ -6,6 +6,20 @@ import loginMod from '../backend/v1/auth/login.js';
 import logoutMod from '../backend/v1/auth/logout.js';
 import refreshMod from '../backend/v1/auth/refresh.js';
 import authMeMod from '../backend/v1/auth/me.js';
+import forgotPasswordMod from '../backend/v1/auth/forgot-password.js';
+import resetPasswordMod from '../backend/v1/auth/reset-password.js';
+import changePasswordMod from '../backend/v1/auth/change-password.js';
+import sessionsMod from '../backend/v1/auth/sessions.js';
+import recurringIndexMod from '../backend/v1/recurring/index.js';
+import recurringIdMod from '../backend/v1/recurring/[id].js';
+import cronDailyMod from '../backend/v1/cron/daily.js';
+import pushTokensMod from '../backend/v1/push-tokens.js';
+import notificationsMod from '../backend/v1/notifications/index.js';
+import budgetRolloverMod from '../backend/v1/budgets/rollover.js';
+import budgetShareMod from '../backend/v1/budgets/share.js';
+import budgetInviteAcceptMod from '../backend/v1/budget-invites/accept.js';
+import bankLinksMonoMod from '../backend/v1/bank-links/mono.js';
+import bankLinksSyncMod from '../backend/v1/bank-links/sync.js';
 
 import usersMeMod from '../backend/v1/users/me.js';
 
@@ -73,6 +87,32 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     if (a === 'auth' && b === 'logout') return unwrap(logoutMod)(req, res);
     if (a === 'auth' && b === 'refresh') return unwrap(refreshMod)(req, res);
     if (a === 'auth' && b === 'me') return unwrap(authMeMod)(req, res);
+    if (a === 'auth' && b === 'forgot-password') return unwrap(forgotPasswordMod)(req, res);
+    if (a === 'auth' && b === 'reset-password') return unwrap(resetPasswordMod)(req, res);
+    if (a === 'auth' && b === 'change-password') return unwrap(changePasswordMod)(req, res);
+    if (a === 'auth' && b === 'sessions') return unwrap(sessionsMod)(wrapReq(req, { id: c, action: c === 'revoke-others' ? c : undefined }), res);
+
+    // Recurring transactions and bills
+    if (a === 'recurring' && parts.length === 1) return unwrap(recurringIndexMod)(req, res);
+    if (a === 'recurring' && parts.length === 2) return unwrap(recurringIdMod)(wrapReq(req, { id: b }), res);
+
+    // Notifications and push
+    if (a === 'notifications') return unwrap(notificationsMod)(wrapReq(req, { action: b }), res);
+    if (a === 'push-tokens') return unwrap(pushTokensMod)(req, res);
+
+    // Scheduled jobs (Vercel Cron)
+    if (a === 'cron' && b === 'daily') return unwrap(cronDailyMod)(req, res);
+
+    // Shared budgets
+    if (a === 'budget-invites' && b === 'accept') return unwrap(budgetInviteAcceptMod)(req, res);
+    if (a === 'budgets' && c === 'rollover') return unwrap(budgetRolloverMod)(wrapReq(req, { id: b }), res);
+    if (a === 'budgets' && (c === 'members' || c === 'invites')) {
+      return unwrap(budgetShareMod)(wrapReq(req, { id: b, action: c, memberId: parts[3] }), res);
+    }
+
+    // Live bank connections
+    if (a === 'bank-links' && b === 'mono') return unwrap(bankLinksMonoMod)(req, res);
+    if (a === 'bank-links' && parts.length === 3 && c === 'sync') return unwrap(bankLinksSyncMod)(wrapReq(req, { id: b }), res);
 
     // Users
     if (a === 'users' && b === 'me') return unwrap(usersMeMod)(req, res);

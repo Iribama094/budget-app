@@ -1,23 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Animated, Pressable } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Plus } from 'lucide-react-native';
-import Svg, { Circle } from 'react-native-svg';
-
-const AnimatedCircle = Animated.createAnimatedComponent(Circle as any);
+import { View, Text, FlatList, Animated, Pressable, StyleSheet } from 'react-native';
+import { AlertTriangle, Check, Plus } from 'lucide-react-native';
 
 import { listGoals, listBudgets, type ApiGoal, type ApiBudget } from '../api/endpoints';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Card, InlineError, P, Screen, H1 } from '../components/Common/ui';
-import { formatMoney } from '../utils/format';
-import { tokens } from '../theme/tokens';
+import { Amount, Card, Chip, EmptyState, InlineError, ProgressBar, Ring, Screen, ScreenHeader, Skeleton, formatAmount } from '../components/Common/ui';
+import { currencySymbol, formatShortDate } from '../utils/format';
+import { fonts, type } from '../theme/typography';
 import { useSpace } from '../contexts/SpaceContext';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { SpaceSwitcher } from '../components/Common/SpaceSwitcher';
 import { useTour, useTourAnchor } from '../contexts/TourContext';
 import { useNudges } from '../contexts/NudgesContext';
 import { NudgeTooltip } from '../components/Common/NudgeTooltip';
+import { PendingSavingsCard } from '../components/Home/PendingSavingsCard';
 
 function formatDate(iso: string) {
   try {
@@ -130,22 +127,212 @@ export function GoalsScreen() {
     };
   }, [items]);
 
+  const glyph = currencySymbol(user?.currency);
+  const totalSaved = items.reduce((s, g) => s + (Number(g.currentAmount) || 0), 0);
+
+  const goalPace = (item: ApiGoal) => {
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const progress = item.targetAmount > 0 ? Math.min(1, Math.max(0, item.currentAmount / item.targetAmount)) : 0;
+    const daysRemaining = Math.ceil((new Date(item.targetDate).getTime() - Date.now()) / msPerDay);
+    const remaining = Math.max(0, item.targetAmount - item.currentAmount);
+    const monthsRemaining = Math.max(1, (new Date(item.targetDate).getTime() - Date.now()) / (msPerDay * 30));
+    const suggestedMonthly = remaining > 0 ? remaining / monthsRemaining : 0;
+    let behind = false;
+    if (progress < 1) {
+      const created = new Date(item.createdAt).getTime();
+      const target = new Date(item.targetDate).getTime();
+      if (Number.isFinite(created) && Number.isFinite(target) && target > created) {
+        const totalSpan = target - created;
+        const elapsed = Math.min(Math.max(0, Date.now() - created), totalSpan);
+        behind = progress + 0.05 < elapsed / totalSpan;
+      }
+    }
+    return { progress, daysRemaining, suggestedMonthly, behind, done: progress >= 1 };
+  };
+
+  // One line that speaks to the goal needing attention: the one furthest behind, otherwise the one closest to done.
+  const focusLine = useMemo(() => {
+    if (!items.length) return null;
+    const paced = items.map((g) => ({ g, p: goalPace(g) }));
+    if (paced.every((x) => x.p.done)) return 'Every goal reached. Ready for the next one?';
+    const behind = paced.filter((x) => x.p.behind && x.p.suggestedMonthly > 0).sort((a, b) => a.p.progress - b.p.progress)[0];
+    if (behind) return `${behind.g.emoji || '🎯'} ${behind.g.name} needs ${formatAmount(Math.round(behind.p.suggestedMonthly), glyph)} a month to catch up.`;
+    const closest = paced.filter((x) => !x.p.done).sort((a, b) => b.p.progress - a.p.progress)[0];
+    const left = Math.max(0, closest.g.targetAmount - closest.g.currentAmount);
+    return closest.p.progress > 0
+      ? `${closest.g.emoji || '🎯'} ${closest.g.name} is ${Math.round(closest.p.progress * 100)}% there. ${formatAmount(left, glyph)} to go.`
+      : `${closest.g.emoji || '🎯'} ${closest.g.name} starts with ${formatAmount(Math.round(closest.p.suggestedMonthly), glyph)} this month.`;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, glyph]);
+
+  const quickStarts = isBusiness
+    ? [
+        { key: 'reserve', label: '🛟 Cash reserve' },
+        { key: 'tax', label: '🧾 Tax money' },
+        { key: 'equipment', label: '🛠️ Equipment' }
+      ]
+    : [
+        { key: 'emergency', label: '🛟 Emergency fund' },
+        { key: 'rent', label: '🏠 Rent' },
+        { key: 'school', label: '🎓 School fees' },
+        { key: 'travel', label: '✈️ Travel' }
+      ];
+
   return (
     <Screen scrollable={false}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <H1 style={{ marginBottom: 0 }}>Your Goals</H1>
+      <FlatList
+        data={items}
+        keyExtractor={(g) => g.id}
+        onRefresh={load}
+        refreshing={isLoading}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 130 }}
+        ListHeaderComponent={
+          <View>
+            <ScreenHeader
+              title="Goals"
+              right={
+                <Pressable
+                  ref={addGoalAnchorRef}
+                  onPress={() => (nav as any).navigate('CreateGoal')}
+                  accessibilityRole="button"
+                  accessibilityLabel="New goal"
+                  style={({ pressed }) => [styles.newPill, { backgroundColor: theme.colors.primary, opacity: pressed ? 0.85 : 1 }]}
+                >
+                  <Plus color={theme.colors.onPrimary} size={16} strokeWidth={2.6} />
+                  <Text style={[type.smallStrong, { color: theme.colors.onPrimary }]}>New</Text>
+                </Pressable>
+              }
+            />
+            {spacesEnabled ? (
+              <View style={{ marginTop: 6 }}>
+                <SpaceSwitcher />
+              </View>
+            ) : null}
+            {activeSpaceId === 'personal' ? <PendingSavingsCard onAnswered={() => void load()} /> : null}
+            {error ? (
+              <View style={{ marginTop: 12 }}>
+                <InlineError message={error} />
+              </View>
+            ) : null}
+            {goalSummary ? (
+              <Card style={{ marginTop: 12 }}>
+                <Text style={[type.smallStrong, { color: theme.colors.textMuted }]}>
+                  Saved across {goalSummary.active} goal{goalSummary.active === 1 ? '' : 's'}
+                </Text>
+                <Amount value={totalSaved} currency={glyph} size="lg" style={{ marginTop: 4 }} />
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                  {goalSummary.onTrack > 0 ? <Chip tone="positive" label={`${goalSummary.onTrack} on track`} /> : null}
+                  {goalSummary.behind > 0 ? <Chip tone="brass" label={`${goalSummary.behind} behind pace`} /> : null}
+                </View>
+                {focusLine ? <Text style={[type.small, { color: theme.colors.text, marginTop: 12 }]}>{focusLine}</Text> : null}
+              </Card>
+            ) : null}
+          </View>
+        }
+        ListEmptyComponent={
+          isLoading ? (
+            <Skeleton rows={3} height={120} style={{ marginTop: 12 }} />
+          ) : (
+            <View style={{ marginTop: 14 }}>
+              <EmptyState
+                title={isBusiness ? 'Nothing set aside yet' : 'What are you saving for?'}
+                body={
+                  isBusiness
+                    ? 'A cash reserve, tax money or new equipment. Pick one and we’ll work out what to set aside each month.'
+                    : 'Pick one to start. We’ll work out what to put aside each month, so you get there without the stress.'
+                }
+                actionLabel="Something else"
+                onAction={() => (nav as any).navigate('CreateGoal', { preset: 'other' })}
+              />
+              <View style={styles.quickWrap}>
+                {quickStarts.map((q) => (
+                  <Pressable
+                    key={q.key}
+                    onPress={() => (nav as any).navigate('CreateGoal', { preset: q.key })}
+                    accessibilityRole="button"
+                    style={({ pressed }) => [styles.quickPill, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface, opacity: pressed ? 0.85 : 1 }]}
+                  >
+                    <Text style={[type.smallStrong, { color: theme.colors.text }]}>{q.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )
+        }
+        renderItem={({ item }) => {
+          const p = goalPace(item);
+          const color = p.behind ? theme.colors.brass : p.done ? theme.colors.success : theme.colors.primary;
+          const isSavingsGoal = (item.category || '').toLowerCase().includes('saving');
+          const lowSavingsBudget = isSavingsGoal && typeof savingsMonthlyBudget === 'number' && savingsMonthlyBudget > 0 && savingsMonthlyBudget < p.suggestedMonthly;
+          const openGoal = () => (nav as any).navigate('GoalDetail', { goalId: item.id, goal: item });
 
-        <TouchableOpacity
-          ref={addGoalAnchorRef}
-          onPress={() => {
-            (nav as any).navigate('CreateGoal');
-          }}
-          activeOpacity={0.9}
-          style={{ width: 48, height: 48, borderRadius: 999, backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.12, shadowOffset: { width: 0, height: 6 }, shadowRadius: 12 }}
-        >
-          <Plus color={tokens.colors.white} size={20} />
-        </TouchableOpacity>
-      </View>
+          return (
+            <Pressable onPress={openGoal} accessibilityRole="button" style={({ pressed }) => ({ marginTop: 12, opacity: pressed ? 0.92 : 1 })}>
+              <Card>
+                <View style={styles.row}>
+                  <View style={[styles.emoji, { backgroundColor: theme.colors.surfaceAlt }]}>
+                    <Text style={{ fontSize: 22 }}>{item.emoji || '🎯'}</Text>
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text numberOfLines={1} style={[type.bodyStrong, { color: theme.colors.text, fontSize: 16 }]}>
+                      {item.name}
+                    </Text>
+                    <Text numberOfLines={1} style={[type.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>
+                      {p.done
+                        ? 'Goal reached'
+                        : p.daysRemaining >= 0
+                          ? `By ${formatShortDate(item.targetDate)} · ${p.daysRemaining} day${p.daysRemaining === 1 ? '' : 's'}`
+                          : `Target date passed · ${formatShortDate(item.targetDate)}`}
+                    </Text>
+                  </View>
+                  <Ring progress={p.progress} label={`${Math.round(p.progress * 100)}%`} color={color} />
+                </View>
+
+                <View style={[styles.row, { alignItems: 'baseline', gap: 6, marginTop: 14 }]}>
+                  <Amount value={item.currentAmount} currency={glyph} />
+                  <Text style={[type.small, { color: theme.colors.textMuted }]}>of {formatAmount(item.targetAmount, glyph)}</Text>
+                </View>
+                <View style={{ marginTop: 8 }}>
+                  <ProgressBar value={p.progress} color={color} />
+                </View>
+
+                <View style={[styles.row, { justifyContent: 'space-between', marginTop: 12 }]}>
+                  {p.done ? (
+                    <Chip tone="positive" label="Reached" icon={<Check color={theme.colors.success} size={12} strokeWidth={3} />} />
+                  ) : p.behind ? (
+                    <View style={[styles.row, { gap: 6, flex: 1 }]}>
+                      <AlertTriangle color={theme.colors.brass} size={14} />
+                      <Text numberOfLines={1} style={[type.caption, { color: theme.colors.warn, fontFamily: fonts.semibold, flex: 1 }]}>
+                        Behind · needs {formatAmount(Math.round(p.suggestedMonthly), glyph)}/mo
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text numberOfLines={1} style={[type.caption, { color: theme.colors.textMuted, flex: 1 }]}>
+                      Save <Text style={{ fontFamily: fonts.semibold, color: theme.colors.text }}>{formatAmount(Math.round(p.suggestedMonthly), glyph)}</Text>/mo to finish on time
+                    </Text>
+                  )}
+                  <Pressable
+                    onPress={openGoal}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open ${item.name}`}
+                    hitSlop={6}
+                    style={({ pressed }) => [styles.openPill, { backgroundColor: theme.colors.primarySoft, opacity: pressed ? 0.8 : 1 }]}
+                  >
+                    <Text style={[type.smallStrong, { color: theme.colors.primary }]}>Update</Text>
+                  </Pressable>
+                </View>
+
+                {lowSavingsBudget ? (
+                  <Text style={[type.caption, { color: theme.colors.warn, marginTop: 8 }]}>
+                    Your {savingsBucketLabel} budget may be too low to reach this goal on time.
+                  </Text>
+                ) : null}
+              </Card>
+            </Pressable>
+          );
+        }}
+      />
 
       <NudgeTooltip
         visible={!isTourActive && !seen['goals.add'] && !isLoading && !error && items.length === 0}
@@ -155,218 +342,15 @@ export function GoalsScreen() {
         onTargetPress={() => (nav as any).navigate('CreateGoal')}
         onDismiss={() => markSeen('goals.add')}
       />
-
-      {spacesEnabled ? (
-        <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>
-            Viewing: {activeSpace?.name ?? 'Personal'}
-          </Text>
-          <SpaceSwitcher />
-        </View>
-      ) : null}
-
-      <View style={{ marginTop: 14 }}>
-        {error ? <InlineError message={error} /> : null}
-        {isLoading ? <ActivityIndicator color={theme.colors.primary} /> : null}
-      </View>
-
-      {goalSummary && (
-        <View style={{ marginTop: 10 }}>
-          <Card>
-            <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Goal health</Text>
-            <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 18, marginTop: 4 }}>
-              {goalSummary.active} active goals
-            </Text>
-            <View style={{ flexDirection: 'row', marginTop: 6 }}>
-              <Text style={{ color: tokens.colors.success[600], fontWeight: '800', marginRight: 12 }}>
-                {goalSummary.onTrack} on track
-              </Text>
-              <Text style={{ color: goalSummary.behind > 0 ? tokens.colors.warning[600] : theme.colors.textMuted, fontWeight: '800' }}>
-                {goalSummary.behind} behind
-              </Text>
-            </View>
-          </Card>
-        </View>
-      )}
-
-      {/* Goal creation moved to CreateGoal screen */}
-
-      <View style={{ marginTop: 12, flex: 1 }}>
-        <FlatList
-          data={items}
-          keyExtractor={(g) => g.id}
-          contentContainerStyle={items.length ? undefined : { flexGrow: 1, justifyContent: 'center' }}
-          ListEmptyComponent={!isLoading ? <P style={{ textAlign: 'center' }}>No goals yet.</P> : null}
-          onRefresh={load}
-          refreshing={isLoading}
-          renderItem={({ item }) => {
-            const progress = item.targetAmount > 0 ? Math.min(1, Math.max(0, item.currentAmount / item.targetAmount)) : 0;
-            const daysRemaining = Math.ceil((new Date(item.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-            const remaining = Math.max(0, item.targetAmount - item.currentAmount);
-            const monthsRemaining = Math.max(1, (new Date(item.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30));
-            const suggestedMonthly = remaining > 0 ? remaining / monthsRemaining : 0;
-
-            let statusLabel = 'On track';
-            let statusColor: string = tokens.colors.success[500];
-            if (progress < 1) {
-              const created = new Date(item.createdAt).getTime();
-              const target = new Date(item.targetDate).getTime();
-              if (Number.isFinite(created) && Number.isFinite(target) && target > created) {
-                const totalSpan = target - created;
-                const elapsed = Math.min(Math.max(0, Date.now() - created), totalSpan);
-                const expectedRatio = totalSpan > 0 ? elapsed / totalSpan : 0;
-                const actualRatio = progress;
-                if (actualRatio + 0.05 < expectedRatio) {
-                  statusLabel = 'Behind pace';
-                  statusColor = tokens.colors.warning[600];
-                }
-              }
-            }
-
-            const isSavingsGoal = (item.category || '').toLowerCase().includes('saving');
-            const hasSavingsBudget = typeof savingsMonthlyBudget === 'number' && savingsMonthlyBudget > 0;
-            const showSavingsHint = isSavingsGoal && hasSavingsBudget && suggestedMonthly > 0;
-            const savingsEnough = showSavingsHint ? savingsMonthlyBudget! >= suggestedMonthly : false;
-
-            return (
-              <Pressable
-                onPress={() => (nav as any).navigate('GoalDetail', { goalId: item.id, goal: item })}
-                style={({ pressed }) => ({ marginBottom: 10, opacity: pressed ? 0.96 : 1 })}
-              >
-                <Card style={{ padding: 0, overflow: 'hidden' }}>
-                  <View>
-                  <LinearGradient
-                    colors={[tokens.colors.secondary[400], tokens.colors.primary[500]]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={{ padding: 10 }}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 10 }}>
-                        <View
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 10,
-                            backgroundColor: 'rgba(255,255,255,0.12)',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            marginRight: 10
-                          }}
-                        >
-                          <Text style={{ color: tokens.colors.white, fontSize: 18 }}>{item.emoji || '🏁'}</Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: tokens.colors.white, fontWeight: '900', fontSize: 16 }} numberOfLines={1}>
-                            {item.name}
-                          </Text>
-                          <Text style={{ color: 'rgba(255,255,255,0.9)', marginTop: 4, fontWeight: '700' }}>
-                            {daysRemaining} days remaining
-                          </Text>
-                          <Text style={{ color: 'rgba(255,255,255,0.85)', marginTop: 4, fontSize: 12 }}>{item.category}</Text>
-                        </View>
-                      </View>
-
-                      <View style={{ alignItems: 'center', marginLeft: 8 }}>
-                        <View style={{ width: 56, height: 56, alignItems: 'center', justifyContent: 'center' }}>
-                          <Svg width={56} height={56} viewBox="0 0 56 56">
-                            <Circle cx={28} cy={28} r={22} stroke={'rgba(255,255,255,0.12)'} strokeWidth={4} fill="transparent" />
-                            {(() => {
-                              const anim = progressAnims.current[item.id] ?? new Animated.Value(progress);
-                              const radius = 22;
-                              const circumference = 2 * Math.PI * radius;
-                              const strokeDashoffset = anim.interpolate({ inputRange: [0, 1], outputRange: [circumference, 0] });
-                              return (
-                                <AnimatedCircle
-                                  cx={28}
-                                  cy={28}
-                                  r={radius}
-                                  stroke={tokens.colors.white}
-                                  strokeWidth={4}
-                                  strokeLinecap="round"
-                                  fill="transparent"
-                                  strokeDasharray={`${circumference} ${circumference}`}
-                                  strokeDashoffset={strokeDashoffset as any}
-                                  transform="rotate(-90 28 28)"
-                                />
-                              );
-                            })()}
-                          </Svg>
-                          <View style={{ position: 'absolute', alignItems: 'center', justifyContent: 'center' }}>
-                            <Text style={{ color: tokens.colors.white, fontWeight: '900' }}>{Math.round(progress * 100)}%</Text>
-                          </View>
-                        </View>
-                      </View>
-                    </View>
-                  </LinearGradient>
-
-                  <View style={{ padding: 10, backgroundColor: theme.colors.surface }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={{ color: theme.colors.textMuted, fontWeight: '700' }}>Progress</Text>
-                      <Text style={{ color: theme.colors.text, fontWeight: '900' }}>
-                        {formatMoney(item.currentAmount, user?.currency ?? '₦')} / {formatMoney(item.targetAmount, user?.currency ?? '₦')}
-                      </Text>
-                    </View>
-
-                    <View style={{ height: 8, backgroundColor: theme.colors.surfaceAlt, borderRadius: 999, overflow: 'hidden', marginTop: 8 }}>
-                      <LinearGradient
-                        colors={[theme.colors.primary, tokens.colors.secondary[400]]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={{ width: `${Math.round(progress * 100)}%`, height: '100%' }}
-                      />
-                    </View>
-
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={{ color: theme.colors.textMuted }}>Target: {formatDate(item.targetDate)}</Text>
-                      </View>
-                      <Text style={{ color: theme.colors.textMuted }}>
-                        {formatMoney(item.targetAmount - item.currentAmount, user?.currency ?? '₦')} to go
-                      </Text>
-                    </View>
-
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, alignItems: 'center' }}>
-                      <Text style={{ color: theme.colors.textMuted, fontSize: 12 }}>
-                        Suggested monthly: {formatMoney(suggestedMonthly, user?.currency ?? '₦')}
-                      </Text>
-                      <View
-                        style={{
-                          paddingHorizontal: 10,
-                          paddingVertical: 4,
-                          borderRadius: 999,
-                          backgroundColor: statusColor + '20'
-                        }}
-                      >
-                        <Text style={{ color: statusColor, fontWeight: '800', fontSize: 11 }}>{statusLabel}</Text>
-                      </View>
-                    </View>
-
-                    {showSavingsHint && (
-                      <View style={{ marginTop: 4 }}>
-                        <Text
-                          style={{
-                            color: savingsEnough ? tokens.colors.success[600] : tokens.colors.warning[600],
-                            fontSize: 11,
-                            fontWeight: '600'
-                          }}
-                        >
-                          {savingsEnough
-                            ? `Your current ${savingsBucketLabel} budget looks enough to support this goal.`
-                            : `Your current ${savingsBucketLabel} budget may be too low to hit this goal on time.`}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  </View>
-                </Card>
-              </Pressable>
-            );
-          }}
-        />
-      </View>
-
-      {/* Legacy QUICK TIP overlay removed in favor of Tour coachmarks */}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  emoji: { width: 46, height: 46, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  newPill: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingLeft: 10, paddingRight: 14, borderRadius: 18 },
+  openPill: { height: 32, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  quickWrap: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 14 },
+  quickPill: { borderWidth: 1, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 14 }
+});

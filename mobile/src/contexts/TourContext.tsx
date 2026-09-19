@@ -223,40 +223,8 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     startedThisSession.current = false;
   }, []);
 
-  // Auto-start on first login, once navigation is ready.
-  useEffect(() => {
-    if (!user) return;
-    if (startedThisSession.current) return;
-
-    let cancelled = false;
-    const tryStart = async () => {
-      try {
-        const done = await SecureStore.getItemAsync(FIRST_RUN_TOUR_KEY);
-        if (done === '1') return;
-      } catch {
-        // ignore
-      }
-
-      const interval = setInterval(() => {
-        if (cancelled) return;
-        if (!navigationRef.isReady()) return;
-        clearInterval(interval);
-        startedThisSession.current = true;
-        void startFirstRunTour();
-      }, 150);
-
-      setTimeout(() => {
-        // Safety: stop polling if we never become ready.
-        clearInterval(interval);
-      }, 6000);
-    };
-
-    void tryStart();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [startFirstRunTour, user]);
+  // The tour no longer starts by itself: first-visit screen guides (GuideContext) introduce each screen when it is
+  // first opened. The tour stays available on demand from Settings → Take the app tour.
 
   const current = steps[index];
 

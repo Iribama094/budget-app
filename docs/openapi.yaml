@@ -123,6 +123,237 @@ paths:
                     $ref: '#/components/schemas/User'
         '401': { $ref: '#/components/responses/ErrorResponse' }
 
+  /v1/auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Email a 6-digit password reset code
+      description: Always returns 200 so the endpoint can't be used to discover accounts. Requests within 60 seconds of a previous code are ignored.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '200':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean }
+                  devCode:
+                    type: string
+                    description: Only present when AUTH_DEV_EXPOSE_RESET_CODE=1 (local testing).
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+
+  /v1/auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password with an emailed code and sign in
+      description: Codes expire after PASSWORD_RESET_TTL_MIN minutes (default 15) and allow 5 attempts. A successful reset revokes every other session.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code, newPassword]
+              properties:
+                email: { type: string, format: email }
+                code: { type: string, pattern: '^\d{6}$' }
+                newPassword: { type: string, minLength: 8 }
+                deviceName: { type: string, maxLength: 100 }
+      responses:
+        '200':
+          description: Password changed; authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+
+  /v1/auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Change password for the signed-in user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [oldPassword, newPassword]
+              properties:
+                oldPassword: { type: string }
+                newPassword: { type: string, minLength: 8 }
+      responses:
+        '204':
+          description: Password changed
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+
+  /v1/auth/sessions:
+    get:
+      tags: [Auth]
+      summary: Signed-in devices for this account (current one flagged)
+      responses:
+        '200': { description: OK }
+  /v1/auth/sessions/{id}:
+    delete:
+      tags: [Auth]
+      summary: Sign out one device (use id "revoke-others" with POST to sign out every other device)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK }
+    post:
+      tags: [Auth]
+      summary: POST /v1/auth/sessions/revoke-others signs out all other devices
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, enum: [revoke-others] } }]
+      responses:
+        '200': { description: OK }
+
+  /v1/recurring:
+    get:
+      tags: [Recurring]
+      summary: Recurring transactions and bills
+      responses:
+        '200': { description: OK }
+    post:
+      tags: [Recurring]
+      summary: Create a schedule (type, amount, category, frequency weekly|monthly|yearly, startDate, autoCreate, remindDaysBefore, budgetCategory)
+      responses:
+        '201': { description: Created; includes how many due occurrences were recorded }
+  /v1/recurring/{id}:
+    patch:
+      tags: [Recurring]
+      summary: Update or pause a schedule
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK }
+    delete:
+      tags: [Recurring]
+      summary: Delete a schedule (already recorded transactions stay)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '204': { description: Deleted }
+  /v1/recurring/run:
+    post:
+      tags: [Recurring]
+      summary: Record everything due for the signed-in user
+      responses:
+        '200': { description: OK }
+
+  /v1/cron/daily:
+    get:
+      tags: [Jobs]
+      summary: Vercel Cron job — recurring transactions, bill reminders, bank sync. Requires Authorization Bearer CRON_SECRET.
+      security: []
+      responses:
+        '200': { description: OK }
+
+  /v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: In-app notification feed (newest first) with unread count; ?before=ISO for older
+      responses:
+        '200': { description: OK }
+  /v1/notifications/read:
+    post:
+      tags: [Notifications]
+      summary: Mark notifications read (body ids[], or all when omitted)
+      responses:
+        '200': { description: OK }
+  /v1/notifications/prefs:
+    get:
+      tags: [Notifications]
+      summary: Delivery preferences (paceAlerts, billReminders, weeklyCheckIn, autoSave)
+      responses:
+        '200': { description: OK }
+    patch:
+      tags: [Notifications]
+      summary: Update delivery preferences
+      responses:
+        '200': { description: OK }
+  /v1/push-tokens:
+    post:
+      tags: [Notifications]
+      summary: Register this device's Expo push token
+      responses:
+        '200': { description: OK }
+    delete:
+      tags: [Notifications]
+      summary: Unregister a push token (on log out)
+      responses:
+        '200': { description: OK }
+
+  /v1/budgets/{id}/rollover:
+    get:
+      tags: [Budgets]
+      summary: Unspent money in an ended budget and where it can go
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK }
+    post:
+      tags: [Budgets]
+      summary: Move unspent money into a goal or the next budget's Savings bucket (once per budget)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK }
+        '409': { description: Already rolled over }
+  /v1/budgets/{id}/members:
+    get:
+      tags: [Budgets]
+      summary: Owner and members of a shared budget
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK }
+  /v1/budgets/{id}/members/{userId}:
+    delete:
+      tags: [Budgets]
+      summary: Owner removes a member, or a member leaves
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: userId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK }
+  /v1/budgets/{id}/invites:
+    post:
+      tags: [Budgets]
+      summary: Owner creates a one-time 6-character invite code (valid 7 days)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '201': { description: Created }
+  /v1/budget-invites/accept:
+    post:
+      tags: [Budgets]
+      summary: Join a shared budget with an invite code
+      responses:
+        '200': { description: OK }
+
+  /v1/bank-links/mono:
+    post:
+      tags: [Bank links]
+      summary: Finish Mono Connect — exchange the code, save the account, import the last 90 days for review
+      responses:
+        '201': { description: Connected }
+        '501': { description: MONO_SECRET_KEY not configured }
+  /v1/bank-links/{id}/sync:
+    post:
+      tags: [Bank links]
+      summary: Import new transactions from a live connection now
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK }
+        '409': { description: The bank needs to be reconnected }
+
   /v1/users/me:
     get:
       tags: [Users]

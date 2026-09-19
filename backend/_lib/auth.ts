@@ -5,6 +5,8 @@ import { envNumber, requireEnv } from './env.js';
 export type AccessTokenPayload = {
   sub: string;
   typ: 'access';
+  /** Session id, so the API can tell which device made a request. */
+  sid?: string;
 };
 
 export type RefreshTokenPayload = {
@@ -13,10 +15,10 @@ export type RefreshTokenPayload = {
   typ: 'refresh';
 };
 
-export function signAccessToken(userId: string): string {
+export function signAccessToken(userId: string, sessionId?: string): string {
   const secret = requireEnv('JWT_ACCESS_SECRET');
   const ttlMin = envNumber('JWT_ACCESS_TTL_MIN', 15);
-  const payload: AccessTokenPayload = { sub: userId, typ: 'access' };
+  const payload: AccessTokenPayload = { sub: userId, typ: 'access', ...(sessionId ? { sid: sessionId } : {}) };
   return jwt.sign(payload, secret, { expiresIn: `${ttlMin}m` });
 }
 

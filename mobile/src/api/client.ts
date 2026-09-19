@@ -1,6 +1,7 @@
-import { clearTokens, getTokens, setTokens } from './storage';
+import { API_BASE } from '../config';
+import { deviceHeaders } from '../lib/device';
+import { supabase } from '../lib/supabase';
 
-const API_BASE = (process.env.EXPO_PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
 const API_STUB = (process.env.EXPO_API_STUB ?? '').toLowerCase() === 'true';
 
 // Simple in-memory stub state used when API_STUB=true
@@ -63,25 +64,25 @@ function inferBudgetBucketFromCategory(category: string, spaceId: StubSpaceId): 
 
   // Business defaults
   if (spaceId === 'business') {
-    if (/payroll|salary|wage|staff/.test(c)) return 'Essential';
-    if (/rent|lease|utilities|power|internet|office|suppl|subscription|software|tools/.test(c)) return 'Essential';
-    if (/tax|fee|charges|compliance/.test(c)) return 'Essential';
-    if (/equipment|device|laptop|machine|hardware/.test(c)) return 'Investments';
-    if (/marketing|ads?|advert|growth|campaign/.test(c)) return 'Investments';
-    if (/travel|flight|hotel|transport/.test(c)) return 'Miscellaneous';
-    if (/loan|credit|interest|repay/.test(c)) return 'Debt Financing';
-    return 'Miscellaneous';
+    if (/payroll|salary|wage|staff/.test(c)) return 'Needs';
+    if (/rent|lease|utilities|power|internet|office|suppl|subscription|software|tools/.test(c)) return 'Needs';
+    if (/tax|fee|charges|compliance/.test(c)) return 'Needs';
+    if (/equipment|device|laptop|machine|hardware/.test(c)) return 'Savings';
+    if (/marketing|ads?|advert|growth|campaign/.test(c)) return 'Savings';
+    if (/travel|flight|hotel|transport/.test(c)) return 'Wants';
+    if (/loan|credit|interest|repay/.test(c)) return 'Needs';
+    return 'Wants';
   }
 
   // Personal defaults
-  if (/rent|housing|mortgage|utilities|bills|electric|water|internet/.test(c)) return 'Essential';
-  if (/food|grocer|groceries|transport|fuel|petrol|gas|health|medical|pharmacy/.test(c)) return 'Essential';
-  if (/subscription|netflix|spotify|dstv|gotv|airtime|data/.test(c)) return 'Free Spending';
-  if (/shopping|clothing|entertainment|eating out|restaurant|dining/.test(c)) return 'Free Spending';
+  if (/rent|housing|mortgage|utilities|bills|electric|water|internet/.test(c)) return 'Needs';
+  if (/food|grocer|groceries|transport|fuel|petrol|gas|health|medical|pharmacy/.test(c)) return 'Needs';
+  if (/subscription|netflix|spotify|dstv|gotv|airtime|data/.test(c)) return 'Wants';
+  if (/shopping|clothing|entertainment|eating out|restaurant|dining/.test(c)) return 'Wants';
   if (/saving|savings|reserve/.test(c)) return 'Savings';
-  if (/investment|stocks?|crypto|mutual|fund/.test(c)) return 'Investments';
-  if (/loan|credit|interest|repay/.test(c)) return 'Debt Financing';
-  return 'Miscellaneous';
+  if (/investment|stocks?|crypto|mutual|fund/.test(c)) return 'Savings';
+  if (/loan|credit|interest|repay/.test(c)) return 'Needs';
+  return 'Wants';
 }
 
 type StubSpaceId = 'personal' | 'business';
@@ -163,38 +164,28 @@ async function parseJsonSafe(res: Response): Promise<any> {
   }
 }
 
+async function currentAccessToken(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
+}
+
 let refreshInFlight: Promise<string | null> | null = null;
 
+/** Refreshes the Supabase session once for concurrent 401s. A rejected refresh token signs this phone out. */
 async function refreshAccessToken(): Promise<string | null> {
-  const tokens = await getTokens();
-  if (!tokens) return null;
-
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
-      const res = await fetch(`${API_BASE}/v1/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken: tokens.refreshToken })
-      });
-
-      if (!res.ok) {
-        await clearTokens();
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error || !data.session) {
+        const status = (error as { status?: number } | null)?.status ?? 0;
+        if (status >= 400 && status < 500) await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
         return null;
       }
-
-      const data = await res.json();
-      if (!data?.accessToken || !data?.refreshToken) {
-        await clearTokens();
-        return null;
-      }
-
-      await setTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken });
-      return data.accessToken as string;
+      return data.session.access_token;
     })().finally(() => {
       refreshInFlight = null;
     });
   }
-
   return refreshInFlight;
 }
 
@@ -246,6 +237,17 @@ export async function apiFetch(path: string, init?: RequestInit & { skipAuth?: b
       return { accessToken: 'local-access-token', refreshToken: 'local-refresh-token' };
     }
     if (p === '/v1/auth/logout' && method === 'POST') {
+      return {};
+    }
+    if (p === '/v1/auth/forgot-password' && method === 'POST') {
+      return { ok: true, devCode: '123456' };
+    }
+    if (p === '/v1/auth/reset-password' && method === 'POST') {
+      const body = typeof init?.body === 'string' ? JSON.parse(init.body) : {};
+      if (body?.code !== '123456') throw new Error("That code isn't right. 4 tries left.");
+      return { user: makeUser(), accessToken: 'local-access-token', refreshToken: 'local-refresh-token' };
+    }
+    if (p === '/v1/auth/change-password' && method === 'POST') {
       return {};
     }
     if (p === '/v1/tax/rules' && method === 'GET') {
@@ -746,50 +748,29 @@ export async function apiFetch(path: string, init?: RequestInit & { skipAuth?: b
     return {};
   }
 
-  if (!API_BASE && !path.startsWith('http')) {
-    throw new Error('Missing EXPO_PUBLIC_API_BASE_URL. Create mobile/.env and set EXPO_PUBLIC_API_BASE_URL to your backend base URL (e.g. https://your-deployment.vercel.app). Then restart Expo.');
-  }
-
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
-
-  const headers = new Headers(init?.headers ?? {});
-  // Only set JSON content type when the body is a plain string/object, not FormData.
   const isFormData = typeof FormData !== 'undefined' && init?.body instanceof FormData;
-  if (!headers.has('Content-Type') && init?.body && !isFormData) headers.set('Content-Type', 'application/json');
 
-  if (!init?.skipAuth) {
-    const tokens = await getTokens();
-    if (tokens?.accessToken) headers.set('Authorization', `Bearer ${tokens.accessToken}`);
-  }
+  const send = (token: string | null) => {
+    const headers = new Headers(init?.headers ?? {});
+    // Only set JSON content type when the body is a plain string/object, not FormData.
+    if (!headers.has('Content-Type') && init?.body && !isFormData) headers.set('Content-Type', 'application/json');
+    for (const [key, value] of Object.entries(deviceHeaders())) headers.set(key, value);
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    return fetch(url, { ...init, headers });
+  };
 
-  const res = await fetch(url, { ...init, headers });
-
+  let res = await send(init?.skipAuth ? null : await currentAccessToken());
   if (res.status === 401 && !init?.skipAuth) {
-    const newAccess = await refreshAccessToken();
-    if (!newAccess) {
-      const errBody = (await parseJsonSafe(res)) as ApiError | null;
-      const message = errBody?.error?.message || 'Unauthorized';
-      throw new Error(message);
-    }
-
-    const retryHeaders = new Headers(init?.headers ?? {});
-    if (!retryHeaders.has('Content-Type') && init?.body) retryHeaders.set('Content-Type', 'application/json');
-    retryHeaders.set('Authorization', `Bearer ${newAccess}`);
-
-    const retryRes = await fetch(url, { ...init, headers: retryHeaders });
-    const retryData = await parseJsonSafe(retryRes);
-    if (!retryRes.ok) {
-      const message = (retryData as ApiError | null)?.error?.message || `Request failed (${retryRes.status})`;
-      throw new Error(message);
-    }
-    return retryData;
+    const fresh = await refreshAccessToken();
+    if (fresh) res = await send(fresh);
   }
 
   const data = await parseJsonSafe(res);
   if (!res.ok) {
-    const message = (data as ApiError | null)?.error?.message || `Request failed (${res.status})`;
-    throw new Error(message);
+    const fallback = res.status === 401 ? 'Please sign in again' : `Request failed (${res.status})`;
+    const message = (data as ApiError | null)?.error?.message || fallback;
+    throw Object.assign(new Error(message), { status: res.status });
   }
-
   return data;
 }

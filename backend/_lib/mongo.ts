@@ -1,5 +1,6 @@
 import { MongoClient } from 'mongodb';
 import { requireEnv } from './env.js';
+import { ensureIndexes } from './indexes.js';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -34,5 +35,8 @@ export async function getMongoClient(): Promise<MongoClient> {
 export async function getDb() {
   const client = await getMongoClient();
   const dbName = process.env.MONGODB_DB || 'budgetfriendly';
-  return client.db(dbName);
+  const db = client.db(dbName);
+  // Created once per process in the background; never blocks a request.
+  void ensureIndexes(db);
+  return db;
 }

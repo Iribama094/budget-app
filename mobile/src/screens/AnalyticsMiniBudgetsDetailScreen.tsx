@@ -1,15 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { ArrowLeft } from 'lucide-react-native';
+import { Wallet } from 'lucide-react-native';
 
-import { Screen, Card, H1, InlineError, P } from '../components/Common/ui';
+import { Amount, EmptyState, HeroCard, InlineError, ListCard, ProgressBar, Screen, ScreenHeader, SectionHeader } from '../components/Common/ui';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { getAnalyticsSummary, type AnalyticsSummary } from '../api/endpoints';
-import { formatMoney } from '../utils/format';
+import { currencySymbol, formatShortDate } from '../utils/format';
+import { type } from '../theme/typography';
 
 type RouteParams = {
   range: { start: string; end: string };
@@ -23,6 +24,8 @@ export default function AnalyticsMiniBudgetsDetailScreen() {
   const { user } = useAuth();
   const { showAmounts } = useAmountVisibility();
   const { spacesEnabled, activeSpaceId } = useSpace();
+  const glyph = currencySymbol(user?.currency);
+  const inkText = theme.colors.inkText;
 
   const params = (route.params ?? {}) as RouteParams;
   const range = params.range;
@@ -59,84 +62,48 @@ export default function AnalyticsMiniBudgetsDetailScreen() {
   const total = useMemo(() => items.reduce((s, x) => s + x.amount, 0) || 0, [items]);
 
   return (
-    <Screen onRefresh={load} refreshing={isLoading}>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <Pressable
-          onPress={() => nav.goBack()}
-          style={({ pressed }) => [{
-            width: 44,
-            height: 44,
-            borderRadius: 18,
-            backgroundColor: theme.colors.surface,
-            borderWidth: 1,
-            borderColor: theme.colors.border,
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: pressed ? 0.92 : 1
-          }]}
-        >
-          <ArrowLeft color={theme.colors.text} size={20} />
-        </Pressable>
-        <View style={{ marginLeft: 12, flex: 1 }}>
-          <H1 style={{ marginBottom: 0 }}>Mini budget spending</H1>
-          <P style={{ marginTop: 4 }}>Full breakdown for this period.</P>
+    <Screen bottomInset={48} onRefresh={load} refreshing={isLoading}>
+      <ScreenHeader title="Mini budget spending" subtitle={range ? `${formatShortDate(range.start)} – ${formatShortDate(range.end)}` : undefined} onBack={() => nav.goBack()} />
+
+      {error ? <InlineError message={error} /> : null}
+
+      <HeroCard style={{ marginTop: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Wallet color="#E2B65C" size={16} />
+          <Text style={[type.eyebrow, { color: inkText, opacity: 0.72 }]}>Spent from mini budgets</Text>
         </View>
-      </View>
+        <Amount value={total} currency={glyph} size="hero" color={inkText} hidden={!showAmounts} style={{ marginTop: 8 }} />
+        <Text style={[type.small, { color: inkText, opacity: 0.78 }]}>
+          {items.length ? `Across ${items.length} mini budget${items.length === 1 ? '' : 's'} this period.` : 'Your small pots for specific things.'}
+        </Text>
+      </HeroCard>
 
-      <View style={{ marginTop: 12 }}>
-        {error ? <InlineError message={error} /> : null}
-        {isLoading ? <ActivityIndicator color={theme.colors.primary} /> : null}
-      </View>
-
-      <View style={{ marginTop: 12 }}>
-        <Card>
-          <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12 }}>Period</Text>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 14, marginTop: 4 }}>
-            {String(range?.start ?? '')} → {String(range?.end ?? '')}
-          </Text>
-          <Text style={{ color: theme.colors.textMuted, fontWeight: '700', fontSize: 12, marginTop: 10 }}>Total spending (mini budgets)</Text>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 22, marginTop: 4 }}>
-            {showAmounts ? formatMoney(total, user?.currency ?? '₦') : '••••'}
-          </Text>
-        </Card>
-      </View>
-
-      <View style={{ marginTop: 12 }}>
-        <Card>
-          <Text style={{ color: theme.colors.text, fontWeight: '900', fontSize: 16 }}>Mini budgets</Text>
-          <View style={{ marginTop: 10 }}>
-            {items.length === 0 ? (
-              <P>No mini budget spending yet.</P>
-            ) : (
-              items.map(({ mini, amount }) => {
-                const pct = total > 0 ? Math.round((amount / total) * 100) : 0;
-                return (
-                  <View
-                    key={mini}
-                    style={{
-                      paddingVertical: 10,
-                      borderBottomWidth: 1,
-                      borderBottomColor: theme.colors.border
-                    }}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Text style={{ color: theme.colors.text, fontWeight: '900', flex: 1, paddingRight: 12 }} numberOfLines={1}>
-                        {mini}
-                      </Text>
-                      <Text style={{ color: theme.colors.text, fontWeight: '900' }}>
-                        {showAmounts ? formatMoney(amount, user?.currency ?? '₦') : '••••'}
-                      </Text>
-                    </View>
-                    <Text style={{ color: theme.colors.textMuted, fontWeight: '700', marginTop: 6, fontSize: 12 }}>
-                      {pct}% of mini-budget spending
-                    </Text>
-                  </View>
-                );
-              })
-            )}
-          </View>
-        </Card>
-      </View>
+      <SectionHeader title="Mini budgets" />
+      {isLoading && !data ? (
+        <ActivityIndicator color={theme.colors.primary} />
+      ) : items.length === 0 ? (
+        <EmptyState title="No mini budget spending yet" body="Link an expense to a mini budget and it will show here." />
+      ) : (
+        <ListCard>
+          {items.map(({ mini, amount }) => {
+            const share = total > 0 ? amount / total : 0;
+            return (
+              <View key={mini} style={{ paddingVertical: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Text numberOfLines={1} style={[type.bodyStrong, { color: theme.colors.text, flex: 1 }]}>
+                    {mini}
+                  </Text>
+                  <Amount value={amount} currency={glyph} size="sm" hidden={!showAmounts} />
+                </View>
+                <View style={{ marginTop: 8 }}>
+                  <ProgressBar value={share} color={theme.colors.brass} />
+                </View>
+                <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 4 }]}>{Math.round(share * 100)}% of mini-budget spending</Text>
+              </View>
+            );
+          })}
+        </ListCard>
+      )}
     </Screen>
   );
 }

@@ -33,3 +33,19 @@ export async function requireUser(req: { headers?: Record<string, unknown> }, re
 
   return user;
 }
+
+/** Like requireUserId, but also returns the session (device) the access token belongs to. */
+export async function requireAuth(req: { headers?: Record<string, unknown> }, res: any): Promise<{ userId: string; sessionId: string | null } | null> {
+  const token = getBearerToken(req);
+  if (!token) {
+    sendError(res, 401, 'UNAUTHORIZED', 'Missing Authorization header');
+    return null;
+  }
+  try {
+    const payload = verifyAccessToken(token);
+    return { userId: payload.sub, sessionId: payload.sid ?? null };
+  } catch {
+    sendError(res, 401, 'UNAUTHORIZED', 'Invalid or expired token');
+    return null;
+  }
+}

@@ -6,6 +6,20 @@ import loginMod from '../backend/v1/auth/login';
 import logoutMod from '../backend/v1/auth/logout';
 import refreshMod from '../backend/v1/auth/refresh';
 import authMeMod from '../backend/v1/auth/me';
+import forgotPasswordMod from '../backend/v1/auth/forgot-password';
+import resetPasswordMod from '../backend/v1/auth/reset-password';
+import changePasswordMod from '../backend/v1/auth/change-password';
+import sessionsMod from '../backend/v1/auth/sessions';
+import recurringIndexMod from '../backend/v1/recurring/index';
+import recurringIdMod from '../backend/v1/recurring/[id]';
+import cronDailyMod from '../backend/v1/cron/daily';
+import pushTokensMod from '../backend/v1/push-tokens';
+import notificationsMod from '../backend/v1/notifications/index';
+import budgetRolloverMod from '../backend/v1/budgets/rollover';
+import budgetShareMod from '../backend/v1/budgets/share';
+import budgetInviteAcceptMod from '../backend/v1/budget-invites/accept';
+import bankLinksMonoMod from '../backend/v1/bank-links/mono';
+import bankLinksSyncMod from '../backend/v1/bank-links/sync';
 import usersMeMod from '../backend/v1/users/me';
 
 import taxCalcMod from '../backend/v1/tax/calc';
@@ -65,6 +79,37 @@ app.all('/v1/auth/login', wrap(loginMod));
 app.all('/v1/auth/logout', wrap(logoutMod));
 app.all('/v1/auth/refresh', wrap(refreshMod));
 app.all('/v1/auth/me', wrap(authMeMod));
+app.all('/v1/auth/forgot-password', wrap(forgotPasswordMod));
+app.all('/v1/auth/reset-password', wrap(resetPasswordMod));
+app.all('/v1/auth/change-password', wrap(changePasswordMod));
+app.all('/v1/auth/sessions', wrap(sessionsMod));
+app.all('/v1/auth/sessions/:id', wrap(sessionsMod));
+
+// Recurring, notifications, push, cron
+app.all('/v1/recurring', wrap(recurringIndexMod));
+app.all('/v1/recurring/:id', wrap(recurringIdMod));
+app.all('/v1/notifications', wrap(notificationsMod));
+app.all('/v1/notifications/:action', wrap(notificationsMod));
+app.all('/v1/push-tokens', wrap(pushTokensMod));
+app.all('/v1/cron/daily', wrap(cronDailyMod));
+
+// Shared budgets and rollover
+function withParams(mod: any, extra: Record<string, string>) {
+  const handler = wrap(mod);
+  return (req: any, res: any) => {
+    Object.assign(req.params, extra);
+    return handler(req, res);
+  };
+}
+app.all('/v1/budget-invites/accept', wrap(budgetInviteAcceptMod));
+app.all('/v1/budgets/:id/rollover', wrap(budgetRolloverMod));
+app.all('/v1/budgets/:id/members', withParams(budgetShareMod, { action: 'members' }));
+app.all('/v1/budgets/:id/members/:memberId', withParams(budgetShareMod, { action: 'members' }));
+app.all('/v1/budgets/:id/invites', withParams(budgetShareMod, { action: 'invites' }));
+
+// Live bank connections
+app.all('/v1/bank-links/mono', wrap(bankLinksMonoMod));
+app.all('/v1/bank-links/:id/sync', wrap(bankLinksSyncMod));
 
 // Users
 app.all('/v1/users/me', wrap(usersMeMod));

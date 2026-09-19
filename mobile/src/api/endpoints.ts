@@ -15,46 +15,36 @@ export type ApiUser = {
     incomeType?: 'gross' | 'net';
     residentType?: string;
     dependents?: number;
+    /** Monthly */
     pensionContribution?: number;
+    nhfContribution?: number;
+    nhisContribution?: number;
+    /** Yearly */
+    annualRent?: number;
+    lifeInsurancePremium?: number;
+    mortgageInterest?: number;
     optInTaxFeature?: boolean;
   } | null;
   netWorth?: number | null;
+  /** Answers from the first-run plan. */
+  onboarding?: { completedAt: string | null; skippedAt: string | null; painPoints: string[] };
+  budgetPeriod?: 'payday' | 'monthly';
+  /** solo: own budget · shared: one budget with others · both: own plus shared */
+  budgetMode?: 'solo' | 'shared' | 'both';
+  /** Which budget Home shows when there's an own budget and a shared one. */
+  homeBudget?: 'own' | 'shared';
   createdAt: string;
   updatedAt: string;
 };
-
-export type AuthResponse = { user: ApiUser; accessToken: string; refreshToken: string };
-
-export async function register(email: string, password: string, name?: string): Promise<AuthResponse> {
-  return (await apiFetch('/v1/auth/register', {
-    method: 'POST',
-    skipAuth: true,
-    body: JSON.stringify({ email, password, name })
-  })) as AuthResponse;
-}
-
-export async function login(email: string, password: string, deviceName?: string): Promise<AuthResponse> {
-  return (await apiFetch('/v1/auth/login', {
-    method: 'POST',
-    skipAuth: true,
-    body: JSON.stringify({ email, password, deviceName })
-  })) as AuthResponse;
-}
-
-export async function logout(refreshToken: string): Promise<void> {
-  await apiFetch('/v1/auth/logout', {
-    method: 'POST',
-    skipAuth: true,
-    body: JSON.stringify({ refreshToken })
-  });
-}
 
 export async function getMe(): Promise<ApiUser> {
   const data = await apiFetch('/v1/auth/me', { method: 'GET' });
   return (data as any).user as ApiUser;
 }
 
-export async function patchMe(patch: Partial<Pick<ApiUser, 'name' | 'currency' | 'locale' | 'monthlyIncome'>> & { taxProfile?: any }): Promise<ApiUser> {
+export async function patchMe(
+  patch: Partial<Pick<ApiUser, 'name' | 'currency' | 'locale' | 'monthlyIncome' | 'budgetPeriod' | 'budgetMode' | 'homeBudget'>> & { taxProfile?: any; painPoints?: string[] }
+): Promise<ApiUser> {
   const data = await apiFetch('/v1/users/me', { method: 'PATCH', body: JSON.stringify(patch) });
   return (data as any).user as ApiUser;
 }
@@ -86,6 +76,15 @@ export async function calcTax(payload: { country: string; grossAnnual: number; d
 export async function changePassword(oldPassword: string, newPassword: string): Promise<void> {
   await apiFetch('/v1/auth/change-password', { method: 'POST', body: JSON.stringify({ oldPassword, newPassword }) });
 }
+
+export async function forgotPassword(email: string): Promise<{ ok: boolean; devCode?: string }> {
+  return (await apiFetch('/v1/auth/forgot-password', {
+    method: 'POST',
+    skipAuth: true,
+    body: JSON.stringify({ email })
+  })) as { ok: boolean; devCode?: string };
+}
+
 
 export type ApiTransaction = {
   id: string;
@@ -269,6 +268,8 @@ export type ApiGoal = {
   emoji?: string | null;
   color?: string | null;
   category?: string | null;
+  /** Share of each income added to this goal automatically (0-50). */
+  autoSavePercent?: number | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -336,14 +337,41 @@ export type ApiBudget = {
   id: string;
   spaceId?: 'personal' | 'business';
   name: string;
+  /** personal: someone's own plan · household: shared and run every period · event: a one-off like a wedding or trip */
+  purpose?: BudgetPurpose;
   totalBudget: number;
   period: 'monthly' | 'weekly';
   startDate: string;
   endDate?: string;
   categories: Record<string, { budgeted: number; spent?: number }>;
+  ownerId?: string;
+  role?: "owner" | "member";
+  isShared?: boolean;
+  members?: Array<{ userId: string; role: "owner" | "member"; name: string | null; email: string; joinedAt: string }>;
+  rollover?: { destination: "goal" | "next-budget"; amount: number; goalId: string | null; budgetId: string | null; at: string } | null;
+  /** Set on a starter budget (joined mid-period): the day tracking began. Pace is measured from here. */
+  trackingStart?: string | null;
   createdAt: string;
   updatedAt: string;
 };
+
+export type ApiBudgetPace = {
+  left: number;
+  spent: number;
+  /** Savings share not yet set aside. Held back from what's safe to spend. */
+  savingsLeft: number;
+  /** Bills due before the budget ends. Held back too. */
+  billsTotal: number;
+  bills: Array<{ name: string; amount: number; dueDate: string }>;
+  daysLeft: number;
+  safeToSpend: number;
+  safePerDay: number;
+  trackingStart: string | null;
+};
+
+export async function getBudgetPace(id: string): Promise<ApiBudgetPace> {
+  return apiFetch(`/v1/budgets/${encodeURIComponent(id)}/pace`, { method: 'GET' }) as Promise<ApiBudgetPace>;
+}
 
 export async function listBudgets(params?: { start?: string; end?: string; spaceId?: 'personal' | 'business' }): Promise<{ items: ApiBudget[] }> {
   const qs = new URLSearchParams();
@@ -368,6 +396,8 @@ export async function getBudgetInSpace(id: string, spaceId?: 'personal' | 'busin
   return (data as any).budget as ApiBudget;
 }
 
+export type BudgetPurpose = 'personal' | 'household' | 'event';
+
 export async function createBudget(input: {
   name: string;
   totalBudget: number;
@@ -376,9 +406,15 @@ export async function createBudget(input: {
   endDate?: string;
   categories: Record<string, { budgeted: number }>;
   spaceId?: 'personal' | 'business';
+  purpose?: BudgetPurpose;
 }): Promise<ApiBudget> {
   const data = await apiFetch('/v1/budgets', { method: 'POST', body: JSON.stringify(input) });
   return (data as any).budget as ApiBudget;
+}
+
+/** Starts the next period of a budget with the same plan (and people, if shared). Returns the existing one if it's already there. */
+export async function startNextBudget(id: string): Promise<{ budget: ApiBudget; existed: boolean }> {
+  return apiFetch(`/v1/budgets/${encodeURIComponent(id)}/next`, { method: 'POST' });
 }
 
 export type ApiBankAccount = {
@@ -396,6 +432,8 @@ export type ApiBankLink = {
   spaceId?: 'personal' | 'business';
   provider: string;
   bankName: string;
+  status?: "active" | "reauth_required";
+  lastSyncedAt?: string | null;
   createdAt: string;
   accounts: ApiBankAccount[];
 };
@@ -572,11 +610,17 @@ export async function getAnalyticsSummary(start: string, end: string, params?: {
   return data as AnalyticsSummary;
 }
 
-export async function assistantChat(message: string, context?: any): Promise<{ reply: string }> {
-  try {
-    const data = await apiFetch('/v1/assistant/chat', { method: 'POST', body: JSON.stringify({ message, context }) });
-    return (data as any) || { reply: 'Sorry, no reply available' };
-  } catch (e) {
-    throw e;
-  }
+export type ChatTurn = { role: 'user' | 'assistant'; text: string };
+
+/** Ask Flux, the AI money coach. Answers are grounded in the signed-in person's own data. */
+/** A transaction Flux heard in the message. Nothing is recorded until the person taps Save. */
+export type EntryDraft = {
+  type: 'income' | 'expense';
+  amount: number;
+  description: string;
+  occurredOn: string;
+};
+
+export async function assistantChat(message: string, history: ChatTurn[] = []): Promise<{ reply: string; draft?: EntryDraft }> {
+  return (await apiFetch('/v1/assistant/chat', { method: 'POST', body: JSON.stringify({ message, history }) })) as { reply: string; draft?: EntryDraft };
 }
