@@ -33,6 +33,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { useTour } from '../contexts/TourContext';
+import { useGuides } from '../contexts/GuideContext';
 import { useNudges } from '../contexts/NudgesContext';
 import { useHints } from '../contexts/HintsContext';
 import { useCategories } from '../contexts/CategoriesContext';
@@ -73,6 +74,7 @@ export default function SettingsScreen() {
   const { user, refreshUser, biometric, setBiometricEnabled, logout } = useAuth();
   const { spacesEnabled, activeSpaceId, setSpacesEnabled } = useSpace();
   const { startFirstRunTour, resetTour } = useTour();
+  const { resetGuides } = useGuides();
   const { resetAll: resetNudges } = useNudges();
   const { resetAll: resetLegacyHints } = useHints();
   const { all: categories } = useCategories();
@@ -147,6 +149,7 @@ export default function SettingsScreen() {
         onPress: () => {
           resetTour();
           resetNudges();
+          void resetGuides();
           toast.show('Tips reset. You’ll see them again as you use the app.', 'success');
         }
       },
@@ -157,6 +160,7 @@ export default function SettingsScreen() {
           resetLegacyHints();
           resetNudges();
           resetTour();
+          await resetGuides();
           toast.show('Signing out so the intro can play from the start.', 'info');
           void logout();
         }

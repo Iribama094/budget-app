@@ -14,6 +14,7 @@ import {
   type BudgetRow
 } from '../lib/budgets.ts';
 import { currencyFor, formatMoney, notifyUser } from '../lib/notify.ts';
+import { loadPlan, periodCategories } from '../lib/plan.ts';
 import { enforceRateLimit } from '../lib/rateLimit.ts';
 import { voice } from '../lib/voice.ts';
 import type { Ctx } from '../index.ts';
@@ -215,11 +216,22 @@ export async function nextPeriod(ctx: Ctx) {
   }
   await assertNoOverlap(userId, b.spaceId, purpose, dates.start, dates.end);
 
-  const categories = Object.fromEntries(Object.entries(b.categories ?? {}).map(([k, c]) => [k, { budgeted: Number(c?.budgeted) || 0 }]));
+  let categories: Record<string, { budgeted: number }> = Object.fromEntries(
+    Object.entries(b.categories ?? {}).map(([k, c]) => [k, { budgeted: Number(c?.budgeted) || 0 }])
+  );
+  let total = Number(b.totalBudget);
+  // A starter budget only held what was left when they joined, so the first full period comes from their plan.
+  if (b.trackingStart) {
+    const plan = await loadPlan(userId);
+    if (plan.monthlyIncome > 0) {
+      categories = periodCategories(plan.split, diffIsoDays(dates.start, dates.end) + 1);
+      total = Object.values(categories).reduce((s, c) => s + c.budgeted, 0);
+    }
+  }
   const name = /^My Budget \(.*\)$/.test(b.name) ? `My Budget (${periodLabel(dates.start, dates.end)})` : b.name;
   const [row] = await sql`
     insert into public.budgets (user_id, space_id, name, total_budget, period, start_date, end_date, categories, purpose)
-    values (${userId}, ${b.spaceId}, ${name}, ${b.totalBudget}, ${b.period}, ${dates.start}::date, ${dates.end}::date, ${sql.json(categories)}, ${purpose})
+    values (${userId}, ${b.spaceId}, ${name}, ${total}, ${b.period}, ${dates.start}::date, ${dates.end}::date, ${sql.json(categories)}, ${purpose})
     returning id
   `;
   if (purpose === 'household') await announceNextPeriod(await carryMembers(userId, row.id, b.id), { id: row.id, name });
@@ -286,6 +298,52 @@ async function unspentByBucket(b: BudgetRow) {
   const overall = Math.max(0, Number(b.totalBudget) - totalSpent);
   const unspent = Math.round(categories.length ? Math.min(bucketUnspent, overall) : overall);
   return { buckets, totalSpent, unspent };
+}
+
+const diffIsoDays = (from: string, to: string) => Math.round((parseIsoDateUtcNoon(to).getTime() - parseIsoDateUtcNoon(from).getTime()) / 86400000);
+
+/**
+ * GET /v1/budgets/:id/pace — what's safe to spend each day for the rest of this budget. Money still meant for
+ * Savings, and bills due before the budget ends, are held back so the daily figure is money that's truly free.
+ */
+export async function budgetPace(ctx: Ctx) {
+  if (ctx.method !== 'GET') methodNotAllowed(['GET']);
+  const { userId } = await requireAuth(ctx.req);
+  const b = await findVisibleBudget(userId, ctx.parts[1]);
+  if (!b) notFound('Budget not found');
+
+  const today = todayIso();
+  const end = effectiveEndIso(b);
+  const { buckets, totalSpent } = await unspentByBucket(b);
+  const left = Number(b.totalBudget) - totalSpent;
+  const savingsLeft = Math.round(buckets.find((x) => x.bucket === 'Savings')?.unspent ?? 0);
+  // Bills are one person's own commitments, so they're held back from their own budget but not a household's.
+  const bills =
+    (b.purpose ?? 'personal') === 'personal' && today <= end
+      ? await sql<{ name: string; amount: number; dueDate: string }[]>`
+          select coalesce(nullif(description, ''), category) as name, amount, next_due_date as due_date
+          from public.recurring
+          where user_id = ${b.userId} and space_id = ${b.spaceId} and type = 'expense' and not paused
+            and next_due_date >= ${today}::date and next_due_date <= ${end}::date
+            and coalesce(budget_category, '') <> 'Savings'
+          order by next_due_date asc
+        `
+      : [];
+  const billsTotal = Math.round(bills.reduce((s, x) => s + Number(x.amount), 0));
+  const daysLeft = today > end ? 0 : diffIsoDays(today, end) + 1;
+  const safeToSpend = Math.max(0, Math.round(left - savingsLeft - billsTotal));
+
+  return json(200, {
+    left: Math.round(left),
+    spent: Math.round(totalSpent),
+    savingsLeft,
+    billsTotal,
+    bills: bills.map((x) => ({ name: x.name, amount: Number(x.amount), dueDate: x.dueDate })),
+    daysLeft,
+    safeToSpend,
+    safePerDay: daysLeft > 0 ? Math.floor(safeToSpend / daysLeft) : 0,
+    trackingStart: b.trackingStart ?? null
+  });
 }
 
 const RolloverSchema = z.discriminatedUnion('destination', [

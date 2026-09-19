@@ -26,7 +26,7 @@ import {
 } from '../api/personal';
 import { BILL_PRESETS, blankBill, blankIncome, fromApiIncome, toBillInput, toIncomeInput, type DraftBill, type DraftIncome } from '../lib/planDrafts';
 import { setDailyReminder } from '../lib/notifications';
-import { currencySymbol, formatNumberInput } from '../utils/format';
+import { currencySymbol, formatNumberInput, formatShortDate, toIsoDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 
 const PAIN_OPTIONS: Array<{ key: PainPoint; title: string; body: string }> = [
@@ -51,7 +51,7 @@ const REMINDERS = [
 ] as const;
 
 type ReminderKey = (typeof REMINDERS)[number]['key'];
-type StepKey = 'welcome' | 'who' | 'pain' | 'income' | 'bills' | 'plan' | 'reminder';
+type StepKey = 'welcome' | 'who' | 'pain' | 'income' | 'bills' | 'plan' | 'left' | 'reminder';
 
 const STEP_LABEL: Record<StepKey, string> = {
   welcome: 'Welcome',
@@ -60,8 +60,15 @@ const STEP_LABEL: Record<StepKey, string> = {
   income: 'Your income',
   bills: 'Your regular bills',
   plan: 'Your plan',
+  left: 'Until payday',
   reminder: 'Daily reminder'
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MONTH_DAYS = 365 / 12;
+
+/** Whole days between two YYYY-MM-DD dates. */
+const daysBetween = (from: string, to: string) => Math.round((new Date(`${to}T12:00:00`).getTime() - new Date(`${from}T12:00:00`).getTime()) / DAY_MS);
 
 const cleanCode = (t: string) => t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 
@@ -80,10 +87,6 @@ export default function SetupPlanScreen() {
   const glyph = currencySymbol(user?.currency);
   const firstName = (user?.name ?? '').trim().split(/\s+/)[0] || null;
 
-  // Updating an existing plan skips "who is this for"; that lives in Settings.
-  const order: StepKey[] = fromHome ? ['welcome', 'pain', 'income', 'bills', 'plan', 'reminder'] : ['welcome', 'who', 'pain', 'income', 'bills', 'plan', 'reminder'];
-  const LAST_STEP = order.length - 1;
-
   const [step, setStep] = useState(0);
   const [mode, setMode] = useState<BudgetMode>(user?.budgetMode ?? 'solo');
   const [inviteCode, setInviteCode] = useState('');
@@ -93,6 +96,33 @@ export default function SetupPlanScreen() {
   const [payday, setPayday] = useState(user?.budgetPeriod !== 'monthly');
   const [plan, setPlan] = useState<ApiPlan | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
+  const [leftAmount, setLeftAmount] = useState('');
+  const [leftEdited, setLeftEdited] = useState(false);
+
+  // Someone joining a few days into their period has already spent some of this pay. Their first budget should
+  // be what they actually have left, so they get one extra question. Only their own budget works this way.
+  const today = toIsoDate(new Date());
+  const joinedLate =
+    !fromHome &&
+    mode !== 'shared' &&
+    !!plan &&
+    plan.status !== 'no_income' &&
+    daysBetween(plan.period.start, today) >= 3 &&
+    plan.period.daysToPayday >= 2;
+  const leftEstimate = plan ? Math.round(((plan.split.Needs + plan.split.Wants) * plan.period.daysToPayday) / MONTH_DAYS / 1000) * 1000 : 0;
+
+  // Updating an existing plan skips "who is this for"; that lives in Settings.
+  const order: StepKey[] = [
+    'welcome',
+    ...(fromHome ? [] : (['who'] as StepKey[])),
+    'pain',
+    'income',
+    'bills',
+    'plan',
+    ...(joinedLate ? (['left'] as StepKey[]) : []),
+    'reminder'
+  ];
+  const LAST_STEP = order.length - 1;
   const [reminder, setReminder] = useState<ReminderKey>('evening');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -128,6 +158,11 @@ export default function SetupPlanScreen() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, payday]);
+
+  // Start from an estimate so most people just confirm it. It follows plan changes until they type their own.
+  useEffect(() => {
+    if (key === 'left' && !leftEdited) setLeftAmount(leftEstimate > 0 ? formatNumberInput(String(leftEstimate)) : '');
+  }, [key, leftEdited, leftEstimate]);
 
   const go = (next: number) => {
     setError(null);
@@ -214,7 +249,9 @@ export default function SetupPlanScreen() {
     setError(null);
     const code = mode === 'solo' ? '' : inviteCode.trim();
     try {
-      const res = await completeOnboarding({ ...inputs(), createBudget: true, mode, inviteCode: code || undefined });
+      const typedLeft = Number(leftAmount.replace(/,/g, ''));
+      const leftUntilPayday = joinedLate ? (leftAmount.trim() && Number.isFinite(typedLeft) ? typedLeft : leftEstimate) : undefined;
+      const res = await completeOnboarding({ ...inputs(), createBudget: true, mode, inviteCode: code || undefined, leftUntilPayday });
       const choice = REMINDERS.find((r) => r.key === reminder)!;
       if (choice.hour >= 0) {
         const ok = await setDailyReminder({ hour: choice.hour, minute: 0 }).catch(() => false);
@@ -529,6 +566,68 @@ export default function SetupPlanScreen() {
     </View>
   );
 
+  const leftStep = plan ? (
+    (() => {
+      const days = plan.period.daysToPayday;
+      const typed = Number(leftAmount.replace(/,/g, ''));
+      const amount = leftAmount.trim() && Number.isFinite(typed) ? typed : 0;
+      const fullPeriod = Math.round(((plan.split.Needs + plan.split.Wants + plan.split.Savings) * plan.period.days) / MONTH_DAYS / 100) * 100;
+      const isPayday = plan.period.basis === 'payday';
+      const until = isPayday ? 'payday' : 'the end of the month';
+      return (
+        <View>
+          <Text style={[type.eyebrow, { color: theme.colors.primary }]}>{isPayday ? 'Until payday' : 'Until month end'}</Text>
+          <Text style={[type.h2, { color: theme.colors.text, marginTop: 6 }]}>
+            {`${isPayday ? 'Payday' : 'The month'} is ${days} day${days === 1 ? '' : 's'} away. How much do you have left until then?`}
+          </Text>
+          <Text style={[type.body, { color: theme.colors.textMuted, marginTop: 6, marginBottom: 14 }]}>
+            Count what’s in your account and your cash for everyday spending. Leave out money you’ve already put aside to save.
+          </Text>
+          <View style={[styles.input, { borderColor: theme.colors.primary, backgroundColor: theme.colors.surface, borderWidth: 1.5 }]}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 20, color: theme.colors.textMuted }}>{glyph}</Text>
+            <TextInput
+              value={leftAmount}
+              onChangeText={(t) => {
+                setLeftEdited(true);
+                setLeftAmount(formatNumberInput(t.replace(/[^\d.,]/g, '')));
+              }}
+              keyboardType="number-pad"
+              placeholder="0"
+              placeholderTextColor={theme.colors.textMuted}
+              accessibilityLabel={`Money left until ${until}`}
+              style={[styles.inputText, { color: theme.colors.text, fontSize: 22 }]}
+            />
+          </View>
+          {!leftEdited && leftEstimate > 0 ? (
+            <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 8 }]}>
+              We guessed this from your income. Change it if you know better.
+            </Text>
+          ) : null}
+
+          <Card style={{ marginTop: 16 }}>
+            <Text style={[type.body, { color: theme.colors.text }]}>
+              {amount > 0 ? (
+                <>
+                  Your first budget covers just these {days} days: about{' '}
+                  <Text style={{ fontFamily: fonts.semibold }}>
+                    {glyph}
+                    {Math.floor(amount / days).toLocaleString()} a day
+                  </Text>
+                  .
+                </>
+              ) : (
+                'Your first budget covers just these days, so it starts from what you really have.'
+              )}
+            </Text>
+            <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 8 }]}>
+              {`Your full plan of ${glyph}${fullPeriod.toLocaleString()} starts on ${formatShortDate(plan.period.nextPayday)}, and so does saving: straight from your ${isPayday ? 'pay' : 'income'}.`}
+            </Text>
+          </Card>
+        </View>
+      );
+    })()
+  ) : null;
+
   const reminderStep = (
     <View>
       <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Stay on track</Text>
@@ -560,7 +659,7 @@ export default function SetupPlanScreen() {
     </View>
   );
 
-  const content = { welcome, who: whoStep, pain: painStep, income: incomeStep, bills: billsStep, plan: planStep, reminder: reminderStep }[key];
+  const content = { welcome, who: whoStep, pain: painStep, income: incomeStep, bills: billsStep, plan: planStep, left: leftStep, reminder: reminderStep }[key];
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]} edges={['top', 'left', 'right']}>

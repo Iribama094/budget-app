@@ -6,7 +6,17 @@ import { useSync } from '../contexts/SyncContext';
 import { publishWidgetSnapshot } from '../lib/widgetData';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { getAnalyticsSummary, listTransactions, listBudgets, listBankLinks, type AnalyticsSummary, type ApiTransaction, type ApiBudget } from '../api/endpoints';
+import {
+  getAnalyticsSummary,
+  getBudgetPace,
+  listTransactions,
+  listBudgets,
+  listBankLinks,
+  type AnalyticsSummary,
+  type ApiBudgetPace,
+  type ApiTransaction,
+  type ApiBudget
+} from '../api/endpoints';
 import {
   Amount,
   Card,
@@ -23,6 +33,7 @@ import {
   Screen,
   SectionHeader,
   SegmentedControl,
+  Skeleton,
   formatAmount
 } from '../components/Common/ui';
 import { CategoryIcon } from '../components/Common/CategoryIcon';
@@ -40,6 +51,17 @@ import { BusinessHome } from '../components/Home/BusinessHome';
 import { PendingSavingsCard } from '../components/Home/PendingSavingsCard';
 import { ShortfallCard } from '../components/Home/ShortfallCard';
 import { usePlan } from '../lib/usePlan';
+import { readCache, writeCache } from '../lib/localCache';
+import { useHiddenIds } from '../lib/undoDelete';
+
+type HomeSnapshot = {
+  data: AnalyticsSummary;
+  recent: ApiTransaction[];
+  currentBudget: ApiBudget | null;
+  alsoRunning: ApiBudget[];
+  currentBudgetSpent: number;
+  currentBudgetTopSpend: { category: string; amount: number } | null;
+};
 
 export function DashboardScreen() {
   const nav = useNavigation<any>();
@@ -50,7 +72,9 @@ export function DashboardScreen() {
   const { seen, markSeen } = useNudges();
   const [summaryRangeKey, setSummaryRangeKey] = useState<'today' | 'week' | 'month'>('month');
   const [data, setData] = useState<AnalyticsSummary | null>(null);
-  const [recent, setRecent] = useState<ApiTransaction[]>([]);
+  const [recentAll, setRecent] = useState<ApiTransaction[]>([]);
+  const hiddenIds = useHiddenIds();
+  const recent = useMemo(() => recentAll.filter((t) => !hiddenIds.has(String(t.id))), [recentAll, hiddenIds]);
   const [currentBudget, setCurrentBudget] = useState<ApiBudget | null>(null);
   // Other budgets running now (a shared one, an event), shown as one-tap links under the main card.
   const [alsoRunning, setAlsoRunning] = useState<ApiBudget[]>([]);
@@ -285,6 +309,35 @@ export function DashboardScreen() {
     }
   }, [range.end, range.start, spacesEnabled, activeSpaceId, budgetEffectiveEndIso, isBudgetCurrent]);
 
+  // Home opens on the last numbers this phone saw, then quietly updates, instead of starting on a spinner.
+  const cacheKey = user?.id ? `home:${user.id}:${spacesEnabled ? activeSpaceId : 'personal'}:${summaryRangeKey}` : null;
+  useEffect(() => {
+    if (!cacheKey) return;
+    let cancelled = false;
+    readCache<HomeSnapshot>(cacheKey).then((s) => {
+      if (cancelled || !s) return;
+      setData((d) => d ?? s.data);
+      setRecent((r) => (r.length ? r : s.recent));
+      setCurrentBudget((b) => b ?? s.currentBudget);
+      setAlsoRunning((a) => (a.length ? a : s.alsoRunning));
+      setCurrentBudgetSpent((v) => v || s.currentBudgetSpent);
+      setCurrentBudgetTopSpend((v) => v ?? s.currentBudgetTopSpend);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [cacheKey]);
+  const wasLoading = useRef(false);
+  useEffect(() => {
+    const finished = wasLoading.current && !isLoading;
+    wasLoading.current = isLoading;
+    if (!finished || error || !data || !cacheKey) return;
+    const snapshot: HomeSnapshot = { data, recent: recentAll, currentBudget, alsoRunning, currentBudgetSpent, currentBudgetTopSpend };
+    writeCache(cacheKey, snapshot);
+    // Only when a load finishes; the values are read as they are at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading]);
+
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -418,10 +471,26 @@ export function DashboardScreen() {
   const hour = new Date().getHours();
   const greetingWord = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
-  // Budget pace: share of the budget spent against share of its time that has passed.
+  // Safe to spend comes from the server, which holds back unsaved Savings and bills still due this period.
+  // Refetched whenever spending changes; until it arrives (or offline) the simpler local figure is used.
+  const [serverPace, setServerPace] = useState<(ApiBudgetPace & { budgetId: string }) | null>(null);
+  useEffect(() => {
+    const id = currentBudget?.id;
+    if (!id) return;
+    let cancelled = false;
+    getBudgetPace(String(id))
+      .then((p) => !cancelled && setServerPace({ ...p, budgetId: String(id) }))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [currentBudget?.id, budgetUsed]);
+
+  // Budget pace: share of the budget spent against share of its time that has passed. A starter budget (joined
+  // mid-period) only holds what was left on the day they joined, so its time is measured from that day.
   const pace = useMemo(() => {
     if (!currentBudget) return null;
-    const start = parseIsoDateLocal(currentBudget.startDate);
+    const start = parseIsoDateLocal(currentBudget.trackingStart ?? currentBudget.startDate);
     const end = parseIsoDateLocal(budgetEffectiveEndIso(currentBudget));
     if (!start || !end) return null;
     const msPerDay = 1000 * 60 * 60 * 24;
@@ -434,9 +503,12 @@ export function DashboardScreen() {
     const spentRatio = currentBudget.totalBudget > 0 ? budgetUsed / currentBudget.totalBudget : 0;
     const timeRatio = elapsedDays / totalDays;
     const status: 'over' | 'hot' | 'onPace' = left < 0 ? 'over' : spentRatio > timeRatio + 0.05 ? 'hot' : 'onPace';
-    return { left, daysLeft, spentRatio, timeRatio, safePerDay: left > 0 ? left / daysLeft : 0, status };
+    const server = serverPace && serverPace.budgetId === String(currentBudget.id) ? serverPace : null;
+    const safePerDay = server ? server.safePerDay : left > 0 ? left / daysLeft : 0;
+    const heldBack = server ? server.savingsLeft + server.billsTotal : 0;
+    return { left, daysLeft, spentRatio, timeRatio, safePerDay, heldBack, status };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentBudget, budgetUsed, budgetEffectiveEndIso]);
+  }, [currentBudget, budgetUsed, budgetEffectiveEndIso, serverPace]);
 
   const inkText = theme.colors.inkText;
   const paceLabel = pace?.status === 'over' ? 'Over budget' : pace?.status === 'hot' ? 'Spending fast' : 'On pace';
@@ -541,6 +613,11 @@ export function DashboardScreen() {
                   ? `Spent ${formatAmount(budgetUsed, glyph)} of ${formatAmount(currentBudget.totalBudget, glyph)}`
                   : `${formatAmount(pace.left, glyph)} left of ${formatAmount(currentBudget.totalBudget, glyph)} · ${pace.daysLeft} day${pace.daysLeft === 1 ? '' : 's'} to go`}
             </Text>
+            {!hide && pace.status !== 'over' && pace.heldBack > 0 ? (
+              <Text style={[type.caption, { color: inkText, opacity: 0.62, marginTop: 2 }]}>
+                {formatAmount(pace.heldBack, glyph)} kept aside for savings and bills due soon
+              </Text>
+            ) : null}
             <View style={{ marginTop: 16 }}>
               <ProgressBar
                 value={pace.spentRatio}
@@ -564,8 +641,10 @@ export function DashboardScreen() {
           </HeroCard>
         </Pressable>
       ) : isLoading && !data ? (
-        <HeroCard style={{ marginTop: 14, height: 190, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={inkText} />
+        <HeroCard style={{ marginTop: 14, height: 190 }}>
+          <Skeleton rows={1} height={14} color="rgba(255,255,255,0.14)" style={{ width: '45%' }} />
+          <Skeleton rows={1} height={40} color="rgba(255,255,255,0.14)" style={{ width: '70%', marginTop: 14 }} />
+          <Skeleton rows={1} height={8} color="rgba(255,255,255,0.14)" style={{ marginTop: 'auto' }} />
         </HeroCard>
       ) : (
         <HeroCard style={{ marginTop: 14 }}>
@@ -732,7 +811,7 @@ export function DashboardScreen() {
       <SectionHeader title="Recent activity" actionLabel={hasTransactions ? 'See all' : undefined} onAction={() => nav.navigate('Transactions')} />
       {recent.length === 0 ? (
         isLoading ? (
-          <ActivityIndicator color={theme.colors.primary} />
+          <Skeleton rows={3} />
         ) : (
           <EmptyState
             title={showGettingStarted ? 'Let’s get you started' : 'No transactions yet'}

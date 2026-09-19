@@ -110,6 +110,30 @@ export function primarySource<T extends PaySource & { kind: IncomeKind }>(source
   return sources.find((s) => s.kind === 'salary' && hasDates(s)) ?? sources.find(hasDates) ?? null;
 }
 
+type PeriodCategories = Record<Bucket, { budgeted: number }>;
+
+/** The monthly plan's Needs / Wants / Savings, scaled to a period of `days`. */
+export function periodCategories(split: Record<Bucket, number>, days: number): PeriodCategories {
+  const factor = days / (365 / 12);
+  const amount = (n: number) => roundTo(n * factor);
+  return { Needs: { budgeted: amount(split.Needs) }, Wants: { budgeted: amount(split.Wants) }, Savings: { budgeted: amount(split.Savings) } };
+}
+
+/**
+ * A starter budget for someone who joins partway through a period: only what they have left, shared between
+ * Needs and Wants the way their plan shares them. Savings starts with the first full period, on payday.
+ */
+export function starterCategories(split: Record<Bucket, number>, left: number): PeriodCategories {
+  const spendable = split.Needs + split.Wants;
+  const needs = Math.min(left, spendable > 0 ? roundTo((left * split.Needs) / spendable) : left);
+  return { Needs: { budgeted: needs }, Wants: { budgeted: Math.max(0, left - needs) }, Savings: { budgeted: 0 } };
+}
+
+/** Days from the start of a period to today, and days left including today. */
+export function periodProgress(period: { start: string; nextPayday: string }, today = todayIso()) {
+  return { elapsed: Math.max(0, diffDays(period.start, today)), left: Math.max(1, diffDays(today, period.nextPayday)) };
+}
+
 export type Plan = {
   monthlyIncome: number;
   committed: number;

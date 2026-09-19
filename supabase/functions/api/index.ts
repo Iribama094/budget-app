@@ -4,7 +4,7 @@ import { todayIso } from './lib/dates.ts';
 import { runAllDueRecurring, sendBillReminders } from './lib/recurring.ts';
 import { monoConfigured, syncBankLink, type BankLinkRow } from './lib/bank.ts';
 import { authMe, changePassword, forgotPassword, notifications, pushTokens, sessions, usersMe } from './routes/account.ts';
-import { acceptInvite, budgetById, budgetsIndex, miniBudgets, nextPeriod, rollover, sharing } from './routes/budgets.ts';
+import { acceptInvite, budgetById, budgetPace, budgetsIndex, miniBudgets, nextPeriod, rollover, sharing } from './routes/budgets.ts';
 import { sendPeriodEndingReminders, sendSharedDigests } from './lib/shared.ts';
 import { analyticsSummary, transactionById, transactionsIndex } from './routes/transactions.ts';
 import { goalById, goalsIndex, recurringById, recurringIndex, taxCalc, taxRules } from './routes/planning.ts';
@@ -170,6 +170,7 @@ function route(parts: string[]): Handler | null {
   if (a === 'budgets' && n === 2) return budgetById;
   if (a === 'budgets' && n === 3 && c === 'rollover') return rollover;
   if (a === 'budgets' && n === 3 && c === 'next') return nextPeriod;
+  if (a === 'budgets' && n === 3 && c === 'pace') return budgetPace;
   if (a === 'budgets' && n === 3 && c === 'mini-budgets') return miniBudgets;
   if (a === 'budgets' && (c === 'members' || c === 'invites') && n <= 4) return sharing;
 

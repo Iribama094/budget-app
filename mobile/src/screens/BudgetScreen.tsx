@@ -27,6 +27,7 @@ import {
   SecondaryButton,
   SectionHeader,
   SegmentedControl,
+  Skeleton,
   formatAmount
 } from '../components/Common/ui';
 import { TextField } from '../components/Common/ui';
@@ -1431,7 +1432,7 @@ export function BudgetScreen() {
                 />
               </View>
             ) : (
-              <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 24 }} />
+              <Skeleton rows={3} height={96} style={{ marginTop: 16 }} />
             )}
 
             {rolloverFor ? (

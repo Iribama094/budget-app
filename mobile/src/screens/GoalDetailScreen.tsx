@@ -27,6 +27,7 @@ import { PendingSavingsCard } from '../components/Home/PendingSavingsCard';
 import { useToast } from '../components/Common/Toast';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { haptic } from '../lib/haptics';
 import { useSpace } from '../contexts/SpaceContext';
 import { currencySymbol, formatNumberInput, formatShortDate } from '../utils/format';
 import { type as typo } from '../theme/typography';
@@ -189,12 +190,21 @@ export default function GoalDetailScreen() {
       const result = await addMoneyToGoal(goal.id, { amount, recordInBudget });
       setGoal((current) => (current ? { ...current, currentAmount: result.goal.currentAmount } : current));
       setIsAdding(false);
+      // Celebrate the moments that matter: finishing, and passing halfway.
+      const before = goal.targetAmount > 0 ? goal.currentAmount / goal.targetAmount : 0;
+      const after = goal.targetAmount > 0 ? result.goal.currentAmount / goal.targetAmount : 0;
+      const firstName = (user?.name ?? '').trim().split(/\s+/)[0];
+      if ((before < 1 && after >= 1) || (before < 0.5 && after >= 0.5)) haptic.success();
       toast.show(
-        recordInBudget
-          ? `Small small, e go full 🌱 ${formatAmount(result.amount, glyph)} added to ${goal.name} and counted under Savings.`
-          : `${formatAmount(result.amount, glyph)} added to ${goal.name} 💪`,
+        before < 1 && after >= 1
+          ? `Goal reached 🎉 ${goal.name} is fully funded. You did it${firstName ? `, ${firstName}` : ''}!`
+          : before < 0.5 && after >= 0.5
+            ? `Halfway to ${goal.name} 🔥 ${formatAmount(Math.max(0, goal.targetAmount - result.goal.currentAmount), glyph)} to go.`
+            : recordInBudget
+              ? `Small small, e go full 🌱 ${formatAmount(result.amount, glyph)} added to ${goal.name} and counted under Savings.`
+              : `${formatAmount(result.amount, glyph)} added to ${goal.name} 💪`,
         'success',
-        3500
+        4000
       );
     } catch (e) {
       setAddError(e instanceof Error ? e.message : 'Could not add money to this goal');

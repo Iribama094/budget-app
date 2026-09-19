@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import { View, Text, FlatList, ActivityIndicator, Animated, Pressable, StyleSheet } from 'react-native';
+import { View, Text, FlatList, Animated, Pressable, StyleSheet } from 'react-native';
 import { AlertTriangle, Check, Plus } from 'lucide-react-native';
 
 import { listGoals, listBudgets, type ApiGoal, type ApiBudget } from '../api/endpoints';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Amount, Card, Chip, EmptyState, InlineError, ProgressBar, Ring, Screen, ScreenHeader, formatAmount } from '../components/Common/ui';
+import { Amount, Card, Chip, EmptyState, InlineError, ProgressBar, Ring, Screen, ScreenHeader, Skeleton, formatAmount } from '../components/Common/ui';
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 import { useSpace } from '../contexts/SpaceContext';
@@ -150,6 +150,34 @@ export function GoalsScreen() {
     return { progress, daysRemaining, suggestedMonthly, behind, done: progress >= 1 };
   };
 
+  // One line that speaks to the goal needing attention: the one furthest behind, otherwise the one closest to done.
+  const focusLine = useMemo(() => {
+    if (!items.length) return null;
+    const paced = items.map((g) => ({ g, p: goalPace(g) }));
+    if (paced.every((x) => x.p.done)) return 'Every goal reached. Ready for the next one?';
+    const behind = paced.filter((x) => x.p.behind && x.p.suggestedMonthly > 0).sort((a, b) => a.p.progress - b.p.progress)[0];
+    if (behind) return `${behind.g.emoji || '🎯'} ${behind.g.name} needs ${formatAmount(Math.round(behind.p.suggestedMonthly), glyph)} a month to catch up.`;
+    const closest = paced.filter((x) => !x.p.done).sort((a, b) => b.p.progress - a.p.progress)[0];
+    const left = Math.max(0, closest.g.targetAmount - closest.g.currentAmount);
+    return closest.p.progress > 0
+      ? `${closest.g.emoji || '🎯'} ${closest.g.name} is ${Math.round(closest.p.progress * 100)}% there. ${formatAmount(left, glyph)} to go.`
+      : `${closest.g.emoji || '🎯'} ${closest.g.name} starts with ${formatAmount(Math.round(closest.p.suggestedMonthly), glyph)} this month.`;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, glyph]);
+
+  const quickStarts = isBusiness
+    ? [
+        { key: 'reserve', label: '🛟 Cash reserve' },
+        { key: 'tax', label: '🧾 Tax money' },
+        { key: 'equipment', label: '🛠️ Equipment' }
+      ]
+    : [
+        { key: 'emergency', label: '🛟 Emergency fund' },
+        { key: 'rent', label: '🏠 Rent' },
+        { key: 'school', label: '🎓 School fees' },
+        { key: 'travel', label: '✈️ Travel' }
+      ];
+
   return (
     <Screen scrollable={false}>
       <FlatList
@@ -197,21 +225,38 @@ export function GoalsScreen() {
                   {goalSummary.onTrack > 0 ? <Chip tone="positive" label={`${goalSummary.onTrack} on track`} /> : null}
                   {goalSummary.behind > 0 ? <Chip tone="brass" label={`${goalSummary.behind} behind pace`} /> : null}
                 </View>
+                {focusLine ? <Text style={[type.small, { color: theme.colors.text, marginTop: 12 }]}>{focusLine}</Text> : null}
               </Card>
             ) : null}
           </View>
         }
         ListEmptyComponent={
           isLoading ? (
-            <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 24 }} />
+            <Skeleton rows={3} height={120} style={{ marginTop: 12 }} />
           ) : (
             <View style={{ marginTop: 14 }}>
               <EmptyState
-                title="No goals yet"
-                body="Saving for rent, a trip or an emergency fund? Set a target and we’ll show what to put aside each month."
-                actionLabel="Create a goal"
-                onAction={() => (nav as any).navigate('CreateGoal')}
+                title={isBusiness ? 'Nothing set aside yet' : 'What are you saving for?'}
+                body={
+                  isBusiness
+                    ? 'A cash reserve, tax money or new equipment. Pick one and we’ll work out what to set aside each month.'
+                    : 'Pick one to start. We’ll work out what to put aside each month, so you get there without the stress.'
+                }
+                actionLabel="Something else"
+                onAction={() => (nav as any).navigate('CreateGoal', { preset: 'other' })}
               />
+              <View style={styles.quickWrap}>
+                {quickStarts.map((q) => (
+                  <Pressable
+                    key={q.key}
+                    onPress={() => (nav as any).navigate('CreateGoal', { preset: q.key })}
+                    accessibilityRole="button"
+                    style={({ pressed }) => [styles.quickPill, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface, opacity: pressed ? 0.85 : 1 }]}
+                  >
+                    <Text style={[type.smallStrong, { color: theme.colors.text }]}>{q.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
           )
         }
@@ -305,5 +350,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   emoji: { width: 46, height: 46, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   newPill: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingLeft: 10, paddingRight: 14, borderRadius: 18 },
-  openPill: { height: 32, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }
+  openPill: { height: 32, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  quickWrap: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 14 },
+  quickPill: { borderWidth: 1, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 14 }
 });

@@ -111,7 +111,7 @@ export async function previewPlan(input: PlanInputs): Promise<ApiPlan> {
 export type BudgetMode = 'solo' | 'shared' | 'both';
 
 export async function completeOnboarding(
-  input: PlanInputs & { createBudget: boolean; mode?: BudgetMode; inviteCode?: string }
+  input: PlanInputs & { createBudget: boolean; mode?: BudgetMode; inviteCode?: string; leftUntilPayday?: number }
 ): Promise<{ user: ApiUser; plan: ApiPlan; budget: ApiBudget | null; ownBudget?: ApiBudget | null; sharedBudget?: ApiBudget | null }> {
   return apiFetch('/v1/onboarding/complete', { method: 'POST', body: JSON.stringify(input) });
 }

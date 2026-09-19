@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BUCKETS, bucketDisplayName, normalizeBucket } from '../theme/buckets';
 import { useCategories } from '../contexts/CategoriesContext';
-import { ActivityIndicator, Alert, Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { deleteWithUndo } from '../lib/undoDelete';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
 
@@ -262,25 +263,18 @@ export default function TransactionDetailScreen() {
     }
   }, [activeSpaceId, bucket, date, description, parsedAmount, resolvedCategory, selectedBudgetId, selectedMiniBudgetId, spacesEnabled, toast, tx, type]);
 
+  // No "Are you sure?": it goes at once and the toast offers Undo for a few seconds.
   const confirmDelete = useCallback(() => {
     if (!tx) return;
-    Alert.alert('Delete transaction?', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            if (spacesEnabled) await deleteTransactionInSpace(tx.id, activeSpaceId);
-            else await deleteTransaction(tx.id);
-            toast.show('Transaction deleted', 'success');
-            nav.goBack();
-          } catch (e) {
-            setError(e instanceof Error ? e.message : 'Failed to delete transaction');
-          }
-        }
-      }
-    ]);
+    const id = String(tx.id);
+    const space = activeSpaceId;
+    deleteWithUndo({
+      id,
+      message: 'Transaction deleted',
+      toast,
+      commit: () => (spacesEnabled ? deleteTransactionInSpace(id, space) : deleteTransaction(id))
+    });
+    nav.goBack();
   }, [activeSpaceId, nav, spacesEnabled, toast, tx]);
 
   return (
@@ -696,8 +690,8 @@ export default function TransactionDetailScreen() {
                 </View>
 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                  {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d) => (
-                    <Text key={d} style={{ width: 36, textAlign: 'center', color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>{d}</Text>
+                  {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                    <Text key={i} style={{ width: 36, textAlign: 'center', color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>{d}</Text>
                   ))}
                 </View>
 

@@ -5,6 +5,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { revokeSession, unregisterPushToken } from '../api/features';
 import { getRememberedPushToken, rememberPushToken } from '../lib/notifications';
 import { clearWidgetSnapshot } from '../lib/widgetData';
+import { clearCaches } from '../lib/localCache';
 import { friendlyAuthError, sessionIdOf, supabase } from '../lib/supabase';
 import { SUPABASE_URL } from '../config';
 import {
@@ -256,6 +257,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) await AsyncStorage.removeItem(SESSION_STORAGE_KEY).catch(() => undefined);
     // Don’t leave balances on the home screen after signing out.
     void clearWidgetSnapshot().catch(() => undefined);
+    await clearCaches();
     setUser(null);
     setIsLocked(false);
   }, []);

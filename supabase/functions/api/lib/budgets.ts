@@ -16,6 +16,8 @@ export type BudgetRow = {
   categories: Record<string, { budgeted: number; [k: string]: unknown }>;
   rollover: { destination: string; amount: number; goalId: string | null; budgetId: string | null; at: string } | null;
   purpose: BudgetPurpose | null;
+  /** Set on a starter budget (joined mid-period): the day tracking began. */
+  trackingStart: string | null;
   createdAt: Date;
   updatedAt: Date;
   members: { userId: string; role: string; name: string | null; email: string; joinedAt: string }[];
@@ -68,6 +70,7 @@ export function toApiBudget(b: BudgetRow, viewerId: string) {
     startDate: b.startDate,
     endDate: b.endDate ?? null,
     categories: b.categories ?? {},
+    trackingStart: b.trackingStart ?? null,
     ownerId: b.userId,
     role: b.userId === viewerId ? 'owner' : 'member',
     isShared: members.length > 0,

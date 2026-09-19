@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, View, Text, Pressable, Modal, TextInput, ScrollView, Switch, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CalendarDays, ChevronLeft, ChevronRight, ClipboardPaste, Delete, Mic, PieChart, Plus, Receipt, Sparkles, Square, Wallet, X } from 'lucide-react-native';
+import { CalendarDays, ChevronLeft, ChevronRight, ClipboardPaste, Delete, Mic, PieChart, Plus, Receipt, Repeat, Sparkles, Square, Wallet, X } from 'lucide-react-native';
 
 import { createTransaction, listBudgets, listGoals, listMiniBudgets, listMiniBudgetsInSpace, listTransactions, type ApiBudget, type ApiGoal } from '../api/endpoints';
 import { addMoneyToGoal } from '../api/business';
@@ -13,6 +13,8 @@ import { IconButton, InlineError, ListCard, PrimaryButton, Screen, SegmentedCont
 import { SelectField } from '../components/Common/SelectField';
 import { useVoiceNote } from '../lib/voice';
 import { parseVoiceEntry } from '../lib/voiceParse';
+import { loadUsage, recordLogDay, recordUsage, sortByUsage, type LastEntry } from '../lib/quickLog';
+import { haptic } from '../lib/haptics';
 import { KeyboardAwareScrollView, KeyboardStickyView, useKeyboardState } from 'react-native-keyboard-controller';
 import { useToast } from '../components/Common/Toast';
 import { useSync } from '../contexts/SyncContext';
@@ -77,6 +79,19 @@ export function AddTransactionScreen() {
   const { expense: expenseCategories, income: incomeCategories, create: createCategory } = useCategories();
   const categoryItems = type === 'expense' ? expenseCategories : incomeCategories;
   const categories = useMemo(() => categoryItems.map((c) => c.name), [categoryItems]);
+
+  // The categories someone uses most come first, and their last entry can be repeated in one tap.
+  const usageSpace = spacesEnabled ? activeSpaceId : 'personal';
+  const [usage, setUsage] = useState<{ counts: Record<string, number>; last: LastEntry | null }>({ counts: {}, last: null });
+  React.useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    loadUsage(user.id, usageSpace, type).then((u) => !cancelled && setUsage(u));
+    return () => {
+      cancelled = true;
+    };
+  }, [type, usageSpace, user?.id]);
+  const orderedCategories = useMemo(() => sortByUsage(categoryItems, usage.counts), [categoryItems, usage.counts]);
 
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -230,7 +245,14 @@ export function AddTransactionScreen() {
           toast.show(e instanceof Error ? e.message : 'Saved transaction but failed to update goal', 'error');
         }
       }
+      let streak: number | null = null;
+      if (user?.id) {
+        void recordUsage(user.id, usageSpace, type, { category: resolvedCategory, amount: parsedAmount, description: trimmedDescription });
+        streak = await recordLogDay(user.id).catch(() => null);
+      }
+      haptic.success();
       if (result.status === 'queued') toast.show('Saved on this phone. It will sync when you’re back online.', 'info', 4000);
+      else if (streak) toast.show(`${streak} days in a row 🔥 You dey build the habit, keep am up!`, 'success', 4000);
       else toast.show(type === 'expense' ? 'Expense saved' : 'Income saved', 'success');
       nav.goBack();
     } catch (e) {
@@ -473,6 +495,9 @@ export function AddTransactionScreen() {
 
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back'];
 
+  // Only offered on an empty form, so it never gets in the way once someone starts typing.
+  const repeat = !amount && !category && usage.last && categories.includes(usage.last.category) ? usage.last : null;
+
   return (
     <Screen scrollable={false} style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
       <View style={styles.header}>
@@ -548,8 +573,28 @@ export function AddTransactionScreen() {
           </View>
         ) : null}
 
+        {repeat ? (
+          <Pressable
+            onPress={() => {
+              haptic.tap();
+              setAmount(formatNumberInput(String(repeat.amount)));
+              setCategory(repeat.category);
+              setCategoryTouched(true);
+              if (repeat.description) setDescription(repeat.description);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Same as last time: ${repeat.category}, ${formatAmount(repeat.amount, glyph)}`}
+            style={({ pressed }) => [styles.repeat, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface, opacity: pressed ? 0.8 : 1 }]}
+          >
+            <Repeat color={theme.colors.primary} size={14} />
+            <Text style={[typo.smallStrong, { color: theme.colors.text }]} numberOfLines={1}>
+              Same as last time · {repeat.category} {formatAmount(repeat.amount, glyph)}
+            </Text>
+          </Pressable>
+        ) : null}
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll} contentContainerStyle={styles.chips} keyboardShouldPersistTaps="handled">
-          {categoryItems.map((c) => {
+          {orderedCategories.map((c) => {
             const active = category === c.name;
             const Icon = iconForKey(c.icon);
             return (
@@ -610,7 +655,7 @@ export function AddTransactionScreen() {
             ]
               .filter((d) => d.iso !== date)
               .map((d) => (
-                <Pressable key={d.label} onPress={() => setDate(d.iso)} style={[styles.miniChip, { backgroundColor: theme.colors.surfaceAlt }]}>
+                <Pressable key={d.label} onPress={() => setDate(d.iso)} hitSlop={8} accessibilityRole="button" style={[styles.miniChip, { backgroundColor: theme.colors.surfaceAlt }]}>
                   <Text style={[typo.caption, { color: theme.colors.text, fontFamily: fonts.semibold }]}>{d.label}</Text>
                 </Pressable>
               ))}
@@ -621,6 +666,8 @@ export function AddTransactionScreen() {
                 setShowDatePicker(true);
               }}
               style={[styles.miniChip, { backgroundColor: theme.colors.surfaceAlt }]}
+              hitSlop={8}
+              accessibilityRole="button"
               accessibilityLabel="Pick a date"
             >
               <Text style={[typo.caption, { color: theme.colors.primary, fontFamily: fonts.semibold }]}>Pick</Text>
@@ -886,6 +933,19 @@ const styles = StyleSheet.create({
   miniChip: { height: 28, paddingHorizontal: 10, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   chipRow: { flexDirection: 'row', gap: 6 },
   suggested: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -4, marginBottom: 10 },
+  repeat: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 36,
+    maxWidth: '100%',
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginTop: 14,
+    marginBottom: -4
+  },
   impact: { marginTop: 12, borderRadius: 14, padding: 12 },
   impactTrack: { flexDirection: 'row', height: 5, borderRadius: 3, overflow: 'hidden', marginTop: 8 },
   keys: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 6, marginBottom: 8 },

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, SectionList, Pressable, ActivityIndicator, TextInput, StyleSheet } from 'react-native';
+import { View, Text, SectionList, Pressable, TextInput, StyleSheet } from 'react-native';
+import { useHiddenIds } from '../lib/undoDelete';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { ChevronLeft, ChevronRight, Search, Trash2, X } from 'lucide-react-native';
@@ -12,7 +13,7 @@ import { SpaceSwitcher } from '../components/Common/SpaceSwitcher';
 import { CategoryIcon } from '../components/Common/CategoryIcon';
 import { useToast } from '../components/Common/Toast';
 import { useSync } from '../contexts/SyncContext';
-import { Amount, Card, EmptyState, IconButton, InlineError, Screen, ScreenHeader } from '../components/Common/ui';
+import { Amount, Card, EmptyState, IconButton, InlineError, Screen, ScreenHeader, Skeleton } from '../components/Common/ui';
 import { currencySymbol, dayKey, formatDayHeader, formatRelativeDay, monthName, toIsoDateTime } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 
@@ -131,13 +132,15 @@ export function TransactionsScreen() {
     });
   };
 
+  // Deleted from the detail screen and still inside its Undo window.
+  const deletedElsewhere = useHiddenIds();
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     return items
-      .filter((t) => !hidden.has(t.id))
+      .filter((t) => !hidden.has(t.id) && !deletedElsewhere.has(String(t.id)))
       .filter((t) => (typeFilter === 'all' ? true : t.type === typeFilter))
       .filter((t) => !s || (t.description || '').toLowerCase().includes(s) || (t.category || '').toLowerCase().includes(s));
-  }, [hidden, items, search, typeFilter]);
+  }, [deletedElsewhere, hidden, items, search, typeFilter]);
 
   const totals = useMemo(() => {
     const income = filtered.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
@@ -362,7 +365,7 @@ export function TransactionsScreen() {
         }}
         ListEmptyComponent={
           isLoading ? (
-            <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 32 }} />
+            <Skeleton rows={6} style={{ marginTop: 16 }} />
           ) : (
             <View style={{ marginTop: 18 }}>
               <EmptyState

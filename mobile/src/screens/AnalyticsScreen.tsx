@@ -461,7 +461,14 @@ export function AnalyticsScreen() {
       />
       <Card>
         {categoryRows.length === 0 ? (
-          <Text style={[type.small, { color: theme.colors.textMuted }]}>No spending in this period yet.</Text>
+          <>
+            <Text style={[type.small, { color: theme.colors.textMuted }]}>
+              Nothing spent in this period yet. Log what you spend and this shows where your money goes.
+            </Text>
+            <Pressable onPress={() => nav.navigate('AddTransaction' as never)} accessibilityRole="button" hitSlop={8} style={{ marginTop: 8, alignSelf: 'flex-start' }}>
+              <Text style={[type.smallStrong, { color: theme.colors.primary }]}>Log spending</Text>
+            </Pressable>
+          </>
         ) : (
           <>
             <View style={styles.stack}>

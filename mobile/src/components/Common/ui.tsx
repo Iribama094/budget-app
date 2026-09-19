@@ -8,6 +8,7 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  Animated,
   type TextInputProps,
   type ViewProps,
   type TextProps,
@@ -246,8 +247,16 @@ export function Amount({
   const base = size === 'hero' ? type.hero : size === 'lg' ? type.amountLg : size === 'md' ? type.amount : type.amountSm;
   const glyphScale = size === 'hero' || size === 'lg' ? 0.56 : 0.86;
   const sign = signed ? (value < 0 ? '−' : '+') : value < 0 ? '−' : '';
+  const big = size === 'hero' || size === 'lg';
   return (
-    <Text style={[base, { color: color ?? theme.colors.text }, style]} numberOfLines={1}>
+    <Text
+      style={[base, { color: color ?? theme.colors.text }, style]}
+      numberOfLines={1}
+      // Big amounts shrink to fit rather than getting cut off when someone uses large text on their phone.
+      adjustsFontSizeToFit={big}
+      minimumFontScale={0.6}
+      accessibilityLabel={hidden ? 'Amount hidden' : `${sign === '−' ? 'minus ' : sign === '+' ? 'plus ' : ''}${currency}${groupDigits(value)}`}
+    >
       {sign}
       <Text style={{ fontFamily: fonts.medium, fontSize: base.fontSize * glyphScale }}>{currency}</Text>
       {hidden ? '••••' : groupDigits(value)}
@@ -645,6 +654,32 @@ export function Ring({ progress, size = 44, stroke = 5, color, label }: { progre
         />
       </Svg>
       {label ? <Text style={[{ position: 'absolute', fontFamily: fonts.display, fontSize: size * 0.23, color: theme.colors.text }]}>{label}</Text> : null}
+    </View>
+  );
+}
+
+/** Grey rows that gently pulse while the first data loads, so the screen keeps its shape instead of showing a spinner. */
+export function Skeleton({ rows = 3, height = 56, color, style }: { rows?: number; height?: number; color?: string; style?: StyleProp<ViewStyle> }) {
+  const { theme } = useTheme();
+  const pulse = React.useRef(new Animated.Value(0.55)).current;
+  React.useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.55, duration: 700, useNativeDriver: true })
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  return (
+    <View style={style} accessible accessibilityLabel="Loading">
+      {Array.from({ length: rows }).map((_, i) => (
+        <Animated.View
+          key={i}
+          style={{ height, borderRadius: tokens.radius.lg, backgroundColor: color ?? theme.colors.surfaceAlt, opacity: pulse, marginTop: i ? 8 : 0 }}
+        />
+      ))}
     </View>
   );
 }

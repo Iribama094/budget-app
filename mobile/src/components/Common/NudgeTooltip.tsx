@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useGuides } from '../../contexts/GuideContext';
 import { tokens } from '../../theme/tokens';
 
 type Rect = { x: number; y: number; width: number; height: number };
@@ -29,12 +30,15 @@ export function NudgeTooltip({
 }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  // A screen guide takes priority; this tip waits until it is closed.
+  const { isGuideOpen } = useGuides();
+  const shown = visible && !isGuideOpen;
   const { width: windowWidth } = useWindowDimensions();
 
   const [rect, setRect] = useState<Rect | null>(null);
 
   useEffect(() => {
-    if (!visible) {
+    if (!shown) {
       setRect(null);
       return;
     }
@@ -65,7 +69,7 @@ export function NudgeTooltip({
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, [visible, targetRef, title, body]);
+  }, [shown, targetRef, title, body]);
 
   const bubble = useMemo(() => {
     if (!rect) {
@@ -98,7 +102,7 @@ export function NudgeTooltip({
   }, [rect, windowWidth, insets.top]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
+    <Modal visible={shown} transparent animationType="fade" onRequestClose={onDismiss}>
       <Pressable onPress={onDismiss} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
 
       {/* Allow tapping the anchored target even while the modal is visible */}

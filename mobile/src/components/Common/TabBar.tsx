@@ -41,7 +41,9 @@ export function AppTabBar({ state, navigation, descriptors }: BottomTabBarProps)
         style={styles.tab}
       >
         <meta.Icon color={color} size={22} strokeWidth={focused ? 2.4 : 2} />
-        <Text style={[styles.label, { color, fontFamily: focused ? fonts.semibold : fonts.medium }]}>{meta.label}</Text>
+        <Text style={[styles.label, { color, fontFamily: focused ? fonts.semibold : fonts.medium }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>
+          {meta.label}
+        </Text>
       </Pressable>
     );
   };

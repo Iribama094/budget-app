@@ -2,7 +2,18 @@ import { isUniqueViolation, isUuid, sql } from '../lib/db.ts';
 import { requireAuth } from '../lib/auth.ts';
 import { badRequest, body, HttpError, json, methodNotAllowed, noContent, notFound, spaceParam, z } from '../lib/http.ts';
 import { addDaysIso, ISO_DATE, parseIsoDateUtcNoon, todayIso } from '../lib/dates.ts';
-import { clampedIso, computePlan, loadPlan, payPeriod, primarySource, toApiIncomeSource, type BillInput, type IncomeInput } from '../lib/plan.ts';
+import {
+  clampedIso,
+  computePlan,
+  loadPlan,
+  payPeriod,
+  periodCategories,
+  primarySource,
+  starterCategories,
+  toApiIncomeSource,
+  type BillInput,
+  type IncomeInput
+} from '../lib/plan.ts';
 import { defaultBucketFor, ensureCategories, normalizeBucket, suggestCategory, toApiCategory } from '../lib/categories.ts';
 import { findOwnBudget, toApiBudget } from '../lib/budgets.ts';
 import { joinBudgetWithCode } from './budgets.ts';
@@ -139,7 +150,10 @@ const CompleteSchema = z.object({
   createBudget: z.boolean().default(true),
   // solo: my own budget · shared: one budget with other people · both: my own plus a shared one
   mode: z.enum(['solo', 'shared', 'both']).default('solo'),
-  inviteCode: z.string().trim().min(4).max(12).optional()
+  inviteCode: z.string().trim().min(4).max(12).optional(),
+  // Joined partway through the period: what they have left until payday (or month end). The first budget uses
+  // this instead of a full period's income, and the full plan starts with the next period.
+  leftUntilPayday: z.number().finite().nonnegative().max(1e12).optional()
 });
 
 /**
@@ -206,17 +220,13 @@ export async function onboardingComplete(ctx: Ctx) {
       limit 1
     `;
     if (!clash) {
-      const factor = period.days / (365 / 12);
-      const amount = (n: number) => Math.round((n * factor) / 100) * 100;
-      const categories = {
-        Needs: { budgeted: amount(plan.split.Needs) },
-        Wants: { budgeted: amount(plan.split.Wants) },
-        Savings: { budgeted: amount(plan.split.Savings) }
-      };
+      // A household budget covers everyone's money, so only someone's own budget starts from what they have left.
+      const starter = input.leftUntilPayday !== undefined && purpose === 'personal' && today > period.start;
+      const categories = starter ? starterCategories(plan.split, Math.round(input.leftUntilPayday!)) : periodCategories(plan.split, period.days);
       const total = categories.Needs.budgeted + categories.Wants.budgeted + categories.Savings.budgeted;
       const [row] = await sql`
-        insert into public.budgets (user_id, space_id, name, total_budget, period, start_date, end_date, categories, purpose)
-        values (${userId}, 'personal', ${purpose === 'household' ? 'Household budget' : `My Budget (${period.label})`}, ${total}, 'monthly', ${period.start}::date, ${period.end}::date, ${sql.json(categories)}, ${purpose})
+        insert into public.budgets (user_id, space_id, name, total_budget, period, start_date, end_date, categories, purpose, tracking_start)
+        values (${userId}, 'personal', ${purpose === 'household' ? 'Household budget' : `My Budget (${period.label})`}, ${total}, 'monthly', ${period.start}::date, ${period.end}::date, ${sql.json(categories)}, ${purpose}, ${starter ? today : null}::date)
         returning id
       `;
       const created = toApiBudget((await findOwnBudget(userId, row.id))!, userId);

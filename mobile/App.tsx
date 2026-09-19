@@ -51,6 +51,7 @@ import AnalyticsBucketDetailScreen from './src/screens/AnalyticsBucketDetailScre
 import AnalyticsMiniBudgetsDetailScreen from './src/screens/AnalyticsMiniBudgetsDetailScreen';
 import { navigationRef } from './src/navigation/navigationRef';
 import { TourProvider } from './src/contexts/TourContext';
+import { GuideProvider } from './src/contexts/GuideContext';
 import { NudgesProvider } from './src/contexts/NudgesContext';
 import { SyncProvider } from './src/contexts/SyncContext';
 import { AppServices } from './src/components/Common/AppServices';
@@ -297,13 +298,15 @@ export default function App() {
                           linking={{ prefixes: ['budgetfriendly://'], config: { screens: { ShareBudget: 'join/:code' } } } as any}
                         >
                           <TourProvider>
-                            <NudgesProvider>
-                              <View style={styles.container}>
-                                <AppBackground />
-                                <Root />
-                                <AppServices />
-                              </View>
-                            </NudgesProvider>
+                            <GuideProvider>
+                              <NudgesProvider>
+                                <View style={styles.container}>
+                                  <AppBackground />
+                                  <Root />
+                                  <AppServices />
+                                </View>
+                              </NudgesProvider>
+                            </GuideProvider>
                           </TourProvider>
                         </NavigationContainer>
                         </SyncProvider>

@@ -349,9 +349,29 @@ export type ApiBudget = {
   isShared?: boolean;
   members?: Array<{ userId: string; role: "owner" | "member"; name: string | null; email: string; joinedAt: string }>;
   rollover?: { destination: "goal" | "next-budget"; amount: number; goalId: string | null; budgetId: string | null; at: string } | null;
+  /** Set on a starter budget (joined mid-period): the day tracking began. Pace is measured from here. */
+  trackingStart?: string | null;
   createdAt: string;
   updatedAt: string;
 };
+
+export type ApiBudgetPace = {
+  left: number;
+  spent: number;
+  /** Savings share not yet set aside. Held back from what's safe to spend. */
+  savingsLeft: number;
+  /** Bills due before the budget ends. Held back too. */
+  billsTotal: number;
+  bills: Array<{ name: string; amount: number; dueDate: string }>;
+  daysLeft: number;
+  safeToSpend: number;
+  safePerDay: number;
+  trackingStart: string | null;
+};
+
+export async function getBudgetPace(id: string): Promise<ApiBudgetPace> {
+  return apiFetch(`/v1/budgets/${encodeURIComponent(id)}/pace`, { method: 'GET' }) as Promise<ApiBudgetPace>;
+}
 
 export async function listBudgets(params?: { start?: string; end?: string; spaceId?: 'personal' | 'business' }): Promise<{ items: ApiBudget[] }> {
   const qs = new URLSearchParams();
