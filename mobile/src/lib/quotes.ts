@@ -37,7 +37,13 @@ export const QUOTES: Quote[] = [
   { id: 'dawn', text: 'However long the night, the dawn will break.', author: 'Proverb', source: 'Widely cited as an African proverb', themes: ['patience', 'change'] },
   { id: 'servant', text: 'Money is a good servant but a bad master.', author: 'Proverb', source: 'English proverb, 17th century', themes: ['spending'] },
   { id: 'hay', text: 'Make hay while the sun shines.', author: 'Proverb', source: 'English proverb', themes: ['saving'] },
-  { id: 'stitch', text: 'A stitch in time saves nine.', author: 'Proverb', source: 'English proverb', themes: ['planning'] }
+  { id: 'stitch', text: 'A stitch in time saves nine.', author: 'Proverb', source: 'English proverb', themes: ['planning'] },
+  // Nigerian voices. Each one is a line the person actually said, with where they said it.
+  { id: 'elumelu', text: 'If you have a dollar in your hands, put some of it aside.', author: 'Tony Elumelu', source: 'RFI “Guest Africa” interview, 2023', themes: ['saving'] },
+  { id: 'ovia', text: 'If you are disciplined and work hard, definitely you will do well.', author: 'Jim Ovia', source: 'Forbes Africa interview, 20 September 2018', themes: ['patience', 'planning'] },
+  { id: 'dangote', text: 'It’s not all about making money. It’s about making impact.', author: 'Aliko Dangote', source: 'Bloomberg Markets interview, 2017', themes: ['spending'] },
+  { id: 'oyedepo-slow', text: 'Things may be slow, but it is sure.', author: 'David Oyedepo', source: 'Sermon, reported by Vanguard, 26 July 2026', themes: ['patience'] },
+  { id: 'oyedepo-bet', text: 'Naija bet is not the way to financial fortune.', author: 'David Oyedepo', source: 'Sermon, reported by Vanguard, 26 July 2026', themes: ['spending'] }
 ];
 
 /** A quote for these themes. The same seed always gives the same quote, so it doesn't change on every visit. */
