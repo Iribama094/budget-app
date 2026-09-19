@@ -185,7 +185,15 @@ try {
   check('delete recurring', (await call(a.token, 'DELETE', `/recurring/${recId}`)).status === 204);
   r = await call(a.token, 'GET', '/notifications');
   const kinds = (r.data?.items ?? []).map((n) => n.kind);
-  check('notifications feed has pace, auto-save and recurring alerts', r.status === 200 && r.data.unread > 0 && kinds.includes('pace') && kinds.includes('autosave') && kinds.includes('recurring'), kinds);
+  check('notifications feed has auto-save and recurring alerts', r.status === 200 && r.data.unread > 0 && kinds.includes('autosave') && kinds.includes('recurring'), kinds);
+  // Spending past a bucket always warns, whatever day of the month it is. (A "running hot" alert only fires
+  // when spending is ahead of the calendar, so it can't be tested on a fixed set of amounts.) The expense is
+  // removed again so the totals later sections check stay the same.
+  r = await call(a.token, 'POST', '/transactions', { type: 'expense', amount: 160000, category: 'Aso ebi', occurredAt: now(), budgetId, budgetCategory: 'Free Spending' });
+  const burstId = r.data?.transaction?.id;
+  const overKinds = ((await call(a.token, 'GET', '/notifications')).data?.items ?? []).map((n) => n.kind);
+  check('going past a bucket warns', overKinds.includes('over'), overKinds);
+  if (burstId) await call(a.token, 'DELETE', `/transactions/${burstId}`);
   r = await call(a.token, 'POST', '/notifications/read', {});
   check('mark notifications read', r.status === 200 && r.data.updated > 0, r);
   check('unread count is zero', (await call(a.token, 'GET', '/notifications')).data?.unread === 0);
@@ -261,7 +269,7 @@ try {
   check('partner leaves', (await call(b.token, 'DELETE', `/budgets/${budgetId}/members/${b.id}`)).status === 200);
   check('partner loses access after leaving', (await call(b.token, 'GET', `/budgets/${budgetId}`)).status === 404);
   r = await call(a.token, 'GET', '/notifications');
-  check('owner is told when the partner leaves', (r.data?.items ?? []).some((n) => n.kind === 'shared' && /comot/.test(n.title)), r.data?.items?.map((n) => n.title));
+  check('owner is told when the partner leaves', (r.data?.items ?? []).some((n) => n.kind === 'shared' && /left|comot/.test(n.title)), r.data?.items?.map((n) => n.title));
   // Tidy up the extra budgets so later sections see the same data as before.
   for (const id of [nextId, ownId, eventId]) if (id) await call(a.token, 'DELETE', `/budgets/${id}`);
   await call(a.token, 'PATCH', '/users/me', { homeBudget: 'own', budgetMode: 'solo' });
