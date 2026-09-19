@@ -29,6 +29,20 @@ The database password and cron secret live only in the git-ignored `.env.supabas
 
 The older Vercel + MongoDB backend (`api/`, `backend/`, `server/`) and the notes below are kept for reference; the app no longer uses them.
 
+## Web site on Vercel
+
+Pushing to `main` deploys the marketing site (the Vite app in `src/`) through `.github/workflows/vercel-deploy.yml`. It needs three repository secrets under **Settings › Secrets and variables › Actions**:
+
+| Secret | Where it comes from |
+| --- | --- |
+| `VERCEL_TOKEN` | https://vercel.com/account/tokens — tokens expire, and an expired one fails every deploy |
+| `VERCEL_ORG_ID` | `.vercel/project.json` after `npx vercel link` |
+| `VERCEL_PROJECT_ID` | the same file |
+
+The workflow checks all three first and names the missing one, so a failed run tells you what to fix. You can also re-run it from the Actions tab with **Run workflow**.
+
+`vercel.json` deliberately has no `crons` entry. The legacy `/v1/cron/daily` on this deployment records recurring transactions and sends bill reminders from MongoDB, which is the same job the Supabase function now does — running both would double them for anyone still in the old database.
+
 Temporary deployment options for the mock API
 
 Quick summary

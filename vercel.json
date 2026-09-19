@@ -8,11 +8,5 @@
       "source": "/api/v1/:path*",
       "destination": "/api/v1?path=:path*"
     }
-  ],
-  "crons": [
-    {
-      "path": "/v1/cron/daily",
-      "schedule": "0 7 * * *"
-    }
   ]
 }
