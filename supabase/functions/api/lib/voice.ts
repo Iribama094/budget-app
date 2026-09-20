@@ -93,9 +93,20 @@ export const voice = {
     body: autoCreate ? `${amount}. We’ll record it for you on the day.` : `${amount}. Make sure the money is ready.`
   }),
 
+  bankConnected: (bank: string, count: number): Note => ({
+    title: `${bank} is connected 🎉`,
+    body: count > 0 ? `${count} transaction${count === 1 ? '' : 's'} from the last 90 days are waiting for you to review.` : 'New transactions will come in on their own from now on.',
+  }),
+
+  /** Someone turned a connection off. Worth saying out loud: if it wasn't them, they need to know. */
+  bankDisconnected: (bank: string): Note => ({
+    title: `${bank} disconnected`,
+    body: 'Nothing new will come in. Everything already logged stays in your records. Reconnect any time.'
+  }),
+
   bankReauth: (bank: string): Note => ({
-    title: `${bank} has disconnected`,
-    body: 'Reconnect it so your transactions keep coming in.'
+    title: `${bank} needs you to reconnect`,
+    body: 'Your bank has asked us to confirm access again. Until then, no new transactions come in.'
   }),
 
   bankImported: (count: number, bank: string): Note => ({

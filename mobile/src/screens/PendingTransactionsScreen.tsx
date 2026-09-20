@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BUCKETS, bucketDisplayName } from '../theme/buckets';
 import { useCategories } from '../contexts/CategoriesContext';
-import { View, Text, FlatList, Pressable, ActivityIndicator, type TextStyle, type ViewStyle } from 'react-native';
+import { Alert, View, Text, FlatList, Pressable, ActivityIndicator, type TextStyle, type ViewStyle } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft, CheckCircle2, XCircle, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import * as SecureStore from 'expo-secure-store';
@@ -11,6 +11,7 @@ import { useToast } from '../components/Common/Toast';
 import { Screen, Card, H1, P, PrimaryButton, SecondaryButton } from '../components/Common/ui';
 import { SelectField } from '../components/Common/SelectField';
 import {
+  bulkImportedTransactions,
   listImportedTransactions,
   reconcileImportedTransaction,
   reconcileImportedTransactionInSpace,
@@ -38,6 +39,8 @@ function directionLabel(direction: 'debit' | 'credit') {
 }
 
 function suggestedCategory(tx: ApiImportedTransaction): string {
+  // The server knows what this person picked for this payee last time; the keywords below are the fallback.
+  if (tx.suggestedCategory) return tx.suggestedCategory;
   const base = `${tx.merchant || ''} ${tx.description || ''}`.toLowerCase();
 
   if (tx.direction === 'debit') {
@@ -109,6 +112,57 @@ export default function PendingTransactionsScreen() {
   const [goals, setGoals] = useState<ApiGoal[]>([]);
 
   const [showTip, setShowTip] = useState(false);
+
+  // Clearing an import one at a time is the slow path. These let someone confirm the obvious ones in one go.
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const duplicateIds = useMemo(() => items.filter((t) => t.duplicateOf).map((t) => t.id), [items]);
+
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const runBulk = async (action: 'reconcile' | 'ignore', ids: string[]) => {
+    if (!ids.length || bulkBusy) return;
+    setBulkBusy(true);
+    try {
+      const res = await bulkImportedTransactions(action, ids, spacesEnabled ? { spaceId: activeSpaceId } : undefined);
+      const verb = action === 'reconcile' ? 'added to your budget' : 'ignored';
+      toast.show(
+        res.failed ? `${res.done} ${verb}, ${res.failed} couldn’t be done. Try those one by one.` : `${res.done} transaction${res.done === 1 ? '' : 's'} ${verb}.`,
+        res.failed ? 'info' : 'success',
+        4000
+      );
+      setSelected(new Set());
+      setSelecting(false);
+      await load();
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not update those transactions', 'error');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const confirmAll = () => {
+    const ids = items.map((t) => t.id);
+    if (!ids.length) return;
+    const dupes = duplicateIds.length;
+    Alert.alert(
+      `Add all ${ids.length} to your budget?`,
+      dupes
+        ? `Each one uses the category we suggested. ${dupes} of them look like transactions you already logged by hand — you may want to ignore those first.`
+        : 'Each one uses the category we suggested. You can still change any of them afterwards in Transactions.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Add all', onPress: () => void runBulk('reconcile', ids) }
+      ]
+    );
+  };
 
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
   const bucketLabel = useCallback(
@@ -449,9 +503,52 @@ export default function PendingTransactionsScreen() {
 
             <View style={{ marginTop: 14 }}>
               <P>
-                These are imported from your bank connections. Confirm what should count as income or expenses in your budget.
+                These came in from your bank. Confirm what should count in your budget, and ignore what shouldn’t.
               </P>
             </View>
+
+            {hasItems ? (
+              <View style={{ marginTop: 12 }}>
+                <Card>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>
+                    {items.length} waiting{duplicateIds.length ? ` · ${duplicateIds.length} look already logged` : ''}
+                  </Text>
+                  <Text style={{ color: theme.colors.textMuted, marginTop: 4, fontSize: 12 }}>
+                    Each one already has a category we picked from your history. Clear them in one go, or tap any to change it.
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                    <Pressable
+                      onPress={confirmAll}
+                      disabled={bulkBusy}
+                      accessibilityRole="button"
+                      style={({ pressed }) => [pillStyle(theme, true), { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary, opacity: bulkBusy ? 0.6 : pressed ? 0.85 : 1 }]}
+                    >
+                      <Text style={{ color: theme.colors.onPrimary, fontFamily: 'Figtree_700Bold', fontSize: 12 }}>Add all {items.length}</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        setSelected(new Set());
+                        setSelecting((v) => !v);
+                      }}
+                      accessibilityRole="button"
+                      style={({ pressed }) => [pillStyle(theme, selecting), { opacity: pressed ? 0.85 : 1 }]}
+                    >
+                      <Text style={pillTextStyle(theme, selecting)}>{selecting ? 'Done selecting' : 'Pick a few'}</Text>
+                    </Pressable>
+                    {duplicateIds.length ? (
+                      <Pressable
+                        onPress={() => void runBulk('ignore', duplicateIds)}
+                        disabled={bulkBusy}
+                        accessibilityRole="button"
+                        style={({ pressed }) => [pillStyle(theme), { borderColor: theme.colors.brass, opacity: bulkBusy ? 0.6 : pressed ? 0.85 : 1 }]}
+                      >
+                        <Text style={{ color: theme.colors.brass, fontFamily: 'Figtree_700Bold', fontSize: 12 }}>Ignore {duplicateIds.length} already logged</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                </Card>
+              </View>
+            ) : null}
 
             {showTip ? (
               <View style={{ marginTop: 12 }}>
@@ -568,6 +665,10 @@ export default function PendingTransactionsScreen() {
             <Card style={{ marginBottom: 10 }}>
               <Pressable
                 onPress={() => {
+                  if (selecting) {
+                    toggleSelected(item.id);
+                    return;
+                  }
                   setDrafts((prev) => {
                     if (prev[item.id]) return prev;
                     return {
@@ -584,9 +685,29 @@ export default function PendingTransactionsScreen() {
                   });
                   setExpandedId((prev) => (prev === item.id ? null : item.id));
                 }}
+                accessibilityRole={selecting ? 'checkbox' : 'button'}
+                accessibilityState={selecting ? { checked: selected.has(item.id) } : undefined}
                 style={({ pressed }) => [{ opacity: pressed ? 0.95 : 1 }]}
               >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                {selecting ? (
+                  <View
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 7,
+                      borderWidth: 1.5,
+                      marginRight: 10,
+                      marginTop: 2,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderColor: selected.has(item.id) ? theme.colors.primary : theme.colors.border,
+                      backgroundColor: selected.has(item.id) ? theme.colors.primary : 'transparent'
+                    }}
+                  >
+                    {selected.has(item.id) ? <CheckCircle2 color={theme.colors.onPrimary} size={14} /> : null}
+                  </View>
+                ) : null}
                 <View style={{ flex: 1, paddingRight: 8 }}>
                   <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }} numberOfLines={1}>
                     {item.merchant || item.description || 'Transaction'}
@@ -597,6 +718,16 @@ export default function PendingTransactionsScreen() {
                   <Text style={{ color: theme.colors.textMuted, marginTop: 2, fontSize: 12 }} numberOfLines={1}>
                     {new Date(item.occurredAt).toLocaleString()}
                   </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    <View style={{ backgroundColor: theme.colors.surfaceAlt, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
+                      <Text style={{ color: theme.colors.textMuted, fontSize: 11, fontFamily: 'Figtree_600SemiBold' }}>{suggestedCategory(item)}</Text>
+                    </View>
+                    {item.duplicateOf ? (
+                      <View style={{ backgroundColor: theme.colors.brassSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
+                        <Text style={{ color: theme.colors.brass, fontSize: 11, fontFamily: 'Figtree_600SemiBold' }}>Looks already logged</Text>
+                      </View>
+                    ) : null}
+                  </View>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={{ color, fontFamily: 'Figtree_700Bold' }}>
@@ -852,6 +983,51 @@ export default function PendingTransactionsScreen() {
         }}
       />
       </GuideAnchor>
+
+      {selecting && selected.size > 0 ? (
+        <View
+          style={{
+            position: 'absolute',
+            left: 16,
+            right: 16,
+            bottom: 24,
+            flexDirection: 'row',
+            gap: 10,
+            padding: 10,
+            borderRadius: 18,
+            backgroundColor: theme.colors.surface,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            shadowColor: '#000',
+            shadowOpacity: 0.18,
+            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 8 },
+            elevation: 8
+          }}
+        >
+          <Pressable
+            onPress={() => void runBulk('ignore', [...selected])}
+            disabled={bulkBusy}
+            accessibilityRole="button"
+            style={({ pressed }) => [pillStyle(theme), { flex: 1, alignItems: 'center', paddingVertical: 12, opacity: bulkBusy ? 0.6 : pressed ? 0.85 : 1 }]}
+          >
+            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 13 }}>Ignore {selected.size}</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => void runBulk('reconcile', [...selected])}
+            disabled={bulkBusy}
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              pillStyle(theme, true),
+              { flex: 2, alignItems: 'center', paddingVertical: 12, backgroundColor: theme.colors.primary, borderColor: theme.colors.primary, opacity: bulkBusy ? 0.6 : pressed ? 0.85 : 1 }
+            ]}
+          >
+            <Text style={{ color: theme.colors.onPrimary, fontFamily: 'Figtree_700Bold', fontSize: 13 }}>
+              {bulkBusy ? 'Working…' : `Add ${selected.size} to budget`}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
     </Screen>
   );
 }

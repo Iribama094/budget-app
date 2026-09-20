@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { Landmark, Lock } from 'lucide-react-native';
 
@@ -15,17 +15,30 @@ import { goBackOrHome } from '../navigation/goBack';
 
 const MONO_PUBLIC_KEY = process.env.EXPO_PUBLIC_MONO_PUBLIC_KEY ?? '';
 
+// The widget's own UMD build, which defines window.Connect. Pinned so an upstream release can't break linking.
+// (The old connect.withmono.com/connect.js host stopped serving the script, which left the screen blank.)
+const CONNECT_SCRIPT = 'https://cdn.jsdelivr.net/npm/@mono.co/connect.js@2.2.0';
+
 function connectHtml(key: string, customer: { name: string; email: string }) {
   return `<!doctype html>
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-<script src="https://connect.withmono.com/connect.js"></script>
-</head>
-<body style="margin:0;background:transparent">
 <script>
-  function send(m) { window.ReactNativeWebView.postMessage(JSON.stringify(m)); }
+  function send(m) { try { window.ReactNativeWebView.postMessage(JSON.stringify(m)); } catch (e) {} }
+  function fail(message) { send({ type: 'error', message: message }); }
+  // Anything thrown outside our own try/catch still reaches the app instead of leaving a blank screen.
+  window.onerror = function (message) { fail(String(message)); return true; };
+</script>
+<script src="${CONNECT_SCRIPT}" onerror="fail('The bank connection service could not be reached. Check your internet connection and try again.')"></script>
+</head>
+<body style="margin:0;height:100%;background:transparent">
+<script>
   window.onload = function () {
+    if (typeof Connect === 'undefined') {
+      fail('The bank connection service could not be reached. Check your internet connection and try again.');
+      return;
+    }
     try {
       var connect = new Connect({
         key: ${JSON.stringify(key)},
@@ -38,7 +51,7 @@ function connectHtml(key: string, customer: { name: string; email: string }) {
       connect.setup();
       connect.open();
     } catch (e) {
-      send({ type: 'error', message: String((e && e.message) || e) });
+      fail(String((e && e.message) || e));
     }
   };
 </script>
@@ -51,11 +64,14 @@ type Phase = 'intro' | 'connecting' | 'saving' | 'failed';
 /** Links a real Nigerian bank account through Mono Connect, then imports recent transactions for review. */
 export default function MonoConnectScreen() {
   const nav = useNavigation<any>();
+  const route = useRoute<any>();
   const { theme } = useTheme();
   const { user } = useAuth();
   const { spacesEnabled, activeSpaceId } = useSpace();
   const toast = useToast();
-  const [phase, setPhase] = useState<Phase>('intro');
+  // Coming from the consent screen, the bank list opens straight away; the intro is for direct entries such as
+  // reconnecting a bank from the linked-banks screen.
+  const [phase, setPhase] = useState<Phase>(route.params?.start ? 'connecting' : 'intro');
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,6 +79,16 @@ export default function MonoConnectScreen() {
     () => connectHtml(MONO_PUBLIC_KEY, { name: user?.name || user?.email || 'BudgetFriendly user', email: user?.email || '' }),
     [user?.email, user?.name]
   );
+
+  // If the widget neither loads nor reports a fault, say so rather than leaving a blank screen.
+  useEffect(() => {
+    if (phase !== 'connecting' || loaded) return;
+    const t = setTimeout(() => {
+      setError('Mono is taking too long to open. Check your internet connection and try again.');
+      setPhase('failed');
+    }, 20000);
+    return () => clearTimeout(t);
+  }, [phase, loaded]);
 
   const onMessage = async (event: WebViewMessageEvent) => {
     let msg: any;

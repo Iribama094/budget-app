@@ -52,7 +52,9 @@ export async function getAccount(accountId: string) {
     currency: String(a.currency ?? 'NGN'),
     balance: koboToNaira(a.balance),
     type: String(a.type ?? 'account'),
-    institutionName: String(a.institution?.name ?? a.bank_name ?? 'Bank')
+    institutionName: String(a.institution?.name ?? a.bank_name ?? 'Bank'),
+    // Providers name this differently and may not send one at all; the app falls back to a brand-coloured tile.
+    institutionLogo: String(a.institution?.logo ?? a.institution?.icon ?? a.institution?.image ?? '').trim() || null
   };
 }
 
@@ -105,6 +107,7 @@ export type BankLinkRow = {
   spaceId: string;
   provider: string;
   bankName: string;
+  logoUrl: string | null;
   externalAccountId: string | null;
   status: string;
   lastSyncedAt: Date | null;
@@ -112,7 +115,7 @@ export type BankLinkRow = {
 };
 
 /** Pulls new transactions for a live (Mono) connection into the pending review queue. Re-running is safe. */
-export async function syncBankLink(link: BankLinkRow): Promise<{ imported: number }> {
+export async function syncBankLink(link: BankLinkRow, opts: { notify?: boolean } = {}): Promise<{ imported: number }> {
   if (link.provider !== 'mono' || !link.externalAccountId) return { imported: 0 };
 
   let account;
@@ -164,10 +167,12 @@ export async function syncBankLink(link: BankLinkRow): Promise<{ imported: numbe
 
   await sql`update public.bank_links set last_synced_at = now(), status = 'active' where id = ${link.id}`;
 
-  if (imported > 0) {
+  // The first sync happens while the person is watching, and the connection itself is announced instead.
+  if (imported > 0 && opts.notify !== false) {
     await notifyUser(link.userId, {
       kind: 'bank',
       ...voice.bankImported(imported, link.bankName),
+      spaceId: link.spaceId === 'business' ? 'business' : 'personal',
       data: { screen: 'PendingTransactions' }
     });
   }

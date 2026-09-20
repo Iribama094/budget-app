@@ -48,7 +48,8 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   return (
-    <View pointerEvents="box-none" style={{ position: 'absolute', bottom: insets.bottom + 92, left: 16, right: 16, zIndex: 9999 }}>
+    // Top of the screen, where phone notifications appear: clear of the thumb, the tab bar and the button just pressed.
+    <View pointerEvents="box-none" style={{ position: 'absolute', top: insets.top + 8, left: 16, right: 16, zIndex: 9999 }}>
       {toasts.map((t) => (
         <ToastItem key={t.id} toast={t} theme={theme} onDismiss={() => onDismiss(t.id)} />
       ))}
@@ -68,9 +69,9 @@ function ToastItem({ toast, theme, onDismiss }: { toast: Toast; theme: Theme; on
   return (
     <Animated.View
       accessibilityLiveRegion="polite"
-      style={{ transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }], opacity: anim, marginTop: 8 }}
+      style={{ transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-14, 0] }) }], opacity: anim, marginTop: 8 }}
     >
-      <View
+      <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Dismiss"><View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
@@ -100,7 +101,7 @@ function ToastItem({ toast, theme, onDismiss }: { toast: Toast; theme: Theme; on
             <Text style={{ color: '#E2B65C', fontFamily: fonts.semibold, fontSize: 14 }}>{toast.action.label}</Text>
           </Pressable>
         ) : null}
-      </View>
+      </View></Pressable>
     </Animated.View>
   );
 }

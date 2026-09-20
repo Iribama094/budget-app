@@ -3,8 +3,10 @@ import { requireAuth } from '../lib/auth.ts';
 import { badRequest, body, HttpError, json, methodNotAllowed, notFound, spaceParam, z } from '../lib/http.ts';
 import { exchangeCode, getAccount, MonoError, monoConfigured, syncBankLink, unlinkAccount, type BankLinkRow } from '../lib/bank.ts';
 import { bumpBudget, budgetCovering } from '../lib/budgets.ts';
+import { notifyUser } from '../lib/notify.ts';
+import { voice } from '../lib/voice.ts';
 import { afterTransactionCreated } from '../lib/effects.ts';
-import { learnCategory } from '../lib/categories.ts';
+import { learnCategory, suggestCategories } from '../lib/categories.ts';
 import type { Ctx } from '../index.ts';
 
 const toApiAccount = (a: any) => ({
@@ -73,6 +75,12 @@ export async function bankLinksIndex(ctx: Ctx) {
         (${userId}, ${space}, ${main.id}, ${bankName}, 'Main account', 1300, 'NGN', 'debit', 'Transport – ride share', 'RideShare', now()),
         (${userId}, ${space}, ${savings.id}, ${bankName}, 'Savings pocket', 20000, 'NGN', 'credit', 'Salary top-up', 'Employer Ltd', now())
     `;
+    await notifyUser(userId, {
+      kind: 'bank',
+      ...voice.bankConnected(bankName, 3),
+      spaceId: space === 'business' ? 'business' : 'personal',
+      data: { screen: 'PendingTransactions' }
+    }).catch(() => undefined);
     return json(201, {
       link: { id: link.id, spaceId: space, provider: link.provider, bankName, createdAt: iso(link.createdAt), accounts: [main, savings].map(toApiAccount) }
     });
@@ -92,6 +100,7 @@ export async function bankLinksIndex(ctx: Ctx) {
       spaceId: l.spaceId ?? 'personal',
       provider: l.provider,
       bankName: l.bankName,
+      logoUrl: l.logoUrl ?? null,
       status: l.status ?? 'active',
       lastSyncedAt: iso(l.lastSyncedAt),
       createdAt: iso(l.createdAt),
@@ -115,6 +124,13 @@ export async function bankLinkById(ctx: Ctx) {
   }
   // Accounts and their imported transactions go with the link (on delete cascade).
   await sql`delete from public.bank_links where id = ${id} and user_id = ${userId}`;
+  // A disconnection is a security event as much as a settings change, so it is always announced.
+  await notifyUser(userId, {
+    kind: 'bank',
+    ...voice.bankDisconnected(link.bankName),
+    spaceId: link.spaceId === 'business' ? 'business' : 'personal',
+    data: { screen: 'BankConnections' }
+  }).catch(() => undefined);
   return json(200, { ok: true });
 }
 
@@ -132,12 +148,20 @@ export async function monoConnect(ctx: Ctx) {
     const account = await getAccount(accountId);
     // Re-linking the same account updates the existing connection instead of duplicating it.
     const [link] = await sql<BankLinkRow[]>`
-      insert into public.bank_links (user_id, space_id, provider, bank_name, external_account_id, status)
-      values (${userId}, ${input.spaceId ?? 'personal'}, 'mono', ${account.institutionName}, ${accountId}, 'active')
-      on conflict (user_id, external_account_id) do update set status = 'active', bank_name = excluded.bank_name
+      insert into public.bank_links (user_id, space_id, provider, bank_name, external_account_id, status, logo_url)
+      values (${userId}, ${input.spaceId ?? 'personal'}, 'mono', ${account.institutionName}, ${accountId}, 'active', ${account.institutionLogo})
+      on conflict (user_id, external_account_id) do update
+        set status = 'active', bank_name = excluded.bank_name, logo_url = coalesce(excluded.logo_url, public.bank_links.logo_url)
       returning *
     `;
-    const { imported } = await syncBankLink(link);
+    // One message for the whole thing, rather than "connected" and "N imported" arriving together.
+    const { imported } = await syncBankLink(link, { notify: false });
+    await notifyUser(userId, {
+      kind: 'bank',
+      ...voice.bankConnected(link.bankName, imported),
+      spaceId: link.spaceId === 'business' ? 'business' : 'personal',
+      data: { screen: imported > 0 ? 'PendingTransactions' : 'BankConnections' }
+    }).catch(() => undefined);
     const accounts = await sql`select * from public.bank_accounts where user_id = ${userId} and bank_link_id = ${link.id}`;
     return json(201, {
       imported,
@@ -192,7 +216,42 @@ export async function importedIndex(ctx: Ctx) {
     where user_id = ${userId} and status = ${status} ${space ? sql`and space_id = ${space}` : sql``}
     order by occurred_at desc, id desc
   `;
-  return json(200, { items: items.map(toApiImported) });
+  if (status !== 'pending' || !items.length) return json(200, { items: items.map(toApiImported) });
+
+  // Pending rows carry two hints, so most can be waved through in one tap: the category we'd pick, and whether
+  // this looks like something already logged by hand.
+  const suggestions = await suggestCategories(
+    userId,
+    (items[0].spaceId ?? 'personal') as 'personal' | 'business',
+    items.map((t) => ({ key: String(t.id), type: t.direction === 'credit' ? 'income' : 'expense', text: String(t.description ?? t.merchant ?? '') }))
+  ).catch(() => new Map());
+
+  const dates = items.map((t) => new Date(t.occurredAt).getTime());
+  const existing = await sql<{ id: string; amount: number; type: string; description: string; occurredAt: Date; spaceId: string }[]>`
+    select id, amount, type, description, occurred_at, space_id from public.transactions
+    where user_id = ${userId}
+      and occurred_at >= ${new Date(Math.min(...dates) - 3 * 86400000).toISOString()}
+      and occurred_at <= ${new Date(Math.max(...dates) + 3 * 86400000).toISOString()}
+  `;
+
+  return json(200, {
+    items: items.map((t) => {
+      const type = t.direction === 'credit' ? 'income' : 'expense';
+      const when = new Date(t.occurredAt).getTime();
+      // Same money, same direction, within a couple of days: almost always the same event logged twice.
+      const dupe = existing.find(
+        (x) => x.type === type && Math.abs(Number(x.amount) - Number(t.amount)) < 0.01 && Math.abs(new Date(x.occurredAt).getTime() - when) <= 2 * 86400000 && (x.spaceId ?? 'personal') === (t.spaceId ?? 'personal')
+      );
+      const s = suggestions.get(String(t.id));
+      return {
+        ...toApiImported(t),
+        suggestedCategory: s?.category ?? null,
+        suggestedBucket: s?.bucket ?? null,
+        suggestionSource: s?.source ?? null,
+        duplicateOf: dupe ? { id: dupe.id, description: dupe.description, occurredAt: iso(dupe.occurredAt) } : null
+      };
+    })
+  });
 }
 
 const ReconcileSchema = z.object({
@@ -221,6 +280,11 @@ export async function importedAction(ctx: Ctx) {
   if (action !== 'reconcile') badRequest('Unsupported action');
 
   const input = await body(ctx.req, ReconcileSchema);
+  return json(200, { transaction: await reconcileImported(userId, tx, input) });
+}
+
+/** Turns one imported row into a real transaction and marks it reconciled. Shared by the single and bulk routes. */
+async function reconcileImported(userId: string, tx: any, input: z.infer<typeof ReconcileSchema>) {
   const type = input.type ?? (tx.direction === 'debit' ? 'expense' : 'income');
   const category = input.category ?? (type === 'income' ? 'Other income' : 'Uncategorized');
   const txSpace = tx.spaceId ?? 'personal';
@@ -253,5 +317,55 @@ export async function importedAction(ctx: Ctx) {
   }
 
   const [out] = await sql`update public.imported_transactions set status = 'reconciled', reconciled_at = now() where id = ${tx.id} returning *`;
-  return json(200, { transaction: toApiImported(out) });
+  return toApiImported(out);
+}
+
+const BulkSchema = z.object({
+  action: z.enum(['reconcile', 'ignore']),
+  ids: z.array(z.string().min(1).max(120)).min(1).max(200)
+});
+
+/**
+ * POST /v1/imported-transactions/bulk — confirm or discard many at once, which is how most people clear an
+ * import. Each confirmed row uses the category we suggested for it, so nothing lands as "Uncategorized"
+ * that we could have named.
+ */
+export async function importedBulk(ctx: Ctx) {
+  if (ctx.method !== 'POST') methodNotAllowed(['POST']);
+  const { userId } = await requireAuth(ctx.req);
+  const input = await body(ctx.req, BulkSchema);
+  const space = spaceParam(ctx.query.get('spaceId'));
+  const ids = input.ids.filter(isUuid);
+  if (!ids.length) badRequest('No valid ids');
+
+  const rows = await sql`
+    select * from public.imported_transactions
+    where user_id = ${userId} and status = 'pending' and id in ${sql(ids)} ${space ? sql`and space_id = ${space}` : sql``}
+  `;
+  if (!rows.length) return json(200, { done: 0, failed: 0 });
+
+  if (input.action === 'ignore') {
+    const updated = await sql`update public.imported_transactions set status = 'ignored' where user_id = ${userId} and id in ${sql(rows.map((r) => r.id))} returning id`;
+    return json(200, { done: updated.length, failed: 0 });
+  }
+
+  const suggestions = await suggestCategories(
+    userId,
+    (rows[0].spaceId ?? 'personal') as 'personal' | 'business',
+    rows.map((t) => ({ key: String(t.id), type: t.direction === 'credit' ? 'income' : 'expense', text: String(t.description ?? t.merchant ?? '') }))
+  ).catch(() => new Map());
+
+  let done = 0;
+  let failed = 0;
+  for (const row of rows) {
+    const s = suggestions.get(String(row.id));
+    try {
+      await reconcileImported(userId, row, s ? { category: s.category, budgetCategory: s.bucket ?? undefined } : {});
+      done++;
+    } catch (err) {
+      console.error('[imported] bulk reconcile failed', row.id, err);
+      failed++;
+    }
+  }
+  return json(200, { done, failed });
 }
