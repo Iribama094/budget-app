@@ -210,6 +210,7 @@ function route(parts: string[]): Handler | null {
   if (a === 'admin' && b === 'me') return adminMe;
   if (a === 'admin' && b === 'overview') return adminOverview;
   if (a === 'admin' && b === 'flags' && n <= 3) return adminFlags;
+  if (a === 'admin' && b === 'wrapped' && c === 'preview') return adminWrappedPreview;
   if (a === 'admin' && b === 'wrapped' && n <= 3) return adminWrapped;
   if (a === 'admin' && b === 'audit') return adminAudit;
   if (a === 'admin' && b === 'staff' && n <= 3) return adminStaff;
@@ -218,7 +219,6 @@ function route(parts: string[]): Handler | null {
   if (a === 'admin' && b === 'people' && n === 4 && parts[3] === 'action') return adminPersonAction;
   if (a === 'admin' && b === 'content' && c === 'seed-quotes') return adminSeedQuotes;
   if (a === 'admin' && b === 'content' && n <= 3) return adminContent;
-  if (a === 'admin' && b === 'wrapped' && c === 'preview') return adminWrappedPreview;
   if (a === 'admin' && b === 'tax-rules' && n <= 2) return adminTaxRules;
   if (a === 'admin' && b === 'tax-rules' && n <= 4) return adminTaxVersion;
 
