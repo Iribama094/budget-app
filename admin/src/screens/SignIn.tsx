@@ -8,6 +8,7 @@ import { supabase } from '../api';
 export function SignIn({ notice, onSignedIn }: { notice: string | null; onSignedIn: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -15,10 +16,13 @@ export function SignIn({ notice, onSignedIn }: { notice: string | null; onSigned
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    // Trailing spaces from a paste are a real cause of "wrong password", so they go before the attempt.
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password: password.trim() });
     setBusy(false);
     if (signInError) {
-      setError('That did not work. Check the email and password.');
+      // Say what the server said. This is a staff tool, and a vague message sent somebody hunting for an hour.
+      const why = signInError.message || 'Sign in failed';
+      setError(/invalid login/i.test(why) ? 'Wrong email or password. If your browser filled the password in, clear it and type it again.' : why);
       return;
     }
     onSignedIn();
@@ -43,8 +47,25 @@ export function SignIn({ notice, onSignedIn }: { notice: string | null; onSigned
         </div>
 
         <div className="field">
-          <label htmlFor="password">Password</label>
-          <input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <div className="spread">
+            <label htmlFor="password">Password</label>
+            <button
+              type="button"
+              onClick={() => setShow((v) => !v)}
+              style={{ background: 'none', border: 'none', color: '#86bfaf', fontSize: 12.5, fontWeight: 600, padding: 0 }}
+            >
+              {show ? 'Hide' : 'Show'}
+            </button>
+          </div>
+          <input
+            id="password"
+            type={show ? 'text' : 'password'}
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <span className="muted" style={{ color: '#86bfaf' }}>{password.length} characters</span>
         </div>
 
         <button type="submit" className="btn primary" disabled={busy}>
