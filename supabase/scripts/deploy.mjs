@@ -21,7 +21,9 @@ const REF = 'uggmyokbpwfdbustnggo';
 const target = process.argv[2] ?? 'origin/main';
 
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
-const run = (cmd, args, opts = {}) => execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], ...opts });
+// shell on Windows, where npx is a .cmd and execFile cannot spawn it directly.
+const run = (cmd, args, opts = {}) =>
+  execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], shell: process.platform === 'win32', ...opts });
 const die = (msg) => {
   console.error(`\n  ${msg}\n`);
   process.exit(1);
