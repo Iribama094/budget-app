@@ -9,13 +9,14 @@ import { useToast } from '../components/Common/Toast';
 import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
 import { Amount, Card, Chip, EmptyState, HeroCard, IconTile, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SecondaryButton, SectionHeader, SegmentedControl, TextField, formatAmount } from '../components/Common/ui';
 import { LineItem, MoneyField, Sheet, moneyText, parseMoney } from '../components/Business/parts';
-import { addStaff, getPayroll, removeStaff, runPayroll, updateStaff, type PayrollRun, type Staff } from '../api/business';
+import { payslipMessage, sendOnWhatsApp, sharePayslipPdf } from '../lib/documents';
+import { addStaff, getBusinessSettings, getPayroll, removeStaff, runPayroll, updateStaff, type BusinessSettings, type PayrollLine, type PayrollRun, type Staff } from '../api/business';
 import { currencySymbol, formatShortDate, monthName } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
 
-type Draft = { id: string | null; name: string; role: string; gross: string; active: boolean };
+type Draft = { id: string | null; name: string; role: string; gross: string; active: boolean; pension: boolean; nhf: boolean };
 
 const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 const monthLabel = (key: string) => `${monthName(Number(key.slice(5)) - 1, true)} ${key.slice(0, 4)}`;
@@ -40,6 +41,26 @@ export default function PayrollScreen() {
   const [runOpen, setRunOpen] = useState(false);
   const [period, setPeriod] = useState<'this' | 'last'>('this');
   const [busy, setBusy] = useState(false);
+  const [openRun, setOpenRun] = useState<string | null>(null);
+  const [business, setBusiness] = useState<BusinessSettings | null>(null);
+
+  // Staff need something to show for payday, so each line of a pay run can be shared as a payslip.
+  const sharePayslip = async (line: PayrollLine, run: PayrollRun) => {
+    try {
+      await sharePayslipPdf(line, run, business, user?.name || 'My business', glyph);
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not create the payslip', 'error');
+    }
+  };
+
+  const whatsappPayslip = async (line: PayrollLine, run: PayrollRun) => {
+    const text = payslipMessage(line, run, business?.businessName || user?.name || 'your employer', glyph);
+    try {
+      await sendOnWhatsApp(null, text);
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not open WhatsApp', 'error');
+    }
+  };
 
   const load = useCallback(async () => {
     setError(null);
@@ -48,6 +69,10 @@ export default function PayrollScreen() {
       setStaff(res.staff);
       setTotals(res.totals);
       setRuns(res.runs);
+      // Business name and contacts go at the top of every payslip.
+      getBusinessSettings()
+        .then(setBusiness)
+        .catch(() => undefined);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load payroll');
     } finally {
@@ -86,7 +111,13 @@ export default function PayrollScreen() {
       const monthlyGross = parseMoney(draft.gross);
       if (!draft.name.trim()) throw new Error('Enter their name');
       if (monthlyGross <= 0) throw new Error('Enter their monthly salary before tax');
-      const payload = { name: draft.name.trim(), role: draft.role.trim() || null, monthlyGross };
+      const payload = {
+        name: draft.name.trim(),
+        role: draft.role.trim() || null,
+        monthlyGross,
+        pensionEnabled: draft.pension,
+        nhfEnabled: draft.nhf
+      };
       if (draft.id) await updateStaff(draft.id, { ...payload, active: draft.active });
       else await addStaff(payload);
       setDraft(null);
@@ -132,7 +163,7 @@ export default function PayrollScreen() {
         onBack={() => goBackOrHome(nav)}
         right={
           <Pressable
-            onPress={() => setDraft({ id: null, name: '', role: '', gross: '', active: true })}
+            onPress={() => setDraft({ id: null, name: '', role: '', gross: '', active: true, pension: false, nhf: false })}
             accessibilityRole="button"
             accessibilityLabel="Add staff"
             style={({ pressed }) => [styles.newPill, { backgroundColor: theme.colors.primary, opacity: pressed ? 0.85 : 1 }]}
@@ -181,7 +212,7 @@ export default function PayrollScreen() {
               title={s.name}
               subtitle={s.active ? `${s.role ? `${s.role} · ` : ''}takes home ≈ ${hide ? '••••' : formatAmount(s.netEstimate, glyph)}` : 'Not on payroll right now'}
               right={<Amount value={s.monthlyGross} currency={glyph} size="sm" hidden={hide} color={s.active ? theme.colors.text : theme.colors.textMuted} />}
-              onPress={() => setDraft({ id: s.id, name: s.name, role: s.role ?? '', gross: moneyText(s.monthlyGross), active: s.active })}
+              onPress={() => setDraft({ id: s.id, name: s.name, role: s.role ?? '', gross: moneyText(s.monthlyGross), active: s.active, pension: s.pensionEnabled, nhf: s.nhfEnabled })}
               chevron
             />
           ))}
@@ -191,7 +222,7 @@ export default function PayrollScreen() {
           title="Add your team"
           body="Add each person’s monthly salary before tax. We estimate their PAYE and take-home pay, and remind you to remit PAYE by the 10th."
           actionLabel="Add staff"
-          onAction={() => setDraft({ id: null, name: '', role: '', gross: '', active: true })}
+          onAction={() => setDraft({ id: null, name: '', role: '', gross: '', active: true, pension: false, nhf: false })}
         />
       )}
 
@@ -200,12 +231,43 @@ export default function PayrollScreen() {
           <SectionHeader title="Pay history" />
           <ListCard>
             {runs.map((r) => (
-              <ListRow
-                key={r.id}
-                title={r.label}
-                subtitle={`Paid ${formatShortDate(r.paidOn)} · ${r.lines.length} ${r.lines.length === 1 ? 'person' : 'people'} · PAYE ${hide ? '••••' : formatAmount(r.totalPaye, glyph)}`}
-                right={<Amount value={r.totalGross} currency={glyph} size="sm" hidden={hide} />}
-              />
+              <View key={r.id}>
+                <ListRow
+                  title={r.label}
+                  subtitle={`Paid ${formatShortDate(r.paidOn)} · ${r.lines.length} ${r.lines.length === 1 ? 'person' : 'people'} · PAYE ${hide ? '••••' : formatAmount(r.totalPaye, glyph)}`}
+                  right={<Amount value={r.totalGross} currency={glyph} size="sm" hidden={hide} />}
+                  onPress={() => setOpenRun((id) => (id === r.id ? null : r.id))}
+                  chevron
+                />
+                {openRun === r.id
+                  ? r.lines.map((l) => (
+                      <View key={l.staffId} style={styles.payslipRow}>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text numberOfLines={1} style={[type.smallStrong, { color: theme.colors.text }]}>
+                            {l.name}
+                          </Text>
+                          <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 1 }]}>
+                            Take home {hide ? '••••' : formatAmount(l.net, glyph)}
+                          </Text>
+                        </View>
+                        <Pressable
+                          onPress={() => void sharePayslip(l, r)}
+                          accessibilityRole="button"
+                          style={({ pressed }) => [styles.payslipBtn, { backgroundColor: theme.colors.surfaceAlt, opacity: pressed ? 0.85 : 1 }]}
+                        >
+                          <Text style={[type.caption, { color: theme.colors.text, fontWeight: '700' }]}>Payslip PDF</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => void whatsappPayslip(l, r)}
+                          accessibilityRole="button"
+                          style={({ pressed }) => [styles.payslipBtn, { backgroundColor: theme.colors.primarySoft, opacity: pressed ? 0.85 : 1 }]}
+                        >
+                          <Text style={[type.caption, { color: theme.colors.primary, fontWeight: '700' }]}>Send</Text>
+                        </Pressable>
+                      </View>
+                    ))
+                  : null}
+              </View>
             ))}
           </ListCard>
         </>
@@ -221,6 +283,18 @@ export default function PayrollScreen() {
             <TextField label="Name" value={draft.name} onChangeText={(v) => setDraft({ ...draft, name: v })} placeholder="e.g. Tunde Bakare" />
             <TextField label="Role (optional)" value={draft.role} onChangeText={(v) => setDraft({ ...draft, role: v })} placeholder="e.g. Chef" />
             <MoneyField label="Monthly salary before tax" value={draft.gross} onChange={(v) => setDraft({ ...draft, gross: v })} glyph={glyph} />
+            <ListCard>
+              <ListRow
+                title="Pension"
+                subtitle="Employee's 8% share, taken off their pay"
+                right={<Switch value={draft.pension} onValueChange={(v) => setDraft({ ...draft, pension: v })} trackColor={{ true: theme.colors.primary, false: theme.colors.border }} thumbColor="#FFFFFF" />}
+              />
+              <ListRow
+                title="NHF"
+                subtitle="National Housing Fund, 2.5% of pay"
+                right={<Switch value={draft.nhf} onValueChange={(v) => setDraft({ ...draft, nhf: v })} trackColor={{ true: theme.colors.primary, false: theme.colors.border }} thumbColor="#FFFFFF" />}
+              />
+            </ListCard>
             {draft.id ? (
               <ListCard style={{ marginBottom: 14 }}>
                 <ListRow
@@ -271,6 +345,8 @@ export default function PayrollScreen() {
 }
 
 const styles = StyleSheet.create({
+  payslipRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingLeft: 12 },
+  payslipBtn: { paddingVertical: 7, paddingHorizontal: 11, borderRadius: 10 },
   newPill: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingLeft: 10, paddingRight: 14, borderRadius: 18 },
   split: { flexDirection: 'row', marginTop: 16, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth }
 });

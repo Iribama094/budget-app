@@ -14,6 +14,8 @@ export type TransactionPayload = {
   budgetCategory?: string;
   miniBudget?: string;
   spaceId?: 'personal' | 'business';
+  /** VAT inside a business cost, claimed back against VAT charged on sales. */
+  vatAmount?: number;
 };
 
 export type QueuedTransaction = {

@@ -32,6 +32,9 @@ import {
   invoiceAction,
   invoiceById,
   invoicesIndex,
+  customerById,
+  customersIndex,
+  taxFilings,
   payYourself,
   payrollIndex,
   payrollRun,
@@ -244,6 +247,9 @@ function route(parts: string[]): Handler | null {
   if (a === 'business' && b === 'summary' && n === 2) return businessSummaryRoute;
   if (a === 'business' && b === 'pay-yourself' && n === 2) return payYourself;
   if (a === 'business' && b === 'report' && n === 2) return businessReport;
+  if (a === 'customers' && n === 1) return customersIndex;
+  if (a === 'customers' && n === 2) return customerById;
+  if (a === 'business' && b === 'filings' && n === 2) return taxFilings;
   if (a === 'invoices' && n === 1) return invoicesIndex;
   if (a === 'invoices' && n === 2) return invoiceById;
   if (a === 'invoices' && n === 3) return invoiceAction;

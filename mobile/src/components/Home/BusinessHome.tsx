@@ -8,6 +8,7 @@ import {
   Bell,
   Briefcase,
   CalendarClock,
+  Check,
   ChartColumn,
   Eye,
   EyeOff,
@@ -16,6 +17,7 @@ import {
   Gift,
   Hourglass,
   Landmark,
+  MoreHorizontal,
   Receipt,
   Settings as SettingsIcon,
   TrendingDown,
@@ -57,6 +59,7 @@ export function BusinessHome() {
   const [recent, setRecent] = useState<ApiTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAllTools, setShowAllTools] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -88,8 +91,9 @@ export function BusinessHome() {
   const hasActivity = !!s && (s.series.some((m) => m.revenue > 0 || m.costs > 0) || s.receivables.openCount > 0 || s.payables.openCount > 0);
   const nextDeadline = s?.tax.deadlines[0] ?? null;
 
-  const tools = [
+  const allTools = [
     { label: 'Invoices', Icon: FileText, screen: 'Invoices', badge: s?.receivables.overdueCount },
+    { label: 'Customers', Icon: Users, screen: 'Customers' },
     { label: 'Bills', Icon: Receipt, screen: 'Bills', badge: s?.payables.dueSoonCount },
     { label: 'Staff & pay', Icon: Users, screen: 'Payroll' },
     { label: 'Tax', Icon: Landmark, screen: 'BusinessTax' },
@@ -98,6 +102,22 @@ export function BusinessHome() {
     { label: 'Pay yourself', Icon: Wallet, screen: 'PayYourself' },
     { label: 'Wrapped', Icon: Gift, screen: 'Wrapped' }
   ] as const;
+
+  // A business finding its feet does not need eight tools on day one. Everything is still one tap away under
+  // "All tools", and the full grid takes over for good once they are actually trading.
+  const settledIn = hasActivity || showAllTools;
+  const tools = settledIn ? allTools : allTools.filter((t) => t.label === 'Invoices' || t.label === 'Bills' || t.label === 'Reports');
+
+  // What is worth doing first, in the order that makes the rest work.
+  const setupSteps = s
+    ? [
+        { key: 'name', label: 'Add your business name', done: !!s.settings.businessName, go: () => nav.navigate('BusinessDetails') },
+        { key: 'sale', label: 'Record your first sale', done: s.series.some((m) => m.revenue > 0), go: () => nav.navigate('AddTransaction', { prefill: { type: 'income', category: 'Sales' } }) },
+        { key: 'cost', label: 'Add a running cost', done: s.series.some((m) => m.costs > 0), go: () => nav.navigate('AddTransaction', { prefill: { type: 'expense' } }) },
+        { key: 'invoice', label: 'Send your first invoice', done: s.receivables.openCount > 0 || s.series.some((m) => m.revenue > 0), go: () => nav.navigate('InvoiceEdit') }
+      ]
+    : [];
+  const stepsLeft = setupSteps.filter((x) => !x.done);
 
   return (
     <Screen
@@ -196,7 +216,7 @@ export function BusinessHome() {
       {s ? (
         <>
           <View style={styles.tiles}>
-            <StatCard label="Customers owe you" onPress={() => nav.navigate('Invoices')}>
+            <StatCard label="Customers owe you" onPress={() => nav.navigate('Customers')}>
               <Amount value={s.receivables.openTotal} currency={glyph} size="md" hidden={hide} />
               <Text style={[type.caption, { color: s.receivables.overdueCount ? theme.colors.error : theme.colors.textMuted, marginTop: 2 }]}>
                 {s.receivables.overdueCount ? `${s.receivables.overdueCount} overdue` : s.receivables.openCount ? `${s.receivables.openCount} open invoice${s.receivables.openCount === 1 ? '' : 's'}` : 'Nothing outstanding'}
@@ -275,12 +295,46 @@ export function BusinessHome() {
         </>
       ) : null}
 
+      {stepsLeft.length && setupSteps.length ? (
+        <>
+          <SectionHeader title="Start here" />
+          <Card>
+            {setupSteps.map((step) => (
+              <Pressable
+                key={step.key}
+                onPress={step.done ? undefined : step.go}
+                disabled={step.done}
+                accessibilityRole="button"
+                accessibilityState={{ checked: step.done }}
+                style={({ pressed }) => [styles.step, { opacity: pressed ? 0.8 : 1 }]}
+              >
+                <View
+                  style={[
+                    styles.stepDot,
+                    { borderColor: step.done ? theme.colors.success : theme.colors.border, backgroundColor: step.done ? theme.colors.success : 'transparent' }
+                  ]}
+                >
+                  {step.done ? <Check color={theme.colors.onPrimary} size={11} strokeWidth={3.4} /> : null}
+                </View>
+                <Text style={[type.body, { color: step.done ? theme.colors.textMuted : theme.colors.text, flex: 1, textDecorationLine: step.done ? 'line-through' : 'none' }]}>
+                  {step.label}
+                </Text>
+              </Pressable>
+            ))}
+            <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 8 }]}>
+              {stepsLeft.length} left. Staff, tax and uploads show up once you need them.
+            </Text>
+          </Card>
+        </>
+      ) : null}
+
       <SectionHeader title="Business tools" />
       <GuideAnchor id="business.tools">
       <View style={styles.tools}>
         {tools.map((t) => (
           <ToolTile key={t.label} label={t.label} Icon={t.Icon} badge={'badge' in t ? t.badge : null} onPress={() => nav.navigate(t.screen)} />
         ))}
+        {!settledIn ? <ToolTile label="All tools" Icon={MoreHorizontal} badge={null} onPress={() => setShowAllTools(true)} /> : null}
       </View>
       </GuideAnchor>
 
@@ -379,6 +433,8 @@ export function BusinessHome() {
 }
 
 const styles = StyleSheet.create({
+  step: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7 },
+  stepDot: { width: 18, height: 18, borderRadius: 99, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 56 },
   avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

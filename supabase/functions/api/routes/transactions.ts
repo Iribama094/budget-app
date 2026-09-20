@@ -19,6 +19,8 @@ const CreateSchema = z.object({
   miniBudgetId: z.string().min(1).max(120).optional(),
   miniBudget: z.string().min(1).max(120).optional(),
   spaceId: z.enum(['personal', 'business']).optional(),
+  /** VAT inside a business cost, claimed back against VAT charged on sales. */
+  vatAmount: z.number().finite().nonnegative().max(1e12).optional(),
   /** Client-generated id; retrying the same request (e.g. from the offline queue) returns the original. */
   clientId: z.string().min(8).max(100).optional()
 });
@@ -91,10 +93,10 @@ export async function transactionsIndex(ctx: Ctx) {
     try {
       [tx] = await sql`
         insert into public.transactions
-          (user_id, space_id, type, amount, category, description, budget_id, budget_category, mini_budget_id, client_id, occurred_at)
+          (user_id, space_id, type, amount, category, description, budget_id, budget_category, mini_budget_id, client_id, occurred_at, vat_amount)
         values (${userId}, ${space}, ${input.type}, ${input.amount}, ${input.category}, ${input.description},
                 ${input.budgetId ?? null}, ${input.budgetCategory ?? null}, ${input.miniBudgetId ?? input.miniBudget ?? null},
-                ${input.clientId ?? null}, ${new Date(input.occurredAt)})
+                ${input.clientId ?? null}, ${new Date(input.occurredAt)}, ${space === 'business' && input.type === 'expense' ? input.vatAmount ?? 0 : 0})
         returning *
       `;
     } catch (err) {

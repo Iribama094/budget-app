@@ -507,6 +507,18 @@ export default function PendingTransactionsScreen() {
               </P>
             </View>
 
+            {hasItems && isBusiness && budgets.length === 0 ? (
+              <View style={{ marginTop: 12 }}>
+                <Card style={{ borderColor: theme.colors.brass }}>
+                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>No business budget yet</Text>
+                  <Text style={{ color: theme.colors.textMuted, marginTop: 4, fontSize: 12 }}>
+                    These will still count in your reports, profit and tax. They just will not show against a plan until you set a budget for the business.
+                  </Text>
+                  <SecondaryButton title="Set a business budget" onPress={() => nav.navigate('Main', { screen: 'Budget' })} style={{ marginTop: 10 }} />
+                </Card>
+              </View>
+            ) : null}
+
             {hasItems ? (
               <View style={{ marginTop: 12 }}>
                 <Card>

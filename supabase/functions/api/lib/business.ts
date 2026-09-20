@@ -46,6 +46,7 @@ export function toApiSettings(s: any) {
     businessAddress: s.businessAddress ?? null,
     vatRegistered: s.vatRegistered,
     vatRate: Number(s.vatRate),
+    whtRate: Number(s.whtRate ?? 5),
     taxSetAsidePct: Number(s.taxSetAsidePct),
     runwayBufferMonths: Number(s.runwayBufferMonths),
     invoicePrefix: s.invoicePrefix,
@@ -107,11 +108,37 @@ export function invoiceTotals(items: InvoiceItem[], vatRate: number) {
   return { subtotal, vatAmount, total: round2(subtotal + vatAmount) };
 }
 
-/** Status from what's been paid, keeping drafts and voided documents as they are. */
-export function paymentStatus(total: number, paid: number, current: string): string {
+/**
+ * Company income tax for the year so far. Most small businesses owe nothing, and saying so plainly is worth as
+ * much as a figure. Withholding already suffered comes off what is left to pay. An estimate, not a filing.
+ */
+export function companyTaxEstimate(turnover: number, profit: number, whtCredits: number, country?: string | null) {
+  const rule = loadRuleForCountry(country || 'ng')?.company;
+  if (!rule) return null;
+  const exempt = turnover <= rule.smallCompanyTurnover;
+  const estimated = exempt ? 0 : Math.max(0, Math.round(profit * rule.rate));
+  return {
+    exempt,
+    turnover: round2(turnover),
+    profit: round2(profit),
+    rate: rule.rate,
+    threshold: rule.smallCompanyTurnover,
+    estimated,
+    // Tax already withheld by customers counts towards this bill.
+    afterCredits: Math.max(0, estimated - Math.round(whtCredits)),
+    note: rule.note
+  };
+}
+
+/**
+ * Tax a customer withheld counts towards settling the invoice: the money went to the tax office on this
+ * business's behalf, so an invoice with 5% withheld and the rest paid is settled, not stuck at 95%.
+ */
+export function paymentStatus(total: number, paid: number, current: string, withheld = 0): string {
   if (current === 'void' || current === 'draft') return current;
-  if (paid <= 0) return 'unpaid';
-  return paid + 0.005 >= total ? 'paid' : 'part_paid';
+  const settled = paid + withheld;
+  if (settled <= 0) return 'unpaid';
+  return settled + 0.005 >= total ? 'paid' : 'part_paid';
 }
 
 const daysBetween = (from: string, to: string) => Math.round((parseIsoDateUtcNoon(to).getTime() - parseIsoDateUtcNoon(from).getTime()) / 86400000);
@@ -135,7 +162,9 @@ export function toApiInvoice(r: any, today = todayIso()) {
     vatAmount: Number(r.vatAmount),
     total,
     amountPaid: paid,
-    balance: round2(Math.max(0, total - paid)),
+    whtAmount: Number(r.whtAmount ?? 0),
+    customerId: r.customerId ?? null,
+    balance: round2(Math.max(0, total - paid - Number(r.whtAmount ?? 0))),
     status: r.status,
     overdue: open && daysOverdue > 0,
     daysOverdue,
@@ -180,10 +209,33 @@ export function monthlyPaye(country: string | null | undefined, monthlyGross: nu
   return Math.round(computeTax(rule, { grossAnnual: monthlyGross * 12 }).totalTaxAnnual / 12);
 }
 
+/** Pension (employee's share) and NHF, the two deductions most Nigerian payslips carry besides PAYE. */
+export function staffDeductions(s: { monthlyGross: number; pensionEnabled?: boolean; pensionRate?: number; nhfEnabled?: boolean }) {
+  const gross = Number(s.monthlyGross) || 0;
+  const pension = s.pensionEnabled ? round2((gross * Number(s.pensionRate ?? 8)) / 100) : 0;
+  // National Housing Fund is 2.5% of basic pay.
+  const nhf = s.nhfEnabled ? round2(gross * 0.025) : 0;
+  return { pension, nhf };
+}
+
 export function toApiStaff(s: any, country: string | null) {
   const gross = Number(s.monthlyGross);
   const paye = monthlyPaye(country, gross);
-  return { id: s.id, name: s.name, role: s.role ?? null, monthlyGross: gross, payeEstimate: paye, netEstimate: Math.max(0, gross - paye), active: s.active };
+  const { pension, nhf } = staffDeductions({ monthlyGross: gross, pensionEnabled: s.pensionEnabled, pensionRate: s.pensionRate, nhfEnabled: s.nhfEnabled });
+  return {
+    id: s.id,
+    name: s.name,
+    role: s.role ?? null,
+    monthlyGross: gross,
+    payeEstimate: paye,
+    pensionEnabled: !!s.pensionEnabled,
+    pensionRate: Number(s.pensionRate ?? 8),
+    nhfEnabled: !!s.nhfEnabled,
+    pensionEstimate: pension,
+    nhfEstimate: nhf,
+    netEstimate: Math.max(0, gross - paye - pension - nhf),
+    active: s.active
+  };
 }
 
 /* ------------------------------------------------------------------ tax deadlines */
@@ -226,7 +278,7 @@ export async function businessSummary(userId: string, today = todayIso()) {
   const keys = Array.from({ length: 6 }, (_, i) => clampedIso(y, m - 5 + i, 1).slice(0, 7));
   const monthStart = clampedIso(y, m, 1);
 
-  const [rows, [cashRow], [recv], [pay], [{ staffCount }], [vat], [profile], [paidRow]] = await Promise.all([
+  const [rows, [cashRow], [recv], [pay], [{ staffCount }], [vat], [profile], [paidRow], [vatIn], [whtRow], [yearRow], filings] = await Promise.all([
     sql`
       select to_char((occurred_at at time zone 'UTC') + make_interval(mins => ${offset}), 'YYYY-MM') as month, type, category, sum(amount) as total
       from public.transactions
@@ -254,7 +306,25 @@ export async function businessSummary(userId: string, today = todayIso()) {
       where p.user_id = ${userId} and p.paid_on >= ${monthStart}::date
     `,
     sql`select tax_profile from public.profiles where id = ${userId}`,
-    sql`select coalesce(sum(amount), 0) as paid from public.owner_pay where user_id = ${userId} and period = ${monthStart.slice(0, 7)}`
+    sql`select coalesce(sum(amount), 0) as paid from public.owner_pay where user_id = ${userId} and period = ${monthStart.slice(0, 7)}`,
+    // VAT paid on this month's costs, which comes off the VAT owed on sales.
+    sql`
+      select coalesce(sum(vat_amount), 0) as paid from public.transactions
+      where user_id = ${userId} and space_id = 'business' and type = 'expense' and occurred_at >= ${monthStart}::date
+    `,
+    // Tax customers withheld this year: a credit against company income tax, not lost money.
+    sql`
+      select coalesce(sum(wht_amount), 0) as withheld from public.invoice_payments
+      where user_id = ${userId} and paid_on >= ${`${today.slice(0, 4)}-01-01`}::date
+    `,
+    // Turnover and profit for the year so far, for the company income tax estimate.
+    sql`
+      select coalesce(sum(amount) filter (where type = 'income'), 0) as turnover,
+             coalesce(sum(case when type = 'income' then amount else -amount end), 0) as profit
+      from public.transactions
+      where user_id = ${userId} and space_id = 'business' and occurred_at >= ${`${today.slice(0, 4)}-01-01`}::date
+    `,
+    sql`select kind, period, filed_at from public.tax_filings where user_id = ${userId} and period >= ${today.slice(0, 4)}`
   ]);
 
   const months = new Map(keys.map((k) => [k, { revenue: 0, costs: 0, ownerPay: 0 }]));
@@ -318,6 +388,12 @@ export async function businessSummary(userId: string, today = todayIso()) {
       setAsidePct: taxSetAsidePct,
       setAside: taxSetAside,
       vatCollectedThisMonth: Math.round(Number(vat.collected)),
+      vatPaidThisMonth: Math.round(Number(vatIn.paid)),
+      // What actually goes to the tax office: VAT charged on sales less VAT paid on costs.
+      vatToRemit: Math.max(0, Math.round(Number(vat.collected) - Number(vatIn.paid))),
+      whtCreditsThisYear: Math.round(Number(whtRow.withheld)),
+      companyTax: companyTaxEstimate(Number(yearRow.turnover), Number(yearRow.profit), Number(whtRow.withheld), profile?.taxProfile?.country),
+      filings: filings.map((f: any) => ({ kind: f.kind, period: f.period, filedAt: iso(f.filedAt) })),
       payeOwed: payables.payeOwed,
       deadlines: taxDeadlines(settings, staffCount > 0, today)
     },

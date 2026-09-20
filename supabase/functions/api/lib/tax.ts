@@ -14,6 +14,16 @@ export type TaxRule = {
   deductions?: Record<string, { cap?: number; rate?: number }>;
   minimumTaxRate?: number;
   noTaxIfGrossMonthlyAtOrBelow?: number;
+  /** Company income tax, owed by a registered business rather than a person. */
+  company?: CompanyTaxRule;
+};
+
+export type CompanyTaxRule = {
+  /** Yearly turnover at or below this pays no company income tax. */
+  smallCompanyTurnover: number;
+  /** Charged on profit once turnover passes the small company threshold. */
+  rate: number;
+  note: string;
 };
 
 // Nigeria Tax Act 2025, in force from 1 January 2026. The old PITA rules (CRA, 7%–24% bands, 1% minimum tax) no longer apply.
@@ -40,6 +50,12 @@ const RULES: Record<string, TaxRule> = {
       nhis: {},
       lifeInsurance: {},
       mortgageInterest: {}
+    },
+    company: {
+      // Kept beside the personal reliefs so a finance act change is a one line edit.
+      smallCompanyTurnover: 50000000,
+      rate: 0.3,
+      note: 'Businesses turning over ₦50m or less a year pay no company income tax. Above that, tax is charged on profit. An estimate for planning, not a filing.'
     },
     brackets: [
       { from: 0, to: 800000, rate: 0 },

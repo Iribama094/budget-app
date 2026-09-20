@@ -2,7 +2,7 @@ import { Linking, Share } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
-import type { BusinessReport, BusinessSettings, Invoice } from '../api/business';
+import type { BusinessReport, BusinessSettings, Invoice, PayrollLine, PayrollRun } from '../api/business';
 import { formatAmount } from '../components/Common/ui';
 import { formatShortDate } from '../utils/format';
 
@@ -170,4 +170,69 @@ export function reportHtml(report: BusinessReport, glyph: string): string {
 
 export function shareReportPdf(report: BusinessReport, glyph: string) {
   return sharePdf(reportHtml(report, glyph), `${report.business.name} report`);
+}
+
+/* ------------------------------------------------------------------ payslips */
+
+/**
+ * A payslip for one person for one month. Staff need something to show for payday: what they earned, what was
+ * deducted and why, and what landed in their account.
+ */
+export function payslipHtml(line: PayrollLine, run: PayrollRun, business: BusinessSettings | null, fallbackName: string, glyph: string): string {
+  const m = (n: number) => esc(formatAmount(n, glyph));
+  const name = business?.businessName || fallbackName;
+  const contact = [business?.businessAddress, business?.businessPhone, business?.businessEmail].filter(Boolean).map(esc).join('<br/>');
+  const deductions: Array<[string, number]> = [
+    ['PAYE (income tax)', line.paye],
+    ['Pension', line.pension ?? 0],
+    ['NHF', line.nhf ?? 0]
+  ].filter(([, v]) => Number(v) > 0) as Array<[string, number]>;
+  const totalDeductions = deductions.reduce((s, [, v]) => s + v, 0);
+
+  return `<!doctype html><html><head><meta charset="utf-8"/><style>${BASE_CSS}</style></head><body>
+    <div class="top">
+      <div>
+        <h1>Payslip</h1>
+        <div class="muted">${esc(run.label)} &middot; paid ${esc(formatShortDate(run.paidOn))}</div>
+      </div>
+      <div class="r muted">${esc(name)}<br/>${contact}</div>
+    </div>
+
+    <h2>Employee</h2>
+    <div><strong>${esc(line.name)}</strong>${line.role ? `<br/><span class="muted">${esc(line.role)}</span>` : ''}</div>
+
+    <h2>Earnings</h2>
+    <table>
+      <tr><th>Description</th><th class="r">Amount</th></tr>
+      <tr><td>Gross pay for ${esc(run.label)}</td><td class="r">${m(line.gross)}</td></tr>
+    </table>
+
+    <h2>Deductions</h2>
+    <table>
+      <tr><th>Description</th><th class="r">Amount</th></tr>
+      ${deductions.length ? deductions.map(([label, v]) => `<tr><td>${esc(label)}</td><td class="r">${m(v)}</td></tr>`).join('') : '<tr><td class="muted">None</td><td class="r">-</td></tr>'}
+    </table>
+
+    <div class="totals">
+      <div><span>Gross pay</span><span>${m(line.gross)}</span></div>
+      <div><span>Total deductions</span><span>${m(totalDeductions)}</span></div>
+      <div class="grand"><span>Take home</span><span>${m(line.net)}</span></div>
+    </div>
+
+    <footer>Tax and deduction figures are estimates produced by BudgetFriendly for record keeping. They are not a statutory filing.</footer>
+  </body></html>`;
+}
+
+export function sharePayslipPdf(line: PayrollLine, run: PayrollRun, business: BusinessSettings | null, fallbackName: string, glyph: string) {
+  return sharePdf(payslipHtml(line, run, business, fallbackName, glyph), `Payslip ${run.label} ${line.name}`);
+}
+
+/** The payslip as a WhatsApp message, for staff who would rather have text than a file. */
+export function payslipMessage(line: PayrollLine, run: PayrollRun, businessName: string, glyph: string): string {
+  const m = (n: number) => formatAmount(n, glyph);
+  const bits = [`${line.name}, here is your payslip for ${run.label}.`, ``, `Gross pay: ${m(line.gross)}`, `PAYE: ${m(line.paye)}`];
+  if (line.pension) bits.push(`Pension: ${m(line.pension)}`);
+  if (line.nhf) bits.push(`NHF: ${m(line.nhf)}`);
+  bits.push(`Take home: ${m(line.net)}`, ``, `From ${businessName}.`);
+  return bits.join('\n');
 }

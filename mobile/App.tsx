@@ -66,6 +66,7 @@ import IncomeBillsScreen from './src/screens/IncomeBillsScreen';
 import CategoriesScreen from './src/screens/CategoriesScreen';
 import { CategoriesProvider } from './src/contexts/CategoriesContext';
 import InvoicesScreen from './src/screens/InvoicesScreen';
+import CustomersScreen from './src/screens/CustomersScreen';
 import InvoiceDetailScreen from './src/screens/InvoiceDetailScreen';
 import InvoiceEditScreen from './src/screens/InvoiceEditScreen';
 import BillsScreen from './src/screens/BillsScreen';
@@ -158,6 +159,7 @@ function AuthedStack() {
       <Stack.Screen name="MonoConnect" component={MonoConnectScreen} />
       <Stack.Screen name="ShareBudget" component={ShareBudgetScreen} />
       <Stack.Screen name="Invoices" component={InvoicesScreen} />
+      <Stack.Screen name="Customers" component={CustomersScreen} />
       <Stack.Screen name="InvoiceDetail" component={InvoiceDetailScreen} />
       <Stack.Screen name="InvoiceEdit" component={InvoiceEditScreen} />
       <Stack.Screen name="Bills" component={BillsScreen} />

@@ -41,6 +41,8 @@ export type BusinessSettings = {
   businessAddress: string | null;
   vatRegistered: boolean;
   vatRate: number;
+  /** Share customers commonly withhold and remit for you. Editable per payment. */
+  whtRate: number;
   taxSetAsidePct: number;
   runwayBufferMonths: number;
   invoicePrefix: string;
@@ -61,6 +63,17 @@ export type PayYourselfSuggestion = {
   country: string;
 };
 
+export type CompanyTax = {
+  exempt: boolean;
+  turnover: number;
+  profit: number;
+  rate: number;
+  threshold: number;
+  estimated: number;
+  afterCredits: number;
+  note: string;
+};
+
 export type BusinessSummary = {
   settings: BusinessSettings;
   month: string;
@@ -75,7 +88,20 @@ export type BusinessSummary = {
   receivables: { openCount: number; openTotal: number; overdueCount: number; overdueTotal: number };
   payables: { openCount: number; openTotal: number; dueSoonCount: number; dueSoonTotal: number; payeOwed: number };
   staffCount: number;
-  tax: { setAsidePct: number; setAside: number; vatCollectedThisMonth: number; payeOwed: number; deadlines: TaxDeadline[] };
+  tax: {
+    setAsidePct: number;
+    setAside: number;
+    vatCollectedThisMonth: number;
+    /** VAT paid on business costs, which comes off what you remit. */
+    vatPaidThisMonth: number;
+    vatToRemit: number;
+    /** Tax customers withheld this year, a credit against company income tax. */
+    whtCreditsThisYear: number;
+    companyTax: CompanyTax | null;
+    filings: Array<{ kind: 'vat' | 'paye' | 'cit'; period: string; filedAt: string }>;
+    payeOwed: number;
+    deadlines: TaxDeadline[];
+  };
   payYourself: PayYourselfSuggestion;
 };
 
@@ -108,6 +134,9 @@ export type Invoice = {
   subtotal: number;
   vatRate: number;
   vatAmount: number;
+  /** Tax a customer withheld and remitted on your behalf. Counts towards settling the invoice. */
+  whtAmount: number;
+  customerId: string | null;
   total: number;
   amountPaid: number;
   balance: number;
@@ -151,7 +180,7 @@ export async function deleteInvoice(id: string): Promise<void> {
   await apiFetch(`/v1/invoices/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
-export async function recordInvoicePayment(id: string, input: { amount?: number; paidOn?: string }): Promise<Invoice> {
+export async function recordInvoicePayment(id: string, input: { amount?: number; paidOn?: string; whtAmount?: number }): Promise<Invoice> {
   return (await apiFetch(`/v1/invoices/${encodeURIComponent(id)}/payments`, { method: 'POST', body: JSON.stringify(input) })).invoice;
 }
 
@@ -202,19 +231,49 @@ export async function payBill(id: string, input: { amount?: number; paidOn?: str
 
 /* ------------------------------------------------------------ staff and payroll */
 
-export type Staff = { id: string; name: string; role: string | null; monthlyGross: number; payeEstimate: number; netEstimate: number; active: boolean };
-export type PayrollLine = { staffId: string; name: string; gross: number; paye: number; net: number };
-export type PayrollRun = { id: string; period: string; label: string; paidOn: string; totalGross: number; totalPaye: number; totalNet: number; lines: PayrollLine[]; payeBillId: string | null };
+export type Staff = {
+  id: string;
+  name: string;
+  role: string | null;
+  monthlyGross: number;
+  payeEstimate: number;
+  /** Employee's pension share, when it applies to this person. */
+  pensionEnabled: boolean;
+  pensionRate: number;
+  pensionEstimate: number;
+  /** National Housing Fund, 2.5% of pay. */
+  nhfEnabled: boolean;
+  nhfEstimate: number;
+  netEstimate: number;
+  active: boolean;
+};
+export type PayrollLine = { staffId: string; name: string; role?: string | null; gross: number; paye: number; pension?: number; nhf?: number; net: number };
+export type PayrollRun = {
+  id: string;
+  period: string;
+  label: string;
+  paidOn: string;
+  totalGross: number;
+  totalPaye: number;
+  totalNet: number;
+  totalPension?: number;
+  totalNhf?: number;
+  lines: PayrollLine[];
+  payeBillId: string | null;
+};
 
 export async function getPayroll(): Promise<{ staff: Staff[]; totals: { gross: number; paye: number; net: number }; runs: PayrollRun[] }> {
   return apiFetch('/v1/payroll', { method: 'GET' });
 }
 
-export async function addStaff(input: { name: string; role?: string | null; monthlyGross: number }): Promise<Staff> {
+export async function addStaff(input: { name: string; role?: string | null; monthlyGross: number; pensionEnabled?: boolean; pensionRate?: number; nhfEnabled?: boolean }): Promise<Staff> {
   return (await apiFetch('/v1/staff', { method: 'POST', body: JSON.stringify(input) })).staff;
 }
 
-export async function updateStaff(id: string, patch: Partial<{ name: string; role: string | null; monthlyGross: number; active: boolean }>): Promise<Staff> {
+export async function updateStaff(
+  id: string,
+  patch: Partial<{ name: string; role: string | null; monthlyGross: number; active: boolean; pensionEnabled: boolean; pensionRate: number; nhfEnabled: boolean }>
+): Promise<Staff> {
   return (await apiFetch(`/v1/staff/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) })).staff;
 }
 
@@ -308,4 +367,42 @@ export type Wrapped = {
 
 export async function getWrapped(kind: 'h1' | 'year', year: number, spaceId: SpaceId): Promise<Wrapped> {
   return (await apiFetch(`/v1/wrapped?kind=${kind}&year=${year}&spaceId=${spaceId}`, { method: 'GET' })).wrapped;
+}
+
+/* ---------------------------------------------------------------- customers */
+
+export type Customer = {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  notes: string | null;
+  invoiceCount: number;
+  /** Still owed across this customer's open invoices. */
+  owed: number;
+  overdue: boolean;
+  lastInvoiceAt: string | null;
+};
+
+export async function listCustomers(): Promise<Customer[]> {
+  return (await apiFetch('/v1/customers', { method: 'GET' })).items;
+}
+
+export async function createCustomer(input: { name: string; phone?: string | null; email?: string | null; notes?: string | null }): Promise<Customer> {
+  return (await apiFetch('/v1/customers', { method: 'POST', body: JSON.stringify(input) })).customer;
+}
+
+export async function updateCustomer(id: string, patch: Partial<Pick<Customer, 'name' | 'phone' | 'email' | 'notes'>>): Promise<Customer> {
+  return (await apiFetch(`/v1/customers/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) })).customer;
+}
+
+export async function deleteCustomer(id: string): Promise<void> {
+  await apiFetch(`/v1/customers/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+/* -------------------------------------------------------------- tax filings */
+
+/** Records that a return has been filed so its deadline stops asking. filed: false undoes it. */
+export async function setTaxFiling(input: { kind: 'vat' | 'paye' | 'cit'; period: string; amount?: number; filed?: boolean }): Promise<{ filed: boolean }> {
+  return apiFetch('/v1/business/filings', { method: 'POST', body: JSON.stringify(input) });
 }

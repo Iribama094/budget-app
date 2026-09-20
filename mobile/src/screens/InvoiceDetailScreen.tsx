@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
-import { Banknote, FileText, MessageCircle, MoreHorizontal } from 'lucide-react-native';
+import { Banknote, Check, FileText, MessageCircle, MoreHorizontal } from 'lucide-react-native';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -31,6 +31,8 @@ export default function InvoiceDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [payOpen, setPayOpen] = useState(false);
   const [payAmount, setPayAmount] = useState('');
+  const [withheld, setWithheld] = useState(false);
+  const [whtAmount, setWhtAmount] = useState('');
   const [payDate, setPayDate] = useState(todayIso());
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -94,18 +96,42 @@ export default function InvoiceDetailScreen() {
   const openPay = () => {
     setPayAmount(moneyText(invoice.balance));
     setPayDate(todayIso());
+    setWithheld(false);
+    setWhtAmount('');
     setPayOpen(true);
+  };
+
+  // Many Nigerian customers keep back a share of the invoice and pay it to the tax office instead. That part
+  // still settles the invoice, so it is recorded rather than left looking unpaid.
+  const toggleWithheld = (on: boolean) => {
+    setWithheld(on);
+    if (!on) {
+      setWhtAmount('');
+      setPayAmount(moneyText(invoice.balance));
+      return;
+    }
+    const rate = business?.whtRate ?? 5;
+    const amount = Math.round((invoice.total * rate) / 100);
+    setWhtAmount(moneyText(amount));
+    setPayAmount(moneyText(Math.max(0, invoice.balance - amount)));
   };
 
   const recordPayment = () => run('pay', async () => {
     const amount = parseMoney(payAmount);
-    if (amount <= 0) {
+    const wht = withheld ? parseMoney(whtAmount) : 0;
+    if (amount <= 0 && wht <= 0) {
       toast.show('Enter how much you received', 'error');
       return;
     }
-    await recordInvoicePayment(invoice.id, { amount, paidOn: payDate });
+    await recordInvoicePayment(invoice.id, { amount, paidOn: payDate, whtAmount: wht || undefined });
     setPayOpen(false);
-    toast.show(`Credit alert 🎉 ${formatAmount(amount, glyph)} from ${invoice.customerName}`, 'success', 3500);
+    toast.show(
+      wht > 0
+        ? `Recorded. ${formatAmount(wht, glyph)} withheld counts towards your tax.`
+        : `Credit alert 🎉 ${formatAmount(amount, glyph)} from ${invoice.customerName}`,
+      'success',
+      3500
+    );
     await load();
   });
 
@@ -193,6 +219,9 @@ export default function InvoiceDetailScreen() {
         {invoice.vatAmount > 0 ? <LineItem label={`VAT (${invoice.vatRate}%)`} value={formatAmount(invoice.vatAmount, glyph)} /> : null}
         <LineItem label="Total" value={formatAmount(invoice.total, glyph)} strong />
         {invoice.amountPaid > 0 ? <LineItem label="Received" value={formatAmount(invoice.amountPaid, glyph)} color={theme.colors.success} /> : null}
+        {invoice.whtAmount > 0 ? (
+          <LineItem label={`Withheld by ${invoice.customerName}`} value={formatAmount(invoice.whtAmount, glyph)} color={theme.colors.brass} />
+        ) : null}
       </Card>
 
       {payments.length ? (
@@ -229,6 +258,33 @@ export default function InvoiceDetailScreen() {
 
       <Sheet visible={payOpen} onClose={() => setPayOpen(false)} title="Record payment" subtitle={`From ${invoice.customerName} for ${invoice.number}`}>
         <MoneyField label="Amount received" value={payAmount} onChange={setPayAmount} glyph={glyph} hint={`Balance is ${formatAmount(invoice.balance, glyph)}`} />
+
+        <Pressable
+          onPress={() => toggleWithheld(!withheld)}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: withheld }}
+          style={({ pressed }) => [styles.whtRow, { borderColor: withheld ? theme.colors.primary : theme.colors.border, backgroundColor: withheld ? theme.colors.primarySoft : theme.colors.surface, opacity: pressed ? 0.9 : 1 }]}
+        >
+          <View style={[styles.whtBox, { borderColor: withheld ? theme.colors.primary : theme.colors.border, backgroundColor: withheld ? theme.colors.primary : 'transparent' }]}>
+            {withheld ? <Check color={theme.colors.onPrimary} size={13} strokeWidth={3} /> : null}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[type.bodyStrong, { color: theme.colors.text }]}>The customer deducted tax</Text>
+            <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>
+              Withholding tax they pay to the tax office for you. It still settles the invoice.
+            </Text>
+          </View>
+        </Pressable>
+
+        {withheld ? (
+          <MoneyField
+            label="Tax withheld"
+            value={whtAmount}
+            onChange={setWhtAmount}
+            glyph={glyph}
+            hint={`${business?.whtRate ?? 5}% of ${formatAmount(invoice.total, glyph)}. Change it if they used a different rate.`}
+          />
+        ) : null}
         <DateChoice
           label="When did it land?"
           value={payDate}
@@ -248,5 +304,7 @@ const styles = StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   actions: { flexDirection: 'row', marginTop: 18 },
   action: { flex: 1, alignItems: 'center', gap: 7 },
+  whtRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderWidth: 1, borderRadius: 16, padding: 12, marginBottom: 14 },
+  whtBox: { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   actionIcon: { width: 54, height: 54, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' }
 });

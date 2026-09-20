@@ -12,6 +12,7 @@ import {
   invoiceTotals,
   monthLabel,
   monthlyPaye,
+  staffDeductions,
   OWNER_PAY_CATEGORY,
   paymentStatus,
   recordTransaction,
@@ -36,6 +37,7 @@ const SettingsSchema = z
     businessAddress: z.string().trim().max(200).nullable().optional(),
     vatRegistered: z.boolean().optional(),
     vatRate: z.number().min(0).max(50).optional(),
+    whtRate: z.number().min(0).max(30).optional(),
     taxSetAsidePct: z.number().min(0).max(60).optional(),
     runwayBufferMonths: z.number().min(0).max(24).optional(),
     invoicePrefix: z.string().trim().min(1).max(8).regex(/^[A-Za-z0-9-]+$/).optional(),
@@ -60,6 +62,7 @@ export async function businessSettings(ctx: Ctx) {
       business_address = ${pick(p.businessAddress, current.businessAddress)},
       vat_registered = ${pick(p.vatRegistered, current.vatRegistered)},
       vat_rate = ${pick(p.vatRate, Number(current.vatRate))},
+      wht_rate = ${pick(p.whtRate, Number(current.whtRate))},
       tax_set_aside_pct = ${pick(p.taxSetAsidePct, Number(current.taxSetAsidePct))},
       runway_buffer_months = ${pick(p.runwayBufferMonths, Number(current.runwayBufferMonths))},
       invoice_prefix = ${pick(p.invoicePrefix?.toUpperCase(), current.invoicePrefix)},
@@ -82,6 +85,8 @@ export async function businessSummaryRoute(ctx: Ctx) {
 const ItemSchema = z.object({ description: z.string().trim().min(1).max(120), quantity: z.number().positive().max(1e6), unitPrice: z.number().min(0).max(1e12) });
 
 const InvoiceSchema = z.object({
+  /** A saved customer, when one was picked. Otherwise the name below is saved as a new one. */
+  customerId: z.string().max(60).nullable().optional(),
   customerName: z.string().trim().min(1).max(80),
   customerPhone: z.string().trim().max(30).nullable().optional(),
   customerEmail: z.string().trim().email().max(120).nullable().optional().or(z.literal('')),
@@ -111,10 +116,16 @@ export async function invoicesIndex(ctx: Ctx) {
       where user_id = ${userId} returning next_invoice_number - 1 as n
     `;
     const number = `${settings.invoicePrefix}-${String(n).padStart(4, '0')}`;
+    // Typing a customer's name once is enough: they are saved and matched by name next time.
+    const customerId = await linkCustomer(userId, input.customerId, {
+      name: input.customerName,
+      phone: input.customerPhone ?? null,
+      email: input.customerEmail || null
+    });
     const [row] = await sql`
       insert into public.invoices
-        (user_id, number, customer_name, customer_phone, customer_email, issue_date, due_date, items, subtotal, vat_rate, vat_amount, total, notes)
-      values (${userId}, ${number}, ${input.customerName}, ${input.customerPhone ?? null}, ${input.customerEmail || null}, ${issueDate}::date, ${input.dueDate}::date,
+        (user_id, number, customer_id, customer_name, customer_phone, customer_email, issue_date, due_date, items, subtotal, vat_rate, vat_amount, total, notes)
+      values (${userId}, ${number}, ${customerId}, ${input.customerName}, ${input.customerPhone ?? null}, ${input.customerEmail || null}, ${issueDate}::date, ${input.dueDate}::date,
               ${sql.json(input.items)}, ${totals.subtotal}, ${vatRate}, ${totals.vatAmount}, ${totals.total}, ${input.notes ?? null})
       returning *
     `;
@@ -202,7 +213,13 @@ export async function invoiceById(ctx: Ctx) {
   return json(200, { invoice: toApiInvoice(row, today) });
 }
 
-const PaymentSchema = z.object({ amount: money.optional(), paidOn: z.string().regex(ISO_DATE).optional(), category: z.string().trim().min(1).max(40).optional() });
+const PaymentSchema = z.object({
+  amount: money.optional(),
+  paidOn: z.string().regex(ISO_DATE).optional(),
+  category: z.string().trim().min(1).max(40).optional(),
+  /** Tax the customer kept back and remitted for this business. Settles the invoice and banks a tax credit. */
+  whtAmount: z.number().finite().nonnegative().max(1e12).optional()
+});
 
 /** POST /v1/invoices/:id/payments (record money received) and /v1/invoices/:id/sent */
 export async function invoiceAction(ctx: Ctx) {
@@ -221,14 +238,20 @@ export async function invoiceAction(ctx: Ctx) {
   if (inv.status === 'void') badRequest('This invoice was voided.');
 
   const input = await body(ctx.req, PaymentSchema);
-  const balance = round2(Number(inv.total) - Number(inv.amountPaid));
-  if (balance <= 0) badRequest('This invoice is already fully paid.');
-  const amount = round2(input.amount ?? balance);
-  if (amount > balance + 0.005) badRequest(`That’s more than the ${balance.toLocaleString()} still owed.`);
+  const alreadyWithheld = Number(inv.whtAmount ?? 0);
+  const balance = round2(Number(inv.total) - Number(inv.amountPaid) - alreadyWithheld);
+  if (balance <= 0) badRequest('This invoice is already fully settled.');
+  const withheld = round2(input.whtAmount ?? 0);
+  if (withheld > balance + 0.005) badRequest('The tax withheld is more than this invoice still owes.');
+  const amount = round2(input.amount ?? balance - withheld);
+  if (amount + withheld > balance + 0.005) badRequest(`That’s more than the ${balance.toLocaleString()} still owed.`);
   const paidOn = input.paidOn ?? today;
   const category = input.category ?? 'Sales';
 
-  const [payment] = await sql`insert into public.invoice_payments (user_id, invoice_id, amount, paid_on) values (${userId}, ${id}, ${amount}, ${paidOn}::date) returning id`;
+  const [payment] = await sql`
+    insert into public.invoice_payments (user_id, invoice_id, amount, paid_on, wht_amount)
+    values (${userId}, ${id}, ${amount}, ${paidOn}::date, ${withheld}) returning id
+  `;
   await ensureCategory(userId, 'business', category, 'income', null, 'store');
   const txId = await recordTransaction({
     userId,
@@ -242,9 +265,10 @@ export async function invoiceAction(ctx: Ctx) {
   });
   await sql`update public.invoice_payments set transaction_id = ${txId} where id = ${payment.id}`;
   const paid = round2(Number(inv.amountPaid) + amount);
-  const status = paymentStatus(Number(inv.total), paid, inv.status === 'draft' ? 'unpaid' : inv.status);
+  const totalWithheld = round2(alreadyWithheld + withheld);
+  const status = paymentStatus(Number(inv.total), paid, inv.status === 'draft' ? 'unpaid' : inv.status, totalWithheld);
   const [row] = await sql`
-    update public.invoices set amount_paid = ${paid}, status = ${status}, paid_at = ${status === 'paid' ? new Date() : null}
+    update public.invoices set amount_paid = ${paid}, wht_amount = ${totalWithheld}, status = ${status}, paid_at = ${status === 'paid' ? new Date() : null}
     where id = ${id} returning *
   `;
   return json(201, { invoice: toApiInvoice(row, today), transactionId: txId });
@@ -361,7 +385,15 @@ export async function billById(ctx: Ctx) {
 
 /* ------------------------------------------------------------------ staff and payroll */
 
-const StaffSchema = z.object({ name: z.string().trim().min(1).max(80), role: z.string().trim().max(60).nullable().optional(), monthlyGross: z.number().min(0).max(1e11), active: z.boolean().optional() });
+const StaffSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  role: z.string().trim().max(60).nullable().optional(),
+  monthlyGross: z.number().min(0).max(1e11),
+  active: z.boolean().optional(),
+  pensionEnabled: z.boolean().optional(),
+  pensionRate: z.number().min(0).max(20).optional(),
+  nhfEnabled: z.boolean().optional()
+});
 
 async function countryOf(userId: string): Promise<string> {
   const [p] = await sql`select tax_profile from public.profiles where id = ${userId}`;
@@ -407,7 +439,12 @@ export async function staffIndex(ctx: Ctx) {
   const input = await body(ctx.req, StaffSchema);
   const [{ n }] = await sql`select count(*)::int as n from public.staff where user_id = ${userId}`;
   if (n >= 200) badRequest('You can add up to 200 staff.');
-  const [row] = await sql`insert into public.staff (user_id, name, role, monthly_gross, active) values (${userId}, ${input.name}, ${input.role ?? null}, ${input.monthlyGross}, ${input.active ?? true}) returning *`;
+  const [row] = await sql`
+    insert into public.staff (user_id, name, role, monthly_gross, active, pension_enabled, pension_rate, nhf_enabled)
+    values (${userId}, ${input.name}, ${input.role ?? null}, ${input.monthlyGross}, ${input.active ?? true},
+            ${input.pensionEnabled ?? false}, ${input.pensionRate ?? 8}, ${input.nhfEnabled ?? false})
+    returning *
+  `;
   return json(201, { staff: toApiStaff(row, await countryOf(userId)) });
 }
 
@@ -425,7 +462,8 @@ export async function staffById(ctx: Ctx) {
   const p = await body(ctx.req, StaffSchema.partial().strict());
   const [row] = await sql`
     update public.staff set name = ${p.name ?? s.name}, role = ${p.role !== undefined ? p.role : s.role},
-      monthly_gross = ${p.monthlyGross ?? s.monthlyGross}, active = ${p.active ?? s.active}
+      monthly_gross = ${p.monthlyGross ?? s.monthlyGross}, active = ${p.active ?? s.active},
+      pension_enabled = ${p.pensionEnabled ?? s.pensionEnabled}, pension_rate = ${p.pensionRate ?? s.pensionRate}, nhf_enabled = ${p.nhfEnabled ?? s.nhfEnabled}
     where id = ${id} returning *
   `;
   return json(200, { staff: toApiStaff(row, await countryOf(userId)) });
@@ -458,15 +496,20 @@ export async function payrollRun(ctx: Ctx) {
     .map((s) => {
       const gross = round2(override.get(s.id) ?? Number(s.monthlyGross));
       const paye = monthlyPaye(country, gross);
-      return { staffId: s.id, name: s.name, gross, paye, net: round2(Math.max(0, gross - paye)) };
+      const { pension, nhf } = staffDeductions({ monthlyGross: gross, pensionEnabled: s.pensionEnabled, pensionRate: s.pensionRate, nhfEnabled: s.nhfEnabled });
+      return { staffId: s.id, name: s.name, role: s.role ?? null, gross, paye, pension, nhf, net: round2(Math.max(0, gross - paye - pension - nhf)) };
     })
     .filter((l) => l.gross > 0);
   if (!lines.length) badRequest('Everyone’s pay is zero for this month.');
 
-  const totals = lines.reduce((t, l) => ({ gross: t.gross + l.gross, paye: t.paye + l.paye, net: t.net + l.net }), { gross: 0, paye: 0, net: 0 });
+  const totals = lines.reduce(
+    (t, l) => ({ gross: t.gross + l.gross, paye: t.paye + l.paye, pension: t.pension + l.pension, nhf: t.nhf + l.nhf, net: t.net + l.net }),
+    { gross: 0, paye: 0, pension: 0, nhf: 0, net: 0 }
+  );
   const [run] = await sql`
-    insert into public.payroll_runs (user_id, period, paid_on, lines, total_gross, total_paye, total_net)
-    values (${userId}, ${input.period}, ${paidOn}::date, ${sql.json(lines)}, ${round2(totals.gross)}, ${round2(totals.paye)}, ${round2(totals.net)})
+    insert into public.payroll_runs (user_id, period, paid_on, lines, total_gross, total_paye, total_net, total_pension, total_nhf)
+    values (${userId}, ${input.period}, ${paidOn}::date, ${sql.json(lines)}, ${round2(totals.gross)}, ${round2(totals.paye)}, ${round2(totals.net)},
+            ${round2(totals.pension)}, ${round2(totals.nhf)})
     returning *
   `;
 
@@ -686,6 +729,146 @@ export async function statementImport(ctx: Ctx) {
     values (${userId}, ${space}, ${input.source}, ${input.fileName ?? null}, ${input.rows.length}, ${imported}, ${duplicates})
   `;
   return json(201, { imported, duplicates, skipped, total: input.rows.length, source: input.source });
+}
+
+/**
+ * The customer an invoice belongs to: the one chosen, else one already saved under that name, else a new
+ * record. Nobody has to manage a customer list before they can send an invoice.
+ */
+async function linkCustomer(userId: string, chosenId: string | null | undefined, details: { name: string; phone: string | null; email: string | null }): Promise<string | null> {
+  const name = details.name.trim();
+  if (!name) return null;
+  if (chosenId && isUuid(chosenId)) {
+    const [owned] = await sql`select id from public.customers where id = ${chosenId} and user_id = ${userId}`;
+    if (owned) return owned.id;
+  }
+  const [existing] = await sql`select id from public.customers where user_id = ${userId} and lower(name) = lower(${name}) limit 1`;
+  if (existing) {
+    // Fill in contact details we did not have before, without wiping anything already saved.
+    await sql`
+      update public.customers set
+        phone = coalesce(phone, ${details.phone}), email = coalesce(email, ${details.email}), updated_at = now()
+      where id = ${existing.id}
+    `;
+    return existing.id;
+  }
+  const [created] = await sql`
+    insert into public.customers (user_id, name, phone, email) values (${userId}, ${name}, ${details.phone}, ${details.email}) returning id
+  `;
+  return created.id;
+}
+
+/* ---------------------------------------------------------------- customers */
+
+const CustomerSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  phone: z.string().trim().max(30).nullable().optional(),
+  email: z.string().trim().max(120).nullable().optional(),
+  notes: z.string().trim().max(500).nullable().optional()
+});
+
+const toApiCustomer = (c: any) => ({
+  id: c.id,
+  name: c.name,
+  phone: c.phone ?? null,
+  email: c.email ?? null,
+  notes: c.notes ?? null,
+  invoiceCount: Number(c.invoiceCount ?? 0),
+  owed: round2(Number(c.owed ?? 0)),
+  overdue: Number(c.overdueCount ?? 0) > 0,
+  lastInvoiceAt: c.lastInvoiceAt ?? null
+});
+
+/** GET/POST /v1/customers - saved customers, with what each one still owes. */
+export async function customersIndex(ctx: Ctx) {
+  if (ctx.method !== 'GET' && ctx.method !== 'POST') methodNotAllowed(['GET', 'POST']);
+  const { userId } = await requireAuth(ctx.req);
+
+  if (ctx.method === 'POST') {
+    const input = await body(ctx.req, CustomerSchema);
+    const [row] = await sql`
+      insert into public.customers (user_id, name, phone, email, notes)
+      values (${userId}, ${input.name}, ${input.phone ?? null}, ${input.email ?? null}, ${input.notes ?? null})
+      returning *
+    `;
+    return json(201, { customer: toApiCustomer(row) });
+  }
+
+  const today = todayIso();
+  const rows = await sql`
+    select c.*,
+      count(i.id)::int as invoice_count,
+      coalesce(sum(i.total - i.amount_paid - i.wht_amount) filter (where i.status in ('unpaid', 'part_paid')), 0) as owed,
+      count(i.id) filter (where i.status in ('unpaid', 'part_paid') and i.due_date < ${today}::date)::int as overdue_count,
+      max(i.issue_date) as last_invoice_at
+    from public.customers c
+    left join public.invoices i on i.customer_id = c.id
+    where c.user_id = ${userId}
+    group by c.id
+    order by owed desc, c.name asc
+  `;
+  return json(200, { items: rows.map(toApiCustomer) });
+}
+
+/** PATCH/DELETE /v1/customers/:id */
+export async function customerById(ctx: Ctx) {
+  if (ctx.method !== 'PATCH' && ctx.method !== 'DELETE') methodNotAllowed(['PATCH', 'DELETE']);
+  const { userId } = await requireAuth(ctx.req);
+  const id = ctx.parts[1];
+  if (!isUuid(id)) notFound('Customer not found');
+
+  if (ctx.method === 'DELETE') {
+    // Invoices keep the name that was on them; only the saved record goes.
+    const removed = await sql`delete from public.customers where id = ${id} and user_id = ${userId} returning id`;
+    if (!removed.length) notFound('Customer not found');
+    return noContent();
+  }
+
+  const input = await body(ctx.req, CustomerSchema.partial());
+  const [current] = await sql`select * from public.customers where id = ${id} and user_id = ${userId}`;
+  if (!current) notFound('Customer not found');
+  const [row] = await sql`
+    update public.customers set
+      name = ${input.name ?? current.name},
+      phone = ${input.phone !== undefined ? input.phone : current.phone},
+      email = ${input.email !== undefined ? input.email : current.email},
+      notes = ${input.notes !== undefined ? input.notes : current.notes},
+      updated_at = now()
+    where id = ${id} returning *
+  `;
+  return json(200, { customer: toApiCustomer(row) });
+}
+
+/* ------------------------------------------------------------- tax filings */
+
+const FilingSchema = z.object({
+  kind: z.enum(['vat', 'paye', 'cit']),
+  period: z.string().regex(/^\d{4}(-\d{2})?$/),
+  amount: z.number().finite().nonnegative().max(1e12).optional(),
+  filed: z.boolean().default(true)
+});
+
+/**
+ * POST /v1/business/filings - records that a return has been filed, so its deadline stops asking. Sending
+ * filed: false undoes it, for the inevitable "I hadn't actually sent it yet".
+ */
+export async function taxFilings(ctx: Ctx) {
+  if (ctx.method !== 'POST') methodNotAllowed(['POST']);
+  const { userId } = await requireAuth(ctx.req);
+  const input = await body(ctx.req, FilingSchema);
+
+  if (!input.filed) {
+    await sql`delete from public.tax_filings where user_id = ${userId} and kind = ${input.kind} and period = ${input.period}`;
+    return json(200, { filed: false, kind: input.kind, period: input.period });
+  }
+
+  const [row] = await sql`
+    insert into public.tax_filings (user_id, kind, period, amount)
+    values (${userId}, ${input.kind}, ${input.period}, ${input.amount ?? 0})
+    on conflict (user_id, kind, period) do update set filed_at = now(), amount = excluded.amount
+    returning *
+  `;
+  return json(200, { filed: true, kind: row.kind, period: row.period, filedAt: iso(row.filedAt) });
 }
 
 /* ------------------------------------------------------------------ wrapped */

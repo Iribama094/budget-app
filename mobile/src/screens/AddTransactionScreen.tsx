@@ -1,11 +1,11 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, View, Text, Pressable, Modal, TextInput, ScrollView, Switch, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CalendarDays, ChevronLeft, ChevronRight, ClipboardPaste, Delete, Mic, PieChart, Plus, Receipt, Repeat, Sparkles, Square, Wallet, X } from 'lucide-react-native';
 
 import { createTransaction, listBudgets, listGoals, listMiniBudgets, listMiniBudgetsInSpace, listTransactions, type ApiBudget, type ApiGoal } from '../api/endpoints';
-import { addMoneyToGoal } from '../api/business';
+import { addMoneyToGoal, getBusinessSettings } from '../api/business';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
@@ -76,6 +76,9 @@ export function AddTransactionScreen() {
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
 
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
+  // A VAT registered business can claim back the VAT inside what it buys, so the cost is split when asked.
+  const [vatSettings, setVatSettings] = useState<{ registered: boolean; rate: number } | null>(null);
+  const [includesVat, setIncludesVat] = useState(false);
   const bucketLabel = useCallback(
     (key: string) => bucketDisplayName(key, isBusiness),
     [isBusiness]
@@ -187,6 +190,30 @@ export function AddTransactionScreen() {
 
   const resolvedCategory = category.trim();
 
+  // Only a VAT registered business buying something can reclaim VAT, so the option appears nowhere else.
+  const canClaimVat = isBusiness && type === 'expense' && !!vatSettings?.registered;
+  const vatOnCost = useMemo(() => {
+    if (!canClaimVat || !includesVat || !Number.isFinite(parsedAmount) || parsedAmount <= 0) return 0;
+    const rate = vatSettings?.rate ?? 7.5;
+    // The amount typed is what was actually paid, so the VAT is the part already inside it.
+    return Math.round(parsedAmount - parsedAmount / (1 + rate / 100));
+  }, [canClaimVat, includesVat, parsedAmount, vatSettings?.rate]);
+
+  useEffect(() => {
+    if (!isBusiness) return;
+    let cancelled = false;
+    getBusinessSettings()
+      .then((s) => {
+        if (cancelled) return;
+        setVatSettings({ registered: s.vatRegistered, rate: s.vatRate });
+        setIncludesVat(s.vatRegistered);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isBusiness]);
+
   const showGoalLink = useMemo(() => {
     return type === 'expense' && requiresBudget && budgetCategoryLabel === 'Savings';
   }, [budgetCategoryLabel, requiresBudget, type]);
@@ -238,7 +265,8 @@ export function AddTransactionScreen() {
               miniBudget: selectedMiniBudgetId ?? undefined
             }
           : {}),
-        ...(spacesEnabled ? { spaceId: activeSpaceId } : {})
+        ...(spacesEnabled ? { spaceId: activeSpaceId } : {}),
+        ...(vatOnCost > 0 ? { vatAmount: vatOnCost } : {})
       });
 
       if (showGoalLink && selectedGoalId) {
@@ -638,6 +666,28 @@ export function AddTransactionScreen() {
             <Sparkles color={theme.colors.primary} size={13} />
             <Text style={[typo.caption, { color: theme.colors.primary, fontFamily: fonts.semibold }]}>Suggested from your past spending</Text>
           </View>
+        ) : null}
+
+        {canClaimVat ? (
+          <ListCard>
+            <View style={styles.row}>
+              <PieChart color={theme.colors.textMuted} size={18} />
+              <View style={{ flex: 1 }}>
+                <Text style={[typo.body, { color: theme.colors.text }]}>Price includes VAT</Text>
+                <Text style={[typo.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>
+                  {vatOnCost > 0
+                    ? `${formatAmount(vatOnCost, currencySymbol(user?.currency))} VAT comes off what you remit this month.`
+                    : `We take the ${vatSettings?.rate ?? 7.5}% out of what you paid and claim it back.`}
+                </Text>
+              </View>
+              <Switch
+                value={includesVat}
+                onValueChange={setIncludesVat}
+                trackColor={{ true: theme.colors.primary, false: theme.colors.border }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+          </ListCard>
         ) : null}
 
         <ListCard>

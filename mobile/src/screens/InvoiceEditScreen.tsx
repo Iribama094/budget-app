@@ -8,7 +8,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
 import { Card, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SectionHeader, TextField, formatAmount } from '../components/Common/ui';
 import { DateChoice, LineItem, addDaysIso, isIsoDate, moneyText, parseMoney } from '../components/Business/parts';
-import { createInvoice, getBusinessSettings, updateInvoice, type BusinessSettings, type Invoice } from '../api/business';
+import { ChoiceChip } from '../components/Plan/ChoiceChip';
+import { createInvoice, getBusinessSettings, listCustomers, updateInvoice, type BusinessSettings, type Customer, type Invoice } from '../api/business';
 import { currencySymbol, formatNumberInput } from '../utils/format';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
@@ -26,10 +27,32 @@ export default function InvoiceEditScreen() {
   const glyph = currencySymbol(user?.currency);
 
   const existing = (route.params?.invoice ?? null) as Invoice | null;
+  // Coming from the customers list, their details are already known.
+  const preset = (route.params?.customer ?? null) as Customer | null;
   const [settings, setSettings] = useState<BusinessSettings | null>(null);
-  const [customerName, setCustomerName] = useState(existing?.customerName ?? '');
-  const [customerPhone, setCustomerPhone] = useState(existing?.customerPhone ?? '');
-  const [customerEmail, setCustomerEmail] = useState(existing?.customerEmail ?? '');
+  const [customerName, setCustomerName] = useState(existing?.customerName ?? preset?.name ?? '');
+  const [customerPhone, setCustomerPhone] = useState(existing?.customerPhone ?? preset?.phone ?? '');
+  const [customerEmail, setCustomerEmail] = useState(existing?.customerEmail ?? preset?.email ?? '');
+  const [customerId, setCustomerId] = useState<string | null>(existing?.customerId ?? preset?.id ?? null);
+  const [saved, setSaved] = useState<Customer[]>([]);
+
+  // Saved customers are offered as chips, so a repeat customer is one tap instead of three fields.
+  useEffect(() => {
+    let cancelled = false;
+    listCustomers()
+      .then((list) => !cancelled && setSaved(list))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const pickCustomer = (c: Customer) => {
+    setCustomerId(c.id);
+    setCustomerName(c.name);
+    setCustomerPhone(c.phone ?? '');
+    setCustomerEmail(c.email ?? '');
+  };
   const [items, setItems] = useState<DraftItem[]>(
     existing?.items.length ? existing.items.map((i) => ({ description: i.description, quantity: String(i.quantity), unitPrice: moneyText(i.unitPrice) })) : [blankItem()]
   );
@@ -69,6 +92,7 @@ export default function InvoiceEditScreen() {
     if (!isIsoDate(dueDate)) return setError('Choose when payment is due.');
 
     const payload = {
+      customerId,
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim() || null,
       customerEmail: customerEmail.trim() || null,
@@ -107,7 +131,22 @@ export default function InvoiceEditScreen() {
       ) : null}
 
       <SectionHeader title="Customer" />
-      <TextField label="Name" value={customerName} onChangeText={setCustomerName} placeholder="e.g. Mama Put Ltd" />
+      {saved.length && !existing ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+          {saved.slice(0, 8).map((c) => (
+            <ChoiceChip key={c.id} label={c.name} active={customerId === c.id} onPress={() => pickCustomer(c)} />
+          ))}
+        </View>
+      ) : null}
+      <TextField
+        label="Name"
+        value={customerName}
+        onChangeText={(v) => {
+          setCustomerName(v);
+          setCustomerId(null);
+        }}
+        placeholder="e.g. Mama Put Ltd"
+      />
       <TextField label="WhatsApp or phone (optional)" value={customerPhone} onChangeText={setCustomerPhone} placeholder="0803 000 0000" keyboardType="phone-pad" />
       <TextField label="Email (optional)" value={customerEmail} onChangeText={setCustomerEmail} placeholder="accounts@example.com" keyboardType="email-address" autoCapitalize="none" />
 
