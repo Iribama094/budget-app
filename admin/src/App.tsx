@@ -9,8 +9,9 @@ import { Content } from './screens/Content';
 import { TaxRules } from './screens/TaxRules';
 import { Audit } from './screens/Audit';
 import { Staff } from './screens/Staff';
+import { Settings } from './screens/Settings';
 
-type Page = 'overview' | 'flags' | 'wrapped' | 'people' | 'content' | 'tax' | 'audit' | 'staff';
+type Page = 'overview' | 'flags' | 'wrapped' | 'people' | 'content' | 'tax' | 'audit' | 'staff' | 'settings';
 
 const PAGES: Array<{ key: Page; label: string; owners?: boolean }> = [
   { key: 'overview', label: 'Overview' },
@@ -20,7 +21,8 @@ const PAGES: Array<{ key: Page; label: string; owners?: boolean }> = [
   { key: 'content', label: 'Content and copy' },
   { key: 'tax', label: 'Tax rules' },
   { key: 'audit', label: 'Audit log' },
-  { key: 'staff', label: 'Staff', owners: true }
+  { key: 'staff', label: 'Staff', owners: true },
+  { key: 'settings', label: 'Settings' }
 ];
 
 export function App() {
@@ -114,9 +116,10 @@ export function App() {
         {page === 'wrapped' && <Wrapped admin={admin} />}
         {page === 'people' && <People admin={admin} />}
         {page === 'content' && <Content admin={admin} />}
-        {page === 'tax' && <TaxRules />}
+        {page === 'tax' && <TaxRules admin={admin} />}
         {page === 'audit' && <Audit />}
         {page === 'staff' && <Staff admin={admin} />}
+        {page === 'settings' && <Settings admin={admin} />}
       </main>
     </div>
   );

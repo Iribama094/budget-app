@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, type Admin, type WrappedPeriod } from '../api';
+import { api, type Admin, type WrappedPeriod, type WrappedStory } from '../api';
 
 const CAN_CHANGE: Admin['role'][] = ['owner', 'engineer'];
 
@@ -25,7 +25,26 @@ export function Wrapped({ admin }: { admin: Admin }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [previewEmail, setPreviewEmail] = useState('');
+  const [preview, setPreview] = useState<{ of: string; story: WrappedStory } | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const mayChange = CAN_CHANGE.includes(admin.role);
+
+  /** Certifying means saying the numbers are right, which needs looking at some. Every look is audited. */
+  const runPreview = async (p: WrappedPeriod, e: React.FormEvent) => {
+    e.preventDefault();
+    setPreviewing(true);
+    setError(null);
+    setPreview(null);
+    try {
+      const res = await api.wrappedPreview(previewEmail.trim(), p.kind === 'quarter' ? 'year' : p.kind, p.year, p.space);
+      setPreview({ of: res.of, story: res.wrapped });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not build that preview');
+    } finally {
+      setPreviewing(false);
+    }
+  };
 
   const load = () =>
     api
@@ -137,6 +156,64 @@ export function Wrapped({ admin }: { admin: Admin }) {
                 <p className="muted" style={{ marginTop: 12 }}>
                   This period has not finished building, so it cannot be certified yet. The nightly job writes the stories once the period ends.
                 </p>
+              ) : null}
+
+              {mayChange ? (
+                <form style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line-soft)' }} onSubmit={(e) => void runPreview(p, e)}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#3c4e4a', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                    Preview as a person
+                  </p>
+                  <p className="muted" style={{ marginTop: 6 }}>
+                    See the story an account would get. This is the one place staff see somebody's figures, it is the summary rather than their
+                    transactions, and each look is written to the audit log.
+                  </p>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+                    <input
+                      type="email"
+                      value={previewEmail}
+                      onChange={(ev) => setPreviewEmail(ev.target.value)}
+                      placeholder="their@email.com"
+                      style={{ flexGrow: 1, height: 38, padding: '0 12px', borderRadius: 10, border: '1px solid var(--line)' }}
+                      required
+                    />
+                    <button type="submit" className="btn" disabled={previewing}>
+                      {previewing ? 'Building...' : 'Show me'}
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+
+              {preview ? (
+                <div style={{ marginTop: 14, padding: 14, borderRadius: 12, background: '#f3f6f5' }}>
+                  <div className="spread">
+                    <p className="name">{preview.of}</p>
+                    <button type="button" className="btn small" onClick={() => setPreview(null)}>
+                      Close
+                    </button>
+                  </div>
+                  {!preview.story.hasData ? (
+                    <p className="muted" style={{ marginTop: 8 }}>
+                      Not enough logged for a story. That account would be left out rather than shown an empty one, which is the intended behaviour.
+                    </p>
+                  ) : (
+                    <div style={{ marginTop: 10 }}>
+                      <p style={{ fontSize: 13.5 }}>
+                        <strong>{preview.story.persona.title}</strong>: {preview.story.persona.line}
+                      </p>
+                      <p className="muted" style={{ marginTop: 8 }}>
+                        In {preview.story.totals.income.toLocaleString()}, out {preview.story.totals.spending.toLocaleString()}, kept{' '}
+                        {preview.story.totals.net.toLocaleString()}
+                        {preview.story.totals.savingsRate != null ? ` (${preview.story.totals.savingsRate}%)` : ''}
+                      </p>
+                      <p className="muted" style={{ marginTop: 6 }}>
+                        Top: {preview.story.topCategories.map((c) => `${c.category} ${c.share}%`).join(', ') || 'nothing yet'}
+                      </p>
+                      <p className="muted" style={{ marginTop: 6 }}>
+                        {preview.story.habits.daysLogged} days logged, {preview.story.habits.transactions} transactions
+                      </p>
+                    </div>
+                  )}
+                </div>
               ) : null}
             </div>
           );

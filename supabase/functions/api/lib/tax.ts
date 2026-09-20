@@ -1,3 +1,7 @@
+import { sql } from './db.ts';
+import { todayIso } from './dates.ts';
+import { z } from './http.ts';
+
 export type TaxBracket = { from: number | null; to: number | null; rate: number };
 
 export type TaxRule = {
@@ -68,8 +72,64 @@ const RULES: Record<string, TaxRule> = {
   }
 };
 
+/** The shape a version has to have before it can be saved. Wrong bands are worse than no bands. */
+export const RULE_SHAPE = z.object({
+  country: z.string().min(2).max(60),
+  version: z.string().min(1).max(60),
+  effectiveDate: z.string().min(4).max(20),
+  currency: z.string().max(8).optional(),
+  notes: z.string().max(400).optional(),
+  brackets: z
+    .array(z.object({ from: z.number().min(0), to: z.number().min(0).nullable().optional(), rate: z.number().min(0).max(1) }))
+    .min(1)
+    .max(12),
+  deductions: z.record(z.object({ cap: z.number().min(0).optional(), rate: z.number().min(0).max(1).optional() })).optional(),
+  minimumTaxRate: z.number().min(0).max(1).optional(),
+  noTaxIfGrossMonthlyAtOrBelow: z.number().min(0).optional(),
+  company: z
+    .object({ smallCompanyTurnover: z.number().min(0), rate: z.number().min(0).max(1), note: z.string().max(400) })
+    .optional()
+});
+
+/**
+ * Approved versions from the staff console, held for five minutes. Empty means nothing has been approved, and
+ * the rules that ship in the code apply, which is how the app behaves today.
+ */
+let approved: Record<string, TaxRule> = {};
+let approvedAt = 0;
+
+/** Called after an approval or a retirement, so the next request sees the change rather than waiting it out. */
+export function forgetTaxRules(): void {
+  approvedAt = 0;
+}
+
+/** Loads the approved versions if the cache is cold. Cheap, and it never throws: the code rules are the floor. */
+export async function ensureTaxRules(): Promise<void> {
+  if (Date.now() - approvedAt < 5 * 60_000) return;
+  try {
+    const rows = await sql<{ country: string; payload: TaxRule }[]>`
+      select country, payload from public.tax_rule_versions
+      where state = 'live' and effective_from <= ${todayIso()}::date
+    `;
+    const next: Record<string, TaxRule> = {};
+    for (const r of rows) next[r.country] = r.payload;
+    approved = next;
+  } catch {
+    // A database hiccup must never change what somebody is told they owe: fall back to the code.
+    approved = {};
+  }
+  approvedAt = Date.now();
+}
+
+/** The rules in force: an approved version if there is one, otherwise the ones that ship in the app. */
 export function loadRuleForCountry(country: string): TaxRule | null {
-  return RULES[country.toLowerCase()] ?? null;
+  const key = country.toLowerCase();
+  return approved[key] ?? RULES[key] ?? null;
+}
+
+/** Whether a country is running on an approved version rather than the code. Shown in the console. */
+export function ruleSource(country: string): 'approved' | 'code' {
+  return approved[country.toLowerCase()] ? 'approved' : 'code';
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;

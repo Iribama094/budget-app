@@ -9,6 +9,10 @@ const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined) |
 const SUPABASE_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined) || 'sb_publishable_lfNxkvbTpvx7iP5S4n0FUw_-F1foews';
 const API = `${SUPABASE_URL}/functions/v1/api/v1`;
 
+/** Shown on the Settings page, so anyone can see which project the console is pointed at. */
+export const API_BASE = API;
+export const PROJECT_REF = SUPABASE_URL.replace('https://', '').split('.')[0];
+
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
 });
@@ -65,6 +69,31 @@ export type PersonDetail = {
 export type QuoteValue = { text: string; author: string; source: string; themes: string[]; local?: boolean };
 
 export type ContentBlock = { key: string; kind: 'quote' | 'notification' | 'guide' | 'tip'; value: unknown; enabled: boolean; updatedAt: string };
+
+export type TaxVersion = {
+  id: string;
+  country: string;
+  effectiveFrom: string;
+  state: 'draft' | 'pending' | 'live' | 'retired';
+  note: string | null;
+  payload: unknown;
+  createdAt: string;
+  approvedAt: string | null;
+  createdBy: string | null;
+  createdByEmail: string | null;
+  approvedByEmail: string | null;
+  /** The signed in admin's own id, copied onto each row so the console can refuse self approval. */
+  you?: string;
+};
+
+export type WrappedStory = {
+  hasData: boolean;
+  period: { label: string; complete: boolean };
+  persona: { title: string; line: string };
+  totals: { income: number; spending: number; net: number; savingsRate: number | null };
+  topCategories: Array<{ category: string; amount: number; share: number }>;
+  habits: { daysLogged: number; transactions: number };
+};
 
 export type TaxCountry = {
   code: string;
@@ -127,5 +156,14 @@ export const api = {
     call<{ block: ContentBlock }>(`/admin/content/${encodeURIComponent(key)}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   seedQuotes: () => call<{ added: number; total: number }>('/admin/content/seed-quotes', { method: 'POST' }),
 
-  taxRules: () => call<{ editable: boolean; countries: TaxCountry[] }>('/admin/tax-rules')
+  taxRules: () => call<{ editable: boolean; you: string; inCode: TaxCountry[]; versions: TaxVersion[]; today: string }>('/admin/tax-rules'),
+  addTaxVersion: (input: { country: string; effectiveFrom: string; payload: unknown; note?: string }) =>
+    call<{ version: TaxVersion }>('/admin/tax-rules', { method: 'POST', body: JSON.stringify(input) }),
+  taxVersionAction: (id: string, action: 'submit' | 'approve' | 'retire') =>
+    call<{ state: string; message: string }>(`/admin/tax-rules/${id}/${action}`, { method: 'POST' }),
+
+  wrappedPreview: (email: string, kind: 'h1' | 'year', year: number, space: 'personal' | 'business') =>
+    call<{ wrapped: WrappedStory; of: string }>(
+      `/admin/wrapped/preview?email=${encodeURIComponent(email)}&kind=${kind}&year=${year}&space=${space}`
+    )
 };

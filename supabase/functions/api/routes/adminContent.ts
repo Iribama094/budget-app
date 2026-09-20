@@ -2,7 +2,6 @@ import { sql } from '../lib/db.ts';
 import { badRequest, body, json, methodNotAllowed, noContent, notFound, z } from '../lib/http.ts';
 import { audit, requireAdmin } from '../lib/admin.ts';
 import { QUOTES } from '../lib/quotes.ts';
-import { taxRulesSummary } from '../lib/tax.ts';
 import type { Ctx } from '../index.ts';
 
 /**
@@ -105,16 +104,4 @@ export async function adminSeedQuotes(ctx: Ctx) {
   }
   await audit(admin, 'content.seed-quotes', null, { added });
   return json(200, { added, total: QUOTES.length });
-}
-
-/**
- * GET /v1/admin/tax-rules — the bands, reliefs and thresholds in force, as the calculator sees them.
- *
- * Read only for now, and honest about it: these still live in the code, because getting a band wrong changes
- * what somebody believes they owe. Moving them here is worth doing with a second person approving each change.
- */
-export async function adminTaxRules(ctx: Ctx) {
-  if (ctx.method !== 'GET') methodNotAllowed(['GET']);
-  await requireAdmin(ctx.req);
-  return json(200, { editable: false, countries: taxRulesSummary() });
 }

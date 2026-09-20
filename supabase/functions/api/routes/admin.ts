@@ -2,6 +2,7 @@ import { sql } from '../lib/db.ts';
 import { badRequest, body, json, methodNotAllowed, notFound, z } from '../lib/http.ts';
 import { audit, listFlags, listWrappedPeriods, requireAdmin } from '../lib/admin.ts';
 import { todayIso } from '../lib/dates.ts';
+import { computeWrapped } from '../lib/wrapped.ts';
 import type { Ctx } from '../index.ts';
 
 /** GET /v1/admin/me — who am I, and what may I change. The console calls this first. */
@@ -143,6 +144,32 @@ export async function adminWrapped(ctx: Ctx) {
   }
 
   methodNotAllowed(['GET', 'PATCH']);
+}
+
+/**
+ * GET /v1/admin/wrapped/preview?email=&kind=&year=&space= — the story that account would see.
+ *
+ * Certifying means saying the numbers are right, which cannot be done without looking at some. This is the one
+ * place staff see a person's figures, it is only the Wrapped summary rather than their transactions, and every
+ * look is written to the audit log with the account that was opened.
+ */
+export async function adminWrappedPreview(ctx: Ctx) {
+  if (ctx.method !== 'GET') methodNotAllowed(['GET']);
+  const admin = await requireAdmin(ctx.req, 'wrapped');
+
+  const email = (ctx.query.get('email') ?? '').trim().toLowerCase();
+  if (!email) badRequest('Whose story do you want to see? Give their email.');
+  const [person] = await sql`select id, email from public.profiles where lower(email) = ${email}`;
+  if (!person) notFound('Nobody with that email');
+
+  const kind = ctx.query.get('kind') === 'h1' ? 'h1' : 'year';
+  const year = Number(ctx.query.get('year') ?? todayIso().slice(0, 4));
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) badRequest('Choose a valid year.');
+  const space = ctx.query.get('space') === 'business' ? 'business' : 'personal';
+
+  const wrapped = await computeWrapped(person.id as string, space, kind, year);
+  await audit(admin, 'wrapped.preview', person.email as string, { kind, year, space });
+  return json(200, { wrapped, of: person.email });
 }
 
 /* ------------------------------------------------------------------- audit */

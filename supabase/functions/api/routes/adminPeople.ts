@@ -20,24 +20,29 @@ export async function adminPeople(ctx: Ctx) {
   await requireAdmin(ctx.req, 'people');
 
   const q = (ctx.query.get('q') ?? '').trim().toLowerCase();
-  if (q.length < 3) badRequest('Type the person’s full email address.');
+  if (q.length < 3) badRequest('Type at least three letters of their name, or their email.');
 
+  // Email or account id match exactly; a name matches loosely, because somebody writing in says "Amaka" and
+  // spells their email wrong. Capped at 20 so this stays looking somebody up, not reading the whole list.
   const items = await sql`
     select p.id, p.email, p.name, p.currency, p.created_at,
       (select count(*)::int from public.transactions t where t.user_id = p.id) as transactions,
       (select count(*)::int from public.budgets b where b.user_id = p.id) as budgets,
       (select count(*)::int from public.devices d where d.user_id = p.id) as devices
     from public.profiles p
-    where lower(p.email) = ${q} or (length(${q}) >= 8 and p.id::text = ${q})
-    limit 5
+    where lower(p.email) = ${q}
+       or p.id::text = ${q}
+       or (length(${q}) >= 3 and p.name is not null and p.name ilike ${'%' + q + '%'})
+    order by (lower(p.email) = ${q}) desc, p.name
+    limit 20
   `;
-  return json(200, { items });
+  return json(200, { items, searched: q });
 }
 
 /** GET /v1/admin/people/:id — how the account is set up, and why it might be behaving oddly. */
 export async function adminPerson(ctx: Ctx) {
   if (ctx.method !== 'GET') methodNotAllowed(['GET']);
-  await requireAdmin(ctx.req, 'people');
+  const admin = await requireAdmin(ctx.req, 'people');
   const id = ctx.parts[2] ?? '';
 
   const [person] = await sql`
@@ -54,6 +59,9 @@ export async function adminPerson(ctx: Ctx) {
       (select count(*)::int from public.devices where user_id = ${person.id}) as devices,
       (select max(occurred_at) from public.transactions where user_id = ${person.id}) as last_logged
   `;
+
+  // Looking someone up is itself worth a line, so anyone can see whose account was opened and by whom.
+  await audit(admin, 'person.view', person.email as string);
 
   return json(200, {
     person,

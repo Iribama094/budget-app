@@ -52,7 +52,10 @@ import { appConfig } from './routes/config.ts';
 import { openWrappedPeriod } from './lib/admin.ts';
 import { adminAudit, adminFlags, adminMe, adminOverview, adminStaff, adminWrapped } from './routes/admin.ts';
 import { adminPeople, adminPerson, adminPersonAction } from './routes/adminPeople.ts';
-import { adminContent, adminSeedQuotes, adminTaxRules } from './routes/adminContent.ts';
+import { adminContent, adminSeedQuotes } from './routes/adminContent.ts';
+import { adminTaxRules, adminTaxVersion } from './routes/adminTax.ts';
+import { adminWrappedPreview } from './routes/admin.ts';
+import { ensureTaxRules } from './lib/tax.ts';
 
 export type Ctx = {
   req: Request;
@@ -215,7 +218,9 @@ function route(parts: string[]): Handler | null {
   if (a === 'admin' && b === 'people' && n === 4 && parts[3] === 'action') return adminPersonAction;
   if (a === 'admin' && b === 'content' && c === 'seed-quotes') return adminSeedQuotes;
   if (a === 'admin' && b === 'content' && n <= 3) return adminContent;
-  if (a === 'admin' && b === 'tax-rules') return adminTaxRules;
+  if (a === 'admin' && b === 'wrapped' && c === 'preview') return adminWrappedPreview;
+  if (a === 'admin' && b === 'tax-rules' && n <= 2) return adminTaxRules;
+  if (a === 'admin' && b === 'tax-rules' && n <= 4) return adminTaxVersion;
 
   if (a === 'notifications' && n <= 2) return notifications;
   if (a === 'push-tokens' && n === 1) return pushTokens;
@@ -298,6 +303,8 @@ Deno.serve(async (req) => {
   if (v1 === -1) return errorResponse(404, 'NOT_FOUND', 'Route not found');
   const parts = segments.slice(v1 + 1);
 
+  // Approved tax rules, if any, before anything can ask what somebody owes.
+  await ensureTaxRules();
   const handler = route(parts);
   if (!handler) return errorResponse(404, 'NOT_FOUND', 'Route not found');
 
