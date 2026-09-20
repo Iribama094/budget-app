@@ -13,6 +13,7 @@ import { COUNTRIES } from '../utils/countries';
 import { formatMoney, formatNumberInput, parseNumberInput } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { useSpace } from '../contexts/SpaceContext';
 
 /** Nigeria Tax Act 2025: rent relief is 20% of annual rent, capped at ₦500,000. */
 const RENT_RELIEF_RATE = 0.2;
@@ -28,6 +29,8 @@ export default function TaxSettingsScreen() {
   const nav = useNavigation<any>();
   const { user, refreshUser } = useAuth();
   const { theme } = useTheme();
+  const { spacesEnabled, activeSpaceId } = useSpace();
+  const isBusiness = spacesEnabled && activeSpaceId === 'business';
   const toast = useToast();
   const inkText = theme.colors.inkText;
   const tp = user?.taxProfile;
@@ -389,17 +392,20 @@ export default function TaxSettingsScreen() {
           onPress={() => setShowCountryPicker(true)}
           chevron
         />
-        <ListRow
-          icon={
-            <IconTile bg={theme.colors.brassSoft} size={34}>
-              <Briefcase color={theme.colors.brass} size={17} />
-            </IconTile>
-          }
-          title="Business tax"
-          subtitle="VAT, PAYE for staff and money to set aside"
-          onPress={() => nav.navigate('BusinessTax')}
-          chevron
-        />
+        {/* Business tax belongs to the Business space; it has no place in a personal tax estimate. */}
+        {isBusiness ? (
+          <ListRow
+            icon={
+              <IconTile bg={theme.colors.brassSoft} size={34}>
+                <Briefcase color={theme.colors.brass} size={17} />
+              </IconTile>
+            }
+            title="Business tax"
+            subtitle="VAT, PAYE for staff and money to set aside"
+            onPress={() => nav.navigate('BusinessTax')}
+            chevron
+          />
+        ) : null}
       </ListCard>
       {optInTaxFeature && rulesError ? <Text style={[type.caption, { color: theme.colors.error, marginTop: 6 }]}>Tax rules not confirmed: {rulesError}</Text> : null}
 
