@@ -432,6 +432,8 @@ export type ApiBankLink = {
   spaceId?: 'personal' | 'business';
   provider: string;
   bankName: string;
+  /** The bank's own logo when the provider sends one; otherwise the app draws a brand-coloured tile. */
+  logoUrl?: string | null;
   status?: "active" | "reauth_required";
   lastSyncedAt?: string | null;
   createdAt: string;
@@ -452,6 +454,12 @@ export type ApiImportedTransaction = {
   occurredAt: string;
   status: 'pending' | 'reconciled' | 'ignored';
   reconciledAt?: string;
+  /** The category we'd pick, from this person's own history first, then common payees. */
+  suggestedCategory?: string | null;
+  suggestedBucket?: 'Needs' | 'Wants' | 'Savings' | null;
+  suggestionSource?: 'learned' | 'keyword' | null;
+  /** Same amount and direction within two days of something already logged: probably the same thing twice. */
+  duplicateOf?: { id: string; description: string; occurredAt: string } | null;
 };
 // Simple in-memory demo store as a fallback (e.g. when backend is unavailable)
 let demoBankLinksMemory: ApiBankLink[] = [];
@@ -567,6 +575,16 @@ export async function reconcileImportedTransactionInSpace(
     body: JSON.stringify(payload ?? {})
   });
   return (data as any).transaction as ApiImportedTransaction;
+}
+
+/** Confirms or discards many imported transactions at once. Confirmed ones use their suggested category. */
+export async function bulkImportedTransactions(
+  action: 'reconcile' | 'ignore',
+  ids: string[],
+  params?: { spaceId?: 'personal' | 'business' }
+): Promise<{ done: number; failed: number }> {
+  const qs = params?.spaceId ? `?spaceId=${params.spaceId}` : '';
+  return apiFetch(`/v1/imported-transactions/bulk${qs}`, { method: 'POST', body: JSON.stringify({ action, ids }) }) as Promise<{ done: number; failed: number }>;
 }
 
 export async function ignoreImportedTransaction(id: string): Promise<ApiImportedTransaction> {

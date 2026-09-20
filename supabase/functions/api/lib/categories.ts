@@ -222,6 +222,57 @@ const INCOME_KEYWORDS: Array<[RegExp, string]> = [
 
 export type Suggestion = { category: string; bucket: Bucket | null; source: 'learned' | 'keyword' };
 
+/**
+ * Suggestions for a whole list at once, in two queries rather than two per row: used when a bank import lands
+ * and every pending transaction needs a category guess before the person sees it.
+ */
+export async function suggestCategories(
+  userId: string,
+  space: Space,
+  items: Array<{ key: string; type: 'income' | 'expense'; text: string }>
+): Promise<Map<string, Suggestion>> {
+  const out = new Map<string, Suggestion>();
+  if (!items.length) return out;
+
+  const rules = await sql<{ type: string; pattern: string; category: string; bucket: string | null; hits: number }[]>`
+    select type, pattern, category, bucket, hits from public.category_rules where user_id = ${userId} order by hits desc, updated_at desc
+  `;
+  const pending: typeof items = [];
+  for (const item of items) {
+    const pattern = patternOf(item.text);
+    const first = pattern?.split(' ')[0];
+    const rule = pattern
+      ? rules.find((r) => r.type === item.type && (r.pattern === pattern || r.pattern === first || r.pattern.startsWith(`${first} `)))
+      : undefined;
+    if (rule) out.set(item.key, { category: rule.category, bucket: normalizeBucket(rule.bucket), source: 'learned' });
+    else pending.push(item);
+  }
+  if (!pending.length) return out;
+
+  // Nothing learned yet for these, so fall back to the common-payee keywords.
+  const wanted = new Map<string, 'income' | 'expense'>();
+  const byKey = new Map<string, string>();
+  for (const item of pending) {
+    const lower = ` ${String(item.text).toLowerCase()} `;
+    const hit = (item.type === 'expense' ? EXPENSE_KEYWORDS : INCOME_KEYWORDS).find(([re]) => re.test(lower));
+    if (!hit) continue;
+    wanted.set(hit[1].toLowerCase(), item.type);
+    byKey.set(item.key, hit[1].toLowerCase());
+  }
+  if (!byKey.size) return out;
+
+  await ensureCategories(userId, space);
+  const cats = await sql<{ name: string; bucket: string | null; type: string }[]>`
+    select name, bucket, type from public.categories where user_id = ${userId} and space_id = ${space} and not hidden
+  `;
+  for (const [key, wantedName] of byKey) {
+    const type = wanted.get(wantedName);
+    const cat = cats.find((c) => c.type === type && c.name.toLowerCase() === wantedName);
+    if (cat) out.set(key, { category: cat.name, bucket: normalizeBucket(cat.bucket), source: 'keyword' });
+  }
+  return out;
+}
+
 /** Best category for a description: the person's own history first, then common payees. */
 export async function suggestCategory(userId: string, type: 'income' | 'expense', space: Space, text: string): Promise<Suggestion | null> {
   const pattern = patternOf(text);

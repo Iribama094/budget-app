@@ -8,7 +8,7 @@ import { acceptInvite, budgetById, budgetPace, budgetsIndex, miniBudgets, nextPe
 import { sendPeriodEndingReminders, sendSharedDigests } from './lib/shared.ts';
 import { analyticsSummary, transactionById, transactionsIndex } from './routes/transactions.ts';
 import { goalById, goalsIndex, recurringById, recurringIndex, taxCalc, taxRules } from './routes/planning.ts';
-import { bankLinkById, bankLinksIndex, bankSync, importedAction, importedIndex, monoConnect } from './routes/banks.ts';
+import { bankLinkById, bankLinksIndex, bankSync, importedAction, importedBulk, importedIndex, monoConnect } from './routes/banks.ts';
 import {
   categoriesIndex,
   categoryById,
@@ -224,6 +224,7 @@ function route(parts: string[]): Handler | null {
   if (a === 'bank-links' && n === 3 && c === 'sync') return bankSync;
 
   if (a === 'imported-transactions' && n === 1) return importedIndex;
+  if (a === 'imported-transactions' && n === 2 && b === 'bulk') return importedBulk;
   if (a === 'imported-transactions' && n === 3) return importedAction;
 
   if (a === 'income-sources' && n === 1) return incomeSourcesIndex;
