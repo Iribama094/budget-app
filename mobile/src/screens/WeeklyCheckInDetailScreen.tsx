@@ -12,6 +12,7 @@ import { currencySymbol, formatShortDate, toIsoDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { pickQuote } from '../lib/quotes';
 import { QuoteLine } from '../components/Common/QuoteLine';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 export default function WeeklyCheckInDetailScreen() {
   const nav = useNavigation<any>();
@@ -187,6 +188,7 @@ export default function WeeklyCheckInDetailScreen() {
     <Screen bottomInset={48}>
       <ScreenHeader title="Weekly check-in" subtitle={`${formatShortDate(toIsoDate(weekInfo.start))} – ${formatShortDate(toIsoDate(weekInfo.end))}`} onBack={() => nav.goBack()} />
 
+      <GuideAnchor id="weekly.hero">
       <HeroCard style={{ marginTop: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -205,6 +207,7 @@ export default function WeeklyCheckInDetailScreen() {
           <ProgressBar value={weekInfo.progressPct / 100} height={8} color="#E2B65C" trackColor="rgba(255,255,255,0.14)" />
         </View>
       </HeroCard>
+      </GuideAnchor>
 
       <SectionHeader title="This week so far" />
       <ListCard>

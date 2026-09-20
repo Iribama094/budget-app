@@ -31,6 +31,7 @@ import {
 } from '../components/Common/ui';
 import { SelectField } from '../components/Common/SelectField';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { getRememberedPushToken, scheduleLocalBillReminders } from '../lib/notifications';
 import { currencySymbol, formatNumberInput, formatShortDate, parseNumberInput, toIsoDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
@@ -245,6 +246,7 @@ export default function RecurringScreen() {
         title="Recurring & bills"
         onBack={() => nav.goBack()}
         right={
+          <GuideAnchor id="recurring.add">
           <IconButton
             accessibilityLabel="Add a recurring item"
             onPress={() => {
@@ -254,6 +256,7 @@ export default function RecurringScreen() {
           >
             <Plus color={theme.colors.text} size={20} />
           </IconButton>
+          </GuideAnchor>
         }
       />
       <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 6 }]}>
@@ -291,8 +294,10 @@ export default function RecurringScreen() {
 
       {upcoming.length ? (
         <>
-          <SectionHeader title="Next 30 days" />
-          <ListCard>{upcoming.map(row)}</ListCard>
+          <GuideAnchor id="recurring.upcoming">
+            <SectionHeader title="Next 30 days" />
+            <ListCard>{upcoming.map(row)}</ListCard>
+          </GuideAnchor>
         </>
       ) : null}
 

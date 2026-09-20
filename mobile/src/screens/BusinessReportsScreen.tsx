@@ -13,6 +13,7 @@ import { getBusinessReport, type BusinessReport } from '../api/business';
 import { shareReportPdf } from '../lib/documents';
 import { currencySymbol, formatShortDate, toIsoDate } from '../utils/format';
 import { type } from '../theme/typography';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 type RangeKey = 'month' | 'last' | 'quarter' | 'half' | 'year';
 const RANGES: Array<{ key: RangeKey; label: string }> = [
@@ -123,7 +124,9 @@ export default function BusinessReportsScreen() {
             </View>
           </HeroCard>
 
-          <PrimaryButton title="Share as PDF" iconLeft={<FileDown color={theme.colors.onPrimary} size={18} />} onPress={share} loading={sharing} style={{ marginTop: 14 }} />
+          <GuideAnchor id="reports.share">
+            <PrimaryButton title="Share as PDF" iconLeft={<FileDown color={theme.colors.onPrimary} size={18} />} onPress={share} loading={sharing} style={{ marginTop: 14 }} />
+          </GuideAnchor>
 
           <SectionHeader title="Revenue" />
           {pl.revenue.length ? (

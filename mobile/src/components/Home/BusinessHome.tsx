@@ -39,6 +39,7 @@ import { listTransactions, type ApiTransaction } from '../../api/endpoints';
 import { getBusinessSummary, type BusinessSummary } from '../../api/business';
 import { currencySymbol, formatRelativeDay, formatShortDate, toIsoDateTime } from '../../utils/format';
 import { fonts, type } from '../../theme/typography';
+import { GuideAnchor } from '../Common/GuideAnchor';
 
 const LOOK = SPACE_LOOK.business;
 
@@ -131,6 +132,7 @@ export function BusinessHome() {
         </View>
       ) : null}
 
+      <GuideAnchor id="business.hero">
       <Pressable onPress={() => nav.navigate('BusinessReports')} accessibilityRole="button" accessibilityLabel="Open reports" style={styles.hero}>
         <LinearGradient colors={[LOOK.bg, LOOK.bg2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
         <View style={styles.rowBetween}>
@@ -173,6 +175,7 @@ export function BusinessHome() {
           </>
         )}
       </Pressable>
+      </GuideAnchor>
 
       <View style={styles.quick}>
         {[
@@ -273,11 +276,13 @@ export function BusinessHome() {
       ) : null}
 
       <SectionHeader title="Business tools" />
+      <GuideAnchor id="business.tools">
       <View style={styles.tools}>
         {tools.map((t) => (
           <ToolTile key={t.label} label={t.label} Icon={t.Icon} badge={'badge' in t ? t.badge : null} onPress={() => nav.navigate(t.screen)} />
         ))}
       </View>
+      </GuideAnchor>
 
       {!loading && !hasActivity ? (
         <View style={{ marginTop: 18 }}>

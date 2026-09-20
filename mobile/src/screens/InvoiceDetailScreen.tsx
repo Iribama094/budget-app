@@ -12,6 +12,7 @@ import { deleteInvoice, getInvoice, markInvoiceSent, recordInvoicePayment, updat
 import { invoiceMessage, sendOnWhatsApp, shareInvoicePdf } from '../lib/documents';
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 export default function InvoiceDetailScreen() {
   const nav = useNavigation<any>();
@@ -169,7 +170,7 @@ export default function InvoiceDetailScreen() {
         {invoice.sentAt ? <Text style={[type.caption, { color: inkText, opacity: 0.7, marginTop: 10 }]}>Shared {formatShortDate(invoice.sentAt)}</Text> : null}
       </HeroCard>
 
-      <View style={styles.actions}>
+      <GuideAnchor id="invoicedetail.actions" style={styles.actions}>
         {actions.map(({ key, label, Icon, onPress }) => (
           <Pressable key={key} onPress={onPress} disabled={!!busy} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.action, { opacity: pressed ? 0.7 : 1 }]}>
             <View style={[styles.actionIcon, { backgroundColor: key === 'pay' ? theme.colors.primary : theme.colors.surface, borderColor: theme.colors.border }]}>
@@ -178,7 +179,7 @@ export default function InvoiceDetailScreen() {
             <Text style={[type.caption, { color: theme.colors.text }]}>{label}</Text>
           </Pressable>
         ))}
-      </View>
+      </GuideAnchor>
 
       <SectionHeader title="Items" />
       <ListCard>

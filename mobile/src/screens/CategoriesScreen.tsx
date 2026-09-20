@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Plus } from 'lucide-react-native';
@@ -106,9 +107,11 @@ export default function CategoriesScreen() {
         title="Categories"
         onBack={() => nav.goBack()}
         right={
-          <IconButton accessibilityLabel="Add a category" onPress={openNew}>
-            <Plus color={theme.colors.text} size={20} />
-          </IconButton>
+          <GuideAnchor id="categories.add">
+            <IconButton accessibilityLabel="Add a category" onPress={openNew}>
+              <Plus color={theme.colors.text} size={20} />
+            </IconButton>
+          </GuideAnchor>
         }
       />
       <SegmentedControl

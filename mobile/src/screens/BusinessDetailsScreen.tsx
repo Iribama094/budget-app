@@ -8,6 +8,7 @@ import { useToast } from '../components/Common/Toast';
 import { Card, IconTile, InlineError, PrimaryButton, Screen, ScreenHeader, SectionHeader, TextField } from '../components/Common/ui';
 import { getBusinessSettings, updateBusinessSettings } from '../api/business';
 import { type } from '../theme/typography';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 type Form = { businessName: string; businessPhone: string; businessEmail: string; businessAddress: string; invoicePrefix: string };
 
@@ -102,7 +103,9 @@ export default function BusinessDetailsScreen() {
       </Card>
 
       <SectionHeader title="Details" />
-      <TextField label="Business name" value={form.businessName} onChangeText={(v) => set({ businessName: v })} placeholder="e.g. Ada Foods" />
+      <GuideAnchor id="businessdetails.name">
+        <TextField label="Business name" value={form.businessName} onChangeText={(v) => set({ businessName: v })} placeholder="e.g. Ada Foods" />
+      </GuideAnchor>
       <TextField label="Phone" value={form.businessPhone} onChangeText={(v) => set({ businessPhone: v })} keyboardType="phone-pad" placeholder="0803 000 0000" hint="Customers can reply on WhatsApp to this number" />
       <TextField
         label="Email"

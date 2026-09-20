@@ -17,6 +17,7 @@ import { SpaceSwitcher } from '../components/Common/SpaceSwitcher';
 import { useTour, useTourAnchor } from '../contexts/TourContext';
 import { useNudges } from '../contexts/NudgesContext';
 import { NudgeTooltip } from '../components/Common/NudgeTooltip';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 export function AnalyticsScreen() {
   const { user } = useAuth();
@@ -490,6 +491,7 @@ export function AnalyticsScreen() {
         )}
       </Card>
 
+      <GuideAnchor id="analytics.digdeeper">
       <SectionHeader title="Dig deeper" />
       <ListCard>
         {currentBudget ? (
@@ -545,6 +547,7 @@ export function AnalyticsScreen() {
           chevron
         />
       </ListCard>
+      </GuideAnchor>
     </Screen>
   );
 }

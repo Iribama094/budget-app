@@ -38,6 +38,7 @@ import { EmptyState, IconButton, IconTile, InfoTip, InlineError, ListCard, Scree
 import { scheduleWeeklyCheckIn } from '../lib/notifications';
 import { formatRelativeDay } from '../utils/format';
 import { type } from '../theme/typography';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 const KIND_ICON: Record<NotificationKind, LucideIcon> = {
   pace: TrendingUp,
@@ -214,6 +215,7 @@ export default function NotificationsScreen() {
 
             {showPrefs ? (
               <>
+                <GuideAnchor id="notifications.prefs">
                 <ListCard style={{ marginTop: 12 }}>
                   {prefs ? (
                     rows.map((row) => {
@@ -238,6 +240,7 @@ export default function NotificationsScreen() {
                     <ActivityIndicator color={theme.colors.primary} style={{ marginVertical: 16 }} />
                   )}
                 </ListCard>
+                </GuideAnchor>
                 {spacesEnabled ? (
                   <InfoTip
                     style={{ marginTop: 6, marginLeft: 4 }}

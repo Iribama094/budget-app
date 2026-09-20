@@ -11,6 +11,7 @@ import { StatusChip } from '../components/Business/parts';
 import { listInvoices, type Invoice } from '../api/business';
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 type Filter = 'open' | 'paid' | 'all';
 
@@ -66,6 +67,7 @@ export default function InvoicesScreen() {
       />
       {error ? <InlineError message={error} /> : null}
 
+      <GuideAnchor id="invoices.hero">
       <HeroCard style={{ marginTop: 8 }}>
         <Text style={[type.eyebrow, { color: inkText, opacity: 0.72 }]}>Customers owe you</Text>
         <Amount value={totals.owed} currency={glyph} size="hero" color={inkText} hidden={hide} style={{ marginTop: 8 }} />
@@ -77,6 +79,7 @@ export default function InvoicesScreen() {
               : 'All settled. Nobody owes you right now 🙌'}
         </Text>
       </HeroCard>
+      </GuideAnchor>
 
       <SegmentedControl
         style={{ marginTop: 16 }}

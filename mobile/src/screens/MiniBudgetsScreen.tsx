@@ -12,6 +12,7 @@ import { Screen, Card, TextField, H1, P, SecondaryButton, PrimaryButton, InlineE
 import { useTheme } from '../contexts/ThemeContext';
 import { formatMoney, formatNumberInput } from '../utils/format';
 import { tokens } from '../theme/tokens';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 export default function MiniBudgetsScreen({ route }: any) {
   const nav = useNavigation<any>();
@@ -164,6 +165,7 @@ export default function MiniBudgetsScreen({ route }: any) {
         </Pressable>
       </View>
 
+      <GuideAnchor id="minibudgets.list" style={{ flex: 1 }}>
       <FlatList
         data={filtered}
         keyExtractor={(i) => i.id}
@@ -296,6 +298,7 @@ export default function MiniBudgetsScreen({ route }: any) {
           </Card>
         )}
       />
+      </GuideAnchor>
     </Screen>
   );
 }

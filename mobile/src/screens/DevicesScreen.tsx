@@ -9,6 +9,7 @@ import { useToast } from '../components/Common/Toast';
 import { Chip, IconTile, InlineError, ListCard, ListRow, Screen, ScreenHeader, SecondaryButton, TextButton } from '../components/Common/ui';
 import { formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 function timeAgo(iso: string): string {
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -101,6 +102,7 @@ export default function DevicesScreen() {
       {loading && !items.length ? <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 24 }} /> : null}
 
       {items.length ? (
+        <GuideAnchor id="devices.list">
         <ListCard>
           {items.map((s) => (
             <ListRow
@@ -116,6 +118,7 @@ export default function DevicesScreen() {
             />
           ))}
         </ListCard>
+        </GuideAnchor>
       ) : null}
 
       {others.length ? <SecondaryButton title="Sign out all other devices" onPress={signOutOthers} disabled={busy} style={{ marginTop: 16 }} /> : null}

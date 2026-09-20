@@ -43,6 +43,7 @@ import { SpaceSwitcher } from '../components/Common/SpaceSwitcher';
 import { useTour, useTourAnchor } from '../contexts/TourContext';
 import { useNudges } from '../contexts/NudgesContext';
 import { NudgeTooltip } from '../components/Common/NudgeTooltip';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 /** One model for every use case: your own plan, a household budget you share every month, or a one-off event or trip. */
 const PURPOSE_OPTIONS: Array<{ value: BudgetPurpose; label: string; subtitle: string }> = [
@@ -1381,7 +1382,7 @@ export function BudgetScreen() {
                   </View>
 
                   {Object.keys(current.categories || {}).length ? (
-                    <>
+                    <GuideAnchor id="budget.buckets">
                       <View style={[styles.hr, { backgroundColor: theme.colors.border }]} />
                       <Text style={[type.eyebrow, { color: theme.colors.textMuted, marginBottom: 2 }]}>Buckets</Text>
                       {Object.entries(current.categories || {}).map(([key, c]) => {
@@ -1418,7 +1419,7 @@ export function BudgetScreen() {
                           </View>
                         );
                       })}
-                    </>
+                    </GuideAnchor>
                   ) : null}
                 </Card>
               </Pressable>

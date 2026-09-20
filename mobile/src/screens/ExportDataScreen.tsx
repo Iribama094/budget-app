@@ -6,6 +6,7 @@ import { ArrowLeft, Download, FileText, Mail } from 'lucide-react-native';
 import { Screen, H1, P, Card, PrimaryButton } from '../components/Common/ui';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 export default function ExportDataScreen() {
   const nav = useNavigation<any>();
@@ -41,7 +42,7 @@ export default function ExportDataScreen() {
         </View>
       </View>
 
-      <View style={{ marginTop: 16 }}>
+      <GuideAnchor id="export.actions" style={{ marginTop: 16 }}>
         <Card>
           <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Export your data</Text>
           <P style={{ marginTop: 6 }}>Choose how you’d like to export your budgets and transactions.</P>
@@ -58,7 +59,7 @@ export default function ExportDataScreen() {
             />
           </View>
         </Card>
-      </View>
+      </GuideAnchor>
 
       <View style={{ marginTop: 12 }}>
         <Card>

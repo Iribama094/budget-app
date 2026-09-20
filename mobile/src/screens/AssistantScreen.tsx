@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowUp, Mic, Sparkles, Square, X } from 'lucide-react-native';
@@ -208,7 +209,7 @@ export default function AssistantScreen() {
           ) : null}
         </ScrollView>
 
-        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 10), borderTopColor: theme.colors.border, backgroundColor: theme.colors.surface }]}>
+        <GuideAnchor id="assistant.composer" style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 10), borderTopColor: theme.colors.border, backgroundColor: theme.colors.surface }]}>
           {voice.state !== 'idle' || voice.error ? (
             <Text style={[type.caption, { color: voice.error ? theme.colors.error : theme.colors.primary, textAlign: 'center', marginBottom: 6 }]}>
               {voice.error ?? (voice.state === 'recording' ? 'Listening… tap the square when you’re done' : 'Turning that into words…')}
@@ -227,6 +228,7 @@ export default function AssistantScreen() {
               blurOnSubmit
               returnKeyType="send"
             />
+            <GuideAnchor id="assistant.mic">
             <Pressable
               onPress={() => (voice.state === 'recording' ? void voice.stop() : void voice.start())}
               disabled={sending || voice.state === 'working'}
@@ -242,6 +244,7 @@ export default function AssistantScreen() {
                 <Mic color={theme.colors.textMuted} size={19} />
               )}
             </Pressable>
+            </GuideAnchor>
             <Pressable
               onPress={() => void send(query)}
               disabled={!query.trim() || sending}
@@ -258,7 +261,7 @@ export default function AssistantScreen() {
           >
             {`${ASSISTANT_NAME} can make mistakes`}
           </InfoTip>
-        </View>
+        </GuideAnchor>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
