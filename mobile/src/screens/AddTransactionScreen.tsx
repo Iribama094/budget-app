@@ -9,6 +9,7 @@ import { addMoneyToGoal } from '../api/business';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
+import { useTourAnchor } from '../contexts/TourContext';
 import { IconButton, InlineError, ListCard, PrimaryButton, Screen, SegmentedControl, TextField, formatAmount } from '../components/Common/ui';
 import { SelectField } from '../components/Common/SelectField';
 import { useVoiceNote } from '../lib/voice';
@@ -35,6 +36,7 @@ export function AddTransactionScreen() {
   const toast = useToast();
   // While the text keyboard is up (typing a note), the number pad steps aside and Save rides above the keyboard.
   const keyboardVisible = useKeyboardState((s) => s.isVisible);
+  const voiceAnchorRef = useTourAnchor('addtx.voice');
   const { saveTransaction } = useSync();
 
   const [type, setType] = useState<'income' | 'expense'>('expense');
@@ -524,7 +526,7 @@ export function AddTransactionScreen() {
           }}
           style={{ width: 200 }}
         />
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View ref={voiceAnchorRef} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <IconButton
             accessibilityLabel={voice.state === 'recording' ? 'Stop and use what I said' : 'Say it instead of typing'}
             onPress={() => (voice.state === 'recording' ? void voice.stop() : void voice.start())}
