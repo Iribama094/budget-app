@@ -31,6 +31,7 @@ import { formatMoney } from '../utils/format';
 import { tokens } from '../theme/tokens';
 import { useSpace } from '../contexts/SpaceContext';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 function directionLabel(direction: 'debit' | 'credit') {
   return direction === 'debit' ? 'Expense (debit)' : 'Income (credit)';
@@ -419,7 +420,7 @@ export default function PendingTransactionsScreen() {
           <View>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Pressable
-                onPress={() => nav.goBack()}
+                onPress={() => goBackOrHome(nav)}
                 style={({ pressed }) => [
                   {
                     width: 44,

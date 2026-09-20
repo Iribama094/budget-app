@@ -11,6 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as SecureStore from 'expo-secure-store';
 import { tokens } from '../theme/tokens';
 import { formatNumberInput } from '../utils/format';
+import { goBackOrHome } from '../navigation/goBack';
 
 const CURRENCY_OPTIONS: Array<{ label: string; value: string }> = [
   { label: 'Nigerian Naira (₦)', value: '₦' },
@@ -129,7 +130,7 @@ export default function ProfileEditScreen() {
     <Screen>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Pressable
-          onPress={() => nav.goBack()}
+          onPress={() => goBackOrHome(nav)}
           style={({ pressed }) => [{
             width: 44,
             height: 44,

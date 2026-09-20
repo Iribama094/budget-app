@@ -14,6 +14,7 @@ import { shareReportPdf } from '../lib/documents';
 import { currencySymbol, formatShortDate, toIsoDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 type RangeKey = 'month' | 'last' | 'quarter' | 'half' | 'year';
 const RANGES: Array<{ key: RangeKey; label: string }> = [
@@ -88,7 +89,7 @@ export default function BusinessReportsScreen() {
 
   return (
     <Screen bottomInset={48}>
-      <ScreenHeader title="Reports" subtitle={`${formatShortDate(from)} – ${formatShortDate(to)}`} onBack={() => nav.goBack()} />
+      <ScreenHeader title="Reports" subtitle={`${formatShortDate(from)} – ${formatShortDate(to)}`} onBack={() => goBackOrHome(nav)} />
 
       <View style={styles.wrap}>
         {RANGES.map((r) => (

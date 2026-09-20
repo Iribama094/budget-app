@@ -25,6 +25,7 @@ import {
   type ApiBudget,
   type ApiTransaction
 } from '../api/endpoints';
+import { goBackOrHome } from '../navigation/goBack';
 
 
 
@@ -274,14 +275,14 @@ export default function TransactionDetailScreen() {
       toast,
       commit: () => (spacesEnabled ? deleteTransactionInSpace(id, space) : deleteTransaction(id))
     });
-    nav.goBack();
+    goBackOrHome(nav);
   }, [activeSpaceId, nav, spacesEnabled, toast, tx]);
 
   return (
     <Screen scrollable onRefresh={load} refreshing={isLoading || isSaving}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Pressable
-          onPress={() => nav.goBack()}
+          onPress={() => goBackOrHome(nav)}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', opacity: pressed ? 0.8 : 1 })}
         >

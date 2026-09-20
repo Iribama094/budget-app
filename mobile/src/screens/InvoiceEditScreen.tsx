@@ -11,6 +11,7 @@ import { DateChoice, LineItem, addDaysIso, isIsoDate, moneyText, parseMoney } fr
 import { createInvoice, getBusinessSettings, updateInvoice, type BusinessSettings, type Invoice } from '../api/business';
 import { currencySymbol, formatNumberInput } from '../utils/format';
 import { type } from '../theme/typography';
+import { goBackOrHome } from '../navigation/goBack';
 
 type DraftItem = { description: string; quantity: string; unitPrice: string };
 
@@ -81,7 +82,7 @@ export default function InvoiceEditScreen() {
       if (existing) {
         await updateInvoice(existing.id, payload);
         toast.show('Invoice updated', 'success');
-        nav.goBack();
+        goBackOrHome(nav);
       } else {
         const inv = await createInvoice(payload);
         toast.show(`${inv.number} created. Share it with ${inv.customerName} 📤`, 'success', 3500);
@@ -96,7 +97,7 @@ export default function InvoiceEditScreen() {
 
   return (
     <Screen bottomInset={48}>
-      <ScreenHeader title={existing ? `Edit ${existing.number}` : 'New invoice'} onBack={() => nav.goBack()} />
+      <ScreenHeader title={existing ? `Edit ${existing.number}` : 'New invoice'} onBack={() => goBackOrHome(nav)} />
       {error ? <InlineError message={error} /> : null}
 
       {settings && !settings.businessName ? (

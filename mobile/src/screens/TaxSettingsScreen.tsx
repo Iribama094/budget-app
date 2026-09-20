@@ -14,6 +14,7 @@ import { formatMoney, formatNumberInput, parseNumberInput } from '../utils/forma
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { useSpace } from '../contexts/SpaceContext';
+import { goBackOrHome } from '../navigation/goBack';
 
 /** Nigeria Tax Act 2025: rent relief is 20% of annual rent, capped at ₦500,000. */
 const RENT_RELIEF_RATE = 0.2;
@@ -312,7 +313,7 @@ export default function TaxSettingsScreen() {
 
   return (
     <Screen bottomInset={48}>
-      <ScreenHeader title="Tax settings" subtitle="Fine-tune how we estimate your tax" onBack={() => nav.goBack()} />
+      <ScreenHeader title="Tax settings" subtitle="Fine-tune how we estimate your tax" onBack={() => goBackOrHome(nav)} />
 
       {optInTaxFeature && (taxPreview || taxPreviewLoading) ? (
         <HeroCard style={{ marginTop: 8 }}>

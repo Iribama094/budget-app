@@ -35,6 +35,7 @@ import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { getRememberedPushToken, scheduleLocalBillReminders } from '../lib/notifications';
 import { currencySymbol, formatNumberInput, formatShortDate, parseNumberInput, toIsoDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
+import { goBackOrHome } from '../navigation/goBack';
 
 const FREQ_LABEL: Record<RecurringFrequency, string> = { weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
 
@@ -244,7 +245,7 @@ export default function RecurringScreen() {
     <Screen onRefresh={load} refreshing={loading} bottomInset={48}>
       <ScreenHeader
         title="Recurring & bills"
-        onBack={() => nav.goBack()}
+        onBack={() => goBackOrHome(nav)}
         right={
           <GuideAnchor id="recurring.add">
           <IconButton

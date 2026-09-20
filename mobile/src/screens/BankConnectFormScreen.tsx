@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { Screen, Card, H1, P, PrimaryButton, TextField } from '../components/Common/ui';
 import { createBankLink } from '../api/endpoints';
+import { goBackOrHome } from '../navigation/goBack';
 
 export default function BankConnectFormScreen() {
   const nav = useNavigation<any>();
@@ -47,7 +48,7 @@ export default function BankConnectFormScreen() {
         ...(spacesEnabled ? { spaceId: activeSpaceId } : {})
       });
       toast.show('Bank linked. Pending transactions created.', 'success');
-      nav.goBack();
+      goBackOrHome(nav);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to link bank';
       toast.show(msg, 'error');
@@ -60,7 +61,7 @@ export default function BankConnectFormScreen() {
     <Screen>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Pressable
-          onPress={() => nav.goBack()}
+          onPress={() => goBackOrHome(nav)}
           style={({ pressed }) => [
             {
               width: 44,

@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { IconButton, InlineError, PrimaryButton, Screen, SecondaryButton, TextButton, TextField } from '../components/Common/ui';
 import { fonts, type } from '../theme/typography';
+import { goBackOrHome } from '../navigation/goBack';
 
 export function LoginScreen() {
   const auth = useAuth();
@@ -66,7 +67,7 @@ export function LoginScreen() {
     <Screen bottomInset={40}>
       <View style={styles.top}>
         {navigation.canGoBack() ? (
-          <IconButton accessibilityLabel="Go back" onPress={() => navigation.goBack()}>
+          <IconButton accessibilityLabel="Go back" onPress={() => goBackOrHome(navigation)}>
             <ChevronLeft color={theme.colors.text} size={20} />
           </IconButton>
         ) : (

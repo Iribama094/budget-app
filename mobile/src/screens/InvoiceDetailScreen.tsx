@@ -13,6 +13,7 @@ import { invoiceMessage, sendOnWhatsApp, shareInvoicePdf } from '../lib/document
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 export default function InvoiceDetailScreen() {
   const nav = useNavigation<any>();
@@ -59,7 +60,7 @@ export default function InvoiceDetailScreen() {
   if (!invoice) {
     return (
       <Screen bottomInset={48}>
-        <ScreenHeader title="Invoice" onBack={() => nav.goBack()} />
+        <ScreenHeader title="Invoice" onBack={() => goBackOrHome(nav)} />
         {error ? <InlineError message={error} /> : <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 40 }} />}
       </Screen>
     );
@@ -125,7 +126,7 @@ export default function InvoiceDetailScreen() {
           void run('delete', async () => {
             await deleteInvoice(invoice.id);
             toast.show('Invoice deleted');
-            nav.goBack();
+            goBackOrHome(nav);
           })
       });
     options.push({ text: 'Cancel', style: 'cancel' });
@@ -143,7 +144,7 @@ export default function InvoiceDetailScreen() {
       <ScreenHeader
         title={invoice.number}
         subtitle={invoice.customerName}
-        onBack={() => nav.goBack()}
+        onBack={() => goBackOrHome(nav)}
         right={
           <IconButton round accessibilityLabel="More options" onPress={more}>
             <MoreHorizontal color={theme.colors.text} size={19} />

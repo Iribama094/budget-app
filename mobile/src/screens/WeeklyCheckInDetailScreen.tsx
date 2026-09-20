@@ -13,6 +13,7 @@ import { type } from '../theme/typography';
 import { pickQuote } from '../lib/quotes';
 import { QuoteLine } from '../components/Common/QuoteLine';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 export default function WeeklyCheckInDetailScreen() {
   const nav = useNavigation<any>();
@@ -186,7 +187,7 @@ export default function WeeklyCheckInDetailScreen() {
 
   return (
     <Screen bottomInset={48}>
-      <ScreenHeader title="Weekly check-in" subtitle={`${formatShortDate(toIsoDate(weekInfo.start))} – ${formatShortDate(toIsoDate(weekInfo.end))}`} onBack={() => nav.goBack()} />
+      <ScreenHeader title="Weekly check-in" subtitle={`${formatShortDate(toIsoDate(weekInfo.start))} – ${formatShortDate(toIsoDate(weekInfo.end))}`} onBack={() => goBackOrHome(nav)} />
 
       <GuideAnchor id="weekly.hero">
       <HeroCard style={{ marginTop: 8 }}>

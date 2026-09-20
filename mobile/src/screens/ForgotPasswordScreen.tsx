@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Chip, IconButton, InlineError, PrimaryButton, Screen, TextButton, TextField } from '../components/Common/ui';
 import { fonts, type } from '../theme/typography';
+import { goBackOrHome } from '../navigation/goBack';
 
 const CODE_LENGTH = 6;
 const RESEND_SECONDS = 60;
@@ -73,7 +74,7 @@ export default function ForgotPasswordScreen() {
       setError(null);
       return;
     }
-    nav.goBack();
+    goBackOrHome(nav);
   };
 
   return (

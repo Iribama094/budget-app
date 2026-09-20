@@ -12,6 +12,7 @@ import { listInvoices, type Invoice } from '../api/business';
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 type Filter = 'open' | 'paid' | 'all';
 
@@ -57,7 +58,7 @@ export default function InvoicesScreen() {
     <Screen bottomInset={48} onRefresh={load} refreshing={false}>
       <ScreenHeader
         title="Invoices"
-        onBack={() => nav.goBack()}
+        onBack={() => goBackOrHome(nav)}
         right={
           <Pressable onPress={newInvoice} accessibilityRole="button" accessibilityLabel="New invoice" style={({ pressed }) => [styles.newPill, { backgroundColor: theme.colors.primary, opacity: pressed ? 0.85 : 1 }]}>
             <Plus color={theme.colors.onPrimary} size={16} strokeWidth={2.6} />

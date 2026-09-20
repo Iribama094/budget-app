@@ -18,6 +18,7 @@ import { useCategories } from '../contexts/CategoriesContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { currencySymbol, formatShortDate, toIsoDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
+import { goBackOrHome } from '../navigation/goBack';
 
 const ASSISTANT_NAME = 'Flux';
 
@@ -145,7 +146,7 @@ export default function AssistantScreen() {
           <Text style={[type.title, { color: theme.colors.text }]}>{ASSISTANT_NAME}</Text>
           <Text style={[type.caption, { color: theme.colors.textMuted }]}>Your money coach</Text>
         </View>
-        <IconButton accessibilityLabel="Close" onPress={() => nav.goBack()}>
+        <IconButton accessibilityLabel="Close" onPress={() => goBackOrHome(nav)}>
           <X color={theme.colors.text} size={20} />
         </IconButton>
       </View>

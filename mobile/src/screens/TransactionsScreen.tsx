@@ -17,6 +17,7 @@ import { useSync } from '../contexts/SyncContext';
 import { Amount, Card, EmptyState, IconButton, InlineError, Screen, ScreenHeader, Skeleton } from '../components/Common/ui';
 import { currencySymbol, dayKey, formatDayHeader, formatRelativeDay, monthName, toIsoDateTime } from '../utils/format';
 import { fonts, type } from '../theme/typography';
+import { goBackOrHome } from '../navigation/goBack';
 
 const UNDO_MS = 5000;
 const MAX_PAGES = 10;
@@ -180,7 +181,7 @@ export function TransactionsScreen() {
         contentContainerStyle={{ paddingBottom: 48 }}
         ListHeaderComponent={
           <View>
-            <ScreenHeader title="Transactions" onBack={() => nav.goBack()} />
+            <ScreenHeader title="Transactions" onBack={() => goBackOrHome(nav)} />
             {spacesEnabled ? (
               <View style={{ marginTop: 6 }}>
                 <SpaceSwitcher />

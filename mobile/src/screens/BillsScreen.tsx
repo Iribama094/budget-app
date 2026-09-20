@@ -14,6 +14,7 @@ import { createBill, deleteBill, listBills, payBill, updateBill, type SupplierBi
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 type Filter = 'open' | 'paid' | 'all';
 const CATEGORIES = ['Stock & supplies', 'Rent', 'Utilities', 'Transport & logistics', 'Marketing', 'Equipment', 'Professional fees', 'Other'];
@@ -137,7 +138,7 @@ export default function BillsScreen() {
       <ScreenHeader
         title="Bills"
         subtitle="Money the business owes"
-        onBack={() => nav.goBack()}
+        onBack={() => goBackOrHome(nav)}
         right={
           <Pressable onPress={() => setDraft(blank())} accessibilityRole="button" accessibilityLabel="Add a bill" style={({ pressed }) => [styles.newPill, { backgroundColor: theme.colors.primary, opacity: pressed ? 0.85 : 1 }]}>
             <Plus color={theme.colors.onPrimary} size={16} strokeWidth={2.6} />

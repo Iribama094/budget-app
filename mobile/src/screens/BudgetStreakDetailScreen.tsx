@@ -11,6 +11,7 @@ import { listBudgets, listTransactions, type ApiBudget } from '../api/endpoints'
 import { currencySymbol, toIsoDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 export default function BudgetStreakDetailScreen() {
   const nav = useNavigation<any>();
@@ -146,7 +147,7 @@ export default function BudgetStreakDetailScreen() {
 
   return (
     <Screen bottomInset={48}>
-      <ScreenHeader title="Budget streak" onBack={() => nav.goBack()} />
+      <ScreenHeader title="Budget streak" onBack={() => goBackOrHome(nav)} />
 
       <GuideAnchor id="streak.card">
       <HeroCard style={{ marginTop: 8 }}>

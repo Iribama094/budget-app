@@ -7,6 +7,7 @@ import { Screen, H1, P, Card, PrimaryButton } from '../components/Common/ui';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 export default function ExportDataScreen() {
   const nav = useNavigation<any>();
@@ -21,7 +22,7 @@ export default function ExportDataScreen() {
     <Screen>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Pressable
-          onPress={() => nav.goBack()}
+          onPress={() => goBackOrHome(nav)}
           style={({ pressed }) => [{
             width: 44,
             height: 44,

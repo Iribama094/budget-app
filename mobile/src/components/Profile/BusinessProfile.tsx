@@ -13,6 +13,7 @@ import { getBusinessSummary, type BusinessSummary } from '../../api/business';
 import { currencySymbol } from '../../utils/format';
 import { type } from '../../theme/typography';
 import { GuideAnchor } from '../Common/GuideAnchor';
+import { goBackOrHome } from '../../navigation/goBack';
 
 const LOOK = SPACE_LOOK.business;
 
@@ -64,7 +65,7 @@ export function BusinessProfile({ onLogout }: { onLogout: () => void }) {
 
   return (
     <Screen bottomInset={48}>
-      <ScreenHeader title="Business profile" onBack={() => nav.goBack()} />
+      <ScreenHeader title="Business profile" onBack={() => goBackOrHome(nav)} />
 
       <View style={styles.hero}>
         <LinearGradient colors={[LOOK.bg, LOOK.bg2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />

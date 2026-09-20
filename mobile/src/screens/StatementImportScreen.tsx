@@ -17,6 +17,7 @@ import { readStatement, type StatementPreview } from '../lib/statementCsv';
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 const SOURCES: Array<{ key: StatementSource; label: string; how: string }> = [
   { key: 'paystack', label: 'Paystack', how: 'In your Paystack dashboard, open Transactions and export them as CSV. Successful payments come in as sales.' },
@@ -104,7 +105,7 @@ export default function StatementImportScreen() {
 
   return (
     <Screen bottomInset={48}>
-      <ScreenHeader title="Upload a statement" subtitle="Paystack, Moniepoint or bank CSV" onBack={() => nav.goBack()} />
+      <ScreenHeader title="Upload a statement" subtitle="Paystack, Moniepoint or bank CSV" onBack={() => goBackOrHome(nav)} />
 
       <SectionHeader title="Where is it from?" style={{ marginTop: 8 }} />
       <View style={styles.wrap}>

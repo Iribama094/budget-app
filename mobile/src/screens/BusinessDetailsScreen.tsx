@@ -9,6 +9,7 @@ import { Card, IconTile, InlineError, PrimaryButton, Screen, ScreenHeader, Secti
 import { getBusinessSettings, updateBusinessSettings } from '../api/business';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 type Form = { businessName: string; businessPhone: string; businessEmail: string; businessAddress: string; invoicePrefix: string };
 
@@ -39,7 +40,7 @@ export default function BusinessDetailsScreen() {
   if (!form) {
     return (
       <Screen bottomInset={48}>
-        <ScreenHeader title="Business details" onBack={() => nav.goBack()} />
+        <ScreenHeader title="Business details" onBack={() => goBackOrHome(nav)} />
         {error ? <InlineError message={error} /> : <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 40 }} />}
       </Screen>
     );
@@ -62,7 +63,7 @@ export default function BusinessDetailsScreen() {
         invoicePrefix: prefix
       });
       toast.show('Business details saved ✅', 'success');
-      nav.goBack();
+      goBackOrHome(nav);
     } catch (e) {
       toast.show(e instanceof Error ? e.message : 'Could not save your details', 'error');
     } finally {
@@ -72,7 +73,7 @@ export default function BusinessDetailsScreen() {
 
   return (
     <Screen bottomInset={48}>
-      <ScreenHeader title="Business details" subtitle="Shows on your invoices and reports" onBack={() => nav.goBack()} />
+      <ScreenHeader title="Business details" subtitle="Shows on your invoices and reports" onBack={() => goBackOrHome(nav)} />
 
       <SectionHeader title="Invoice preview" style={{ marginTop: 8 }} />
       <Card>

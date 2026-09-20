@@ -13,6 +13,7 @@ import { getBusinessSummary, updateBusinessSettings, type BusinessSettings, type
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 const SET_ASIDE = [5, 10, 15, 20, 25, 30];
 const BUFFERS = [1, 2, 3, 6];
@@ -75,7 +76,7 @@ export default function BusinessTaxScreen() {
   if (!summary) {
     return (
       <Screen bottomInset={48}>
-        <ScreenHeader title="Tax & VAT" onBack={() => nav.goBack()} />
+        <ScreenHeader title="Tax & VAT" onBack={() => goBackOrHome(nav)} />
         {error ? <InlineError message={error} /> : <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 40 }} />}
       </Screen>
     );
@@ -86,7 +87,7 @@ export default function BusinessTaxScreen() {
 
   return (
     <Screen bottomInset={48} onRefresh={load} refreshing={false}>
-      <ScreenHeader title="Tax & VAT" subtitle={s.businessName ?? undefined} onBack={() => nav.goBack()} />
+      <ScreenHeader title="Tax & VAT" subtitle={s.businessName ?? undefined} onBack={() => goBackOrHome(nav)} />
 
       <GuideAnchor id="businesstax.hero">
       <HeroCard style={{ marginTop: 8 }}>

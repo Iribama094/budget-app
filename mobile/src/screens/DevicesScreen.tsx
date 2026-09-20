@@ -10,6 +10,7 @@ import { Chip, IconTile, InlineError, ListCard, ListRow, Screen, ScreenHeader, S
 import { formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 function timeAgo(iso: string): string {
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -93,7 +94,7 @@ export default function DevicesScreen() {
 
   return (
     <Screen onRefresh={load} refreshing={loading} bottomInset={48}>
-      <ScreenHeader title="Your devices" onBack={() => nav.goBack()} />
+      <ScreenHeader title="Your devices" onBack={() => goBackOrHome(nav)} />
       <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 6, marginBottom: 14 }]}>
         Phones signed in to your account. If you don’t recognise one, sign it out and change your password.
       </Text>

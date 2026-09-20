@@ -13,6 +13,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { formatMoney, formatNumberInput } from '../utils/format';
 import { tokens } from '../theme/tokens';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 export default function MiniBudgetsScreen({ route }: any) {
   const nav = useNavigation<any>();
@@ -109,7 +110,7 @@ export default function MiniBudgetsScreen({ route }: any) {
       <Screen>
         <H1 style={{ marginBottom: 6 }}>Mini Budgets</H1>
         <P style={{ marginBottom: 12 }}>Create a budget first, then add mini budgets under its categories.</P>
-        <SecondaryButton title="Back" onPress={() => nav.goBack()} />
+        <SecondaryButton title="Back" onPress={() => goBackOrHome(nav)} />
       </Screen>
     );
   }
@@ -117,7 +118,7 @@ export default function MiniBudgetsScreen({ route }: any) {
   const handleClose = () => {
     try {
       if (typeof nav.canGoBack === 'function' && nav.canGoBack()) {
-        nav.goBack();
+        goBackOrHome(nav);
         return;
       }
     } catch {
