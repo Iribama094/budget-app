@@ -1,6 +1,6 @@
 import { requireAuth } from '../lib/auth.ts';
 import { json, methodNotAllowed } from '../lib/http.ts';
-import { inRollout, listFlags, openWrappedPeriods } from '../lib/admin.ts';
+import { inRollout, isStaff, listFlags, openWrappedPeriods } from '../lib/admin.ts';
 import type { Ctx } from '../index.ts';
 
 /**
@@ -26,10 +26,14 @@ export async function appConfig(ctx: Ctx) {
     return p ? { available: true as const, kind: p.kind, quarter: p.quarter, year: p.year, closesOn: p.closesOn } : { available: false as const };
   };
 
+  // Staff can open Wrapped off season to check it before certifying. Nobody else gets the entry point.
+  const staff = await isStaff(userId);
+
   return json(
     200,
     {
       features,
+      staff,
       wrapped: { personal: forSpace('personal'), business: forSpace('business') },
       // The app caches this; a short life keeps a switch quick without asking on every screen.
       refreshAfterSeconds: 600

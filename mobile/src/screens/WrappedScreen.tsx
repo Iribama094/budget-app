@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
@@ -13,6 +13,8 @@ import { useToast } from '../components/Common/Toast';
 import { Amount, EmptyState, IconButton, Screen, SegmentedControl, formatAmount } from '../components/Common/ui';
 import { ChoiceChip } from '../components/Plan/ChoiceChip';
 import { getWrapped, type Wrapped } from '../api/business';
+import { Confetti, CountUp, GrowBar, Pop, Reveal } from '../components/Wrapped/motion';
+import { haptic } from '../lib/haptics';
 import { currencySymbol } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
@@ -21,7 +23,11 @@ const EMOJI: Record<string, string> = { stacker: '🐿️', planner: '📋', tra
 const WHITE = '#FFFFFF';
 const SOFT = 'rgba(255,255,255,0.72)';
 
-type Slide = { key: string; colors: [string, string]; body: React.ReactNode };
+/** Each slide gets the active flag so its own movement replays when it comes round. */
+type Slide = { key: string; colors: [string, string]; body: (active: boolean) => React.ReactNode };
+
+/** How long a slide holds before moving on by itself, like a story. Holding a finger down pauses it. */
+const SLIDE_MS = 7000;
 
 function defaultPeriod(): { kind: 'h1' | 'year'; year: number } {
   const now = new Date();
@@ -89,15 +95,24 @@ export default function WrappedScreen() {
     out.push({
       key: 'intro',
       colors: ['#0F3D35', '#1B6B5C'],
-      body: (
+      body: (active) => (
         <>
-          <Text style={label}>Money Wrapped</Text>
-          <Text style={{ fontSize: 64, marginTop: 18 }}>🎁</Text>
-          <Text style={[big, { marginTop: 12 }]}>{data.period.label}</Text>
-          <Text style={[styles.line, { color: SOFT }]}>
-            {data.space === 'business' ? 'Business' : 'Personal'} · {data.period.complete ? 'the full story' : 'the story so far'}
-          </Text>
-          <Text style={[styles.line, { color: WHITE, marginTop: 28 }]}>Tap the right side to see how your money moved →</Text>
+          <Reveal active={active}>
+            <Text style={label}>Money Wrapped</Text>
+          </Reveal>
+          <Pop active={active} delay={180}>
+            <Text style={{ fontSize: 64, marginTop: 18 }}>🎁</Text>
+          </Pop>
+          <Reveal active={active} delay={420}>
+            <Text style={[big, { marginTop: 12 }]}>{data.period.label}</Text>
+            <Text style={[styles.line, { color: SOFT }]}>
+              {data.space === 'business' ? 'Business' : 'Personal'} · {data.period.complete ? 'the full story' : 'the story so far'}
+            </Text>
+          </Reveal>
+          <Reveal active={active} delay={760}>
+            <Text style={[styles.line, { color: WHITE, marginTop: 28 }]}>Oya, make we see how your money waka 👀</Text>
+            <Text style={[type.caption, { color: SOFT, marginTop: 8 }]}>It moves on its own. Tap to skip ahead, hold to pause.</Text>
+          </Reveal>
         </>
       )
     });
@@ -106,21 +121,40 @@ export default function WrappedScreen() {
     out.push({
       key: 'money',
       colors: ['#1C2638', '#34445F'],
-      body: (
+      body: (active) => (
         <>
-          <Text style={label}>{data.space === 'business' ? 'Money through the business' : 'Money in and out'}</Text>
-          <Text style={[styles.metricLabel, { color: SOFT, marginTop: 22 }]}>Came in</Text>
-          <Amount value={data.totals.income} currency={glyph} size="lg" color={WHITE} hidden={hide} />
-          <Text style={[styles.metricLabel, { color: SOFT, marginTop: 16 }]}>Went out</Text>
-          <Amount value={data.totals.spending} currency={glyph} size="lg" color={WHITE} hidden={hide} />
-          <Text style={[styles.metricLabel, { color: SOFT, marginTop: 16 }]}>{saved >= 0 ? 'You kept' : 'Spent more than came in by'}</Text>
-          <Amount value={Math.abs(saved)} currency={glyph} size="lg" color={saved >= 0 ? '#8FD6C3' : '#F07565'} hidden={hide} />
-          {data.totals.savingsRate != null && data.totals.savingsRate > 0 ? <Text style={[styles.line, { color: WHITE, marginTop: 18 }]}>That’s {data.totals.savingsRate}% of everything that came in. You try well well 💪</Text> : null}
-          {data.change.spending != null ? (
-            <Text style={[styles.line, { color: SOFT, marginTop: 8 }]}>
-              Spending {data.change.spending >= 0 ? 'went up' : 'went down'} {Math.abs(data.change.spending)}% on the same time last year.
-            </Text>
-          ) : null}
+          <Reveal active={active}>
+            <Text style={label}>{data.space === 'business' ? 'Money through the business' : 'Money in and out'}</Text>
+          </Reveal>
+          <Reveal active={active} delay={220}>
+            <Text style={[styles.metricLabel, { color: SOFT, marginTop: 22 }]}>Came in</Text>
+            <CountUp active={active} value={data.totals.income} glyph={glyph} hidden={hide} delay={260} style={[styles.count, { color: WHITE }]} />
+          </Reveal>
+          <Reveal active={active} delay={520}>
+            <Text style={[styles.metricLabel, { color: SOFT, marginTop: 16 }]}>Went out</Text>
+            <CountUp active={active} value={data.totals.spending} glyph={glyph} hidden={hide} delay={560} style={[styles.count, { color: WHITE }]} />
+          </Reveal>
+          <Reveal active={active} delay={860}>
+            <Text style={[styles.metricLabel, { color: SOFT, marginTop: 16 }]}>{saved >= 0 ? 'You kept' : 'Spent more than came in by'}</Text>
+            <CountUp
+              active={active}
+              value={Math.abs(saved)}
+              glyph={glyph}
+              hidden={hide}
+              delay={900}
+              style={[styles.count, { color: saved >= 0 ? '#8FD6C3' : '#F07565' }]}
+            />
+          </Reveal>
+          <Reveal active={active} delay={1400}>
+            {data.totals.savingsRate != null && data.totals.savingsRate > 0 ? (
+              <Text style={[styles.line, { color: WHITE, marginTop: 18 }]}>{data.totals.savingsRate}% of everything that came in, you kept. No be small thing 💪</Text>
+            ) : null}
+            {data.change.spending != null ? (
+              <Text style={[styles.line, { color: SOFT, marginTop: 8 }]}>
+                Spending {data.change.spending >= 0 ? 'went up' : 'went down'} {Math.abs(data.change.spending)}% on the same time last year.
+              </Text>
+            ) : null}
+          </Reveal>
         </>
       )
     });
@@ -130,14 +164,22 @@ export default function WrappedScreen() {
       out.push({
         key: 'categories',
         colors: ['#3A2A12', '#7A5A1E'],
-        body: (
+        body: (active) => (
           <>
-            <Text style={label}>Where the money went</Text>
-            <Text style={[big, { marginTop: 14 }]}>{top.category}</Text>
-            <Text style={[styles.line, { color: SOFT }]}>took {top.share}% of your spending{hide ? '' : `, ${formatAmount(top.amount, glyph)}`}.</Text>
+            <Reveal active={active}>
+              <Text style={label}>Where the money went</Text>
+            </Reveal>
+            <Pop active={active} delay={260}>
+              <Text style={[big, { marginTop: 14 }]}>{top.category}</Text>
+            </Pop>
+            <Reveal active={active} delay={560}>
+              <Text style={[styles.line, { color: SOFT }]}>
+                chopped {top.share}% of your spending{hide ? '' : `, ${formatAmount(top.amount, glyph)}`}.
+              </Text>
+            </Reveal>
             <View style={{ marginTop: 22, gap: 12 }}>
-              {data.topCategories.map((c) => (
-                <View key={c.category}>
+              {data.topCategories.map((c, i) => (
+                <Reveal key={c.category} active={active} delay={760 + i * 120}>
                   <View style={styles.rowBetween}>
                     <Text style={[type.bodyStrong, { color: WHITE }]} numberOfLines={1}>
                       {c.category}
@@ -145,9 +187,9 @@ export default function WrappedScreen() {
                     <Text style={[type.smallStrong, { color: SOFT }]}>{c.share}%</Text>
                   </View>
                   <View style={styles.track}>
-                    <View style={[styles.fill, { width: `${Math.max(3, c.share)}%`, backgroundColor: '#E2B65C' }]} />
+                    <GrowBar active={active} percent={c.share} color="#E2B65C" delay={820 + i * 120} />
                   </View>
-                </View>
+                </Reveal>
               ))}
             </View>
           </>
@@ -160,21 +202,42 @@ export default function WrappedScreen() {
       out.push({
         key: 'months',
         colors: ['#2B1B3D', '#5B3A7A'],
-        body: (
+        body: (active) => (
           <>
-            <Text style={label}>Month by month</Text>
-            <Text style={[big, { marginTop: 14 }]}>{data.biggestMonth.month}</Text>
-            <Text style={[styles.line, { color: SOFT }]}>was your biggest spending month{hide ? '' : ` at ${formatAmount(data.biggestMonth.amount, glyph)}`}.</Text>
+            <Reveal active={active}>
+              <Text style={label}>Month by month</Text>
+            </Reveal>
+            <Pop active={active} delay={240}>
+              <Text style={[big, { marginTop: 14 }]}>{data.biggestMonth!.month}</Text>
+            </Pop>
+            <Reveal active={active} delay={540}>
+              <Text style={[styles.line, { color: SOFT }]}>
+                na that month money waka pass{hide ? '' : `, ${formatAmount(data.biggestMonth!.amount, glyph)}`}.
+              </Text>
+            </Reveal>
             <View style={styles.chart}>
-              {data.months.map((mm) => (
+              {data.months.map((mm, i) => (
                 <View key={mm.month} style={styles.chartCol}>
-                  <View style={[styles.bar, { height: `${Math.max(3, (mm.spending / maxSpend) * 100)}%`, backgroundColor: mm.month === data.biggestMonth!.month.slice(0, 3) ? '#E2B65C' : 'rgba(255,255,255,0.35)' }]} />
+                  <GrowBar
+                    active={active}
+                    vertical
+                    percent={(mm.spending / maxSpend) * 100}
+                    color={mm.month === data.biggestMonth!.month.slice(0, 3) ? '#E2B65C' : 'rgba(255,255,255,0.35)'}
+                    delay={700 + i * 70}
+                  />
                   <Text style={[type.caption, { color: SOFT, marginTop: 6, fontSize: 10 }]}>{mm.month.slice(0, 1)}</Text>
                 </View>
               ))}
             </View>
-            {data.calmestMonth ? <Text style={[styles.line, { color: WHITE, marginTop: 14 }]}>Calmest month: {data.calmestMonth.month} 😌</Text> : null}
-            {data.bestSavingMonth ? <Text style={[styles.line, { color: WHITE, marginTop: 6 }]}>Best month for keeping money: {data.bestSavingMonth.month}{hide ? '' : ` (${formatAmount(data.bestSavingMonth.amount, glyph)})`}</Text> : null}
+            <Reveal active={active} delay={1500}>
+              {data.calmestMonth ? <Text style={[styles.line, { color: WHITE, marginTop: 14 }]}>Calmest month: {data.calmestMonth.month} 😌</Text> : null}
+              {data.bestSavingMonth ? (
+                <Text style={[styles.line, { color: WHITE, marginTop: 6 }]}>
+                  Best month for keeping money: {data.bestSavingMonth.month}
+                  {hide ? '' : ` (${formatAmount(data.bestSavingMonth.amount, glyph)})`}
+                </Text>
+              ) : null}
+            </Reveal>
           </>
         )
       });
@@ -184,25 +247,32 @@ export default function WrappedScreen() {
       out.push({
         key: 'spot',
         colors: ['#12343B', '#1F6F7A'],
-        body: (
+        body: (active) => (
           <>
-            <Text style={label}>Your spots</Text>
+            <Reveal active={active}>
+              <Text style={label}>Your spots</Text>
+            </Reveal>
             {data.topMerchant ? (
               <>
-                <Text style={[big, { marginTop: 14 }]} numberOfLines={2}>
-                  {data.topMerchant.name}
-                </Text>
-                <Text style={[styles.line, { color: SOFT }]}>
-                  {data.topMerchant.visits} visit{data.topMerchant.visits === 1 ? '' : 's'}{hide ? '' : ` · ${formatAmount(data.topMerchant.amount, glyph)}`}. Looks like your favourite spot 😄
-                </Text>
+                <Pop active={active} delay={260}>
+                  <Text style={[big, { marginTop: 14 }]} numberOfLines={2}>
+                    {data.topMerchant.name}
+                  </Text>
+                </Pop>
+                <Reveal active={active} delay={600}>
+                  <Text style={[styles.line, { color: SOFT }]}>
+                    {data.topMerchant.visits} visit{data.topMerchant.visits === 1 ? '' : 's'}
+                    {hide ? '' : ` · ${formatAmount(data.topMerchant.amount, glyph)}`}. Na your spot be that 😄
+                  </Text>
+                </Reveal>
               </>
             ) : null}
             {data.busiestDay ? (
-              <>
+              <Reveal active={active} delay={900}>
                 <Text style={[styles.metricLabel, { color: SOFT, marginTop: 28 }]}>Big spending day</Text>
                 <Text style={[big, { fontSize: 34, lineHeight: 40 }]}>{data.busiestDay}s</Text>
                 <Text style={[styles.line, { color: SOFT }]}>Plan those days ahead and the week go calm.</Text>
-              </>
+              </Reveal>
             ) : null}
           </>
         )
@@ -213,16 +283,30 @@ export default function WrappedScreen() {
     out.push({
       key: 'habits',
       colors: ['#16302A', '#2F6B57'],
-      body: (
+      body: (active) => (
         <>
-          <Text style={label}>Your habits</Text>
-          <Text style={[big, { marginTop: 14 }]}>{h.daysLogged} days</Text>
-          <Text style={[styles.line, { color: SOFT }]}>with money logged, out of {h.trackedDays} since you started tracking.</Text>
+          <Reveal active={active}>
+            <Text style={label}>Your habits</Text>
+          </Reveal>
+          <Pop active={active} delay={240}>
+            <Text style={[big, { marginTop: 14 }]}>{h.daysLogged} days</Text>
+          </Pop>
+          <Reveal active={active} delay={540}>
+            <Text style={[styles.line, { color: SOFT }]}>you logged your money, out of {h.trackedDays} since you started. Consistency na the real flex.</Text>
+          </Reveal>
           <View style={{ marginTop: 24, gap: 14 }}>
-            <Text style={[styles.line, { color: WHITE }]}>🧾 {h.transactions} transactions recorded</Text>
-            <Text style={[styles.line, { color: WHITE }]}>🙌 {h.noSpendDays} no-spend days</Text>
-            {data.goals.saved > 0 ? <Text style={[styles.line, { color: WHITE }]}>🌱 {money(data.goals.saved)} put toward {data.goals.goalsFunded} goal{data.goals.goalsFunded === 1 ? '' : 's'}</Text> : null}
-            {data.budgets.ended > 0 ? <Text style={[styles.line, { color: WHITE }]}>🎯 {data.budgets.onBudget} of {data.budgets.ended} budgets finished on plan</Text> : null}
+            {[
+              `🧾 ${h.transactions} transactions recorded`,
+              `🙌 ${h.noSpendDays} no-spend days`,
+              data.goals.saved > 0 ? `🌱 ${money(data.goals.saved)} put toward ${data.goals.goalsFunded} goal${data.goals.goalsFunded === 1 ? '' : 's'}` : null,
+              data.budgets.ended > 0 ? `🎯 ${data.budgets.onBudget} of ${data.budgets.ended} budgets finished on plan` : null
+            ]
+              .filter(Boolean)
+              .map((lineText, i) => (
+                <Reveal key={String(lineText)} active={active} delay={820 + i * 160}>
+                  <Text style={[styles.line, { color: WHITE }]}>{lineText}</Text>
+                </Reveal>
+              ))}
           </View>
         </>
       )
@@ -233,12 +317,23 @@ export default function WrappedScreen() {
       out.push({
         key: 'business',
         colors: ['#1C2638', '#2A3A55'],
-        body: (
+        body: (active) => (
           <>
-            <Text style={label}>The business</Text>
-            <Text style={[styles.metricLabel, { color: SOFT, marginTop: 18 }]}>{b.profit >= 0 ? 'Profit' : 'Loss'}</Text>
-            <Amount value={Math.abs(b.profit)} currency={glyph} size="lg" color={b.profit >= 0 ? '#E2B65C' : '#F07565'} hidden={hide} />
-            {b.margin != null ? <Text style={[styles.line, { color: SOFT }]}>{b.margin}% margin on {money(b.revenue)} revenue</Text> : null}
+            <Reveal active={active}>
+              <Text style={label}>The business</Text>
+            </Reveal>
+            <Reveal active={active} delay={220}>
+              <Text style={[styles.metricLabel, { color: SOFT, marginTop: 18 }]}>{b.profit >= 0 ? 'Profit' : 'Loss'}</Text>
+              <CountUp
+                active={active}
+                value={Math.abs(b.profit)}
+                glyph={glyph}
+                hidden={hide}
+                delay={280}
+                style={[styles.count, { color: b.profit >= 0 ? '#E2B65C' : '#F07565' }]}
+              />
+              {b.margin != null ? <Text style={[styles.line, { color: SOFT }]}>{b.margin}% margin on {money(b.revenue)} revenue</Text> : null}
+            </Reveal>
             <View style={{ marginTop: 22, gap: 12 }}>
               {b.topCustomer ? <Text style={[styles.line, { color: WHITE }]}>🤝 Top customer: {b.topCustomer.name}{hide ? '' : ` (${formatAmount(b.topCustomer.amount, glyph)})`}</Text> : null}
               {b.bestMonth ? <Text style={[styles.line, { color: WHITE }]}>📈 Best month: {b.bestMonth.month}</Text> : null}
@@ -254,24 +349,61 @@ export default function WrappedScreen() {
     out.push({
       key: 'persona',
       colors: ['#1B1030', '#7A2E5C'],
-      body: (
+      body: (active) => (
         <>
-          <Text style={label}>Your money personality</Text>
-          <Text style={{ fontSize: 72, marginTop: 20 }}>{EMOJI[data.persona.key] ?? '✨'}</Text>
-          <Text style={[big, { marginTop: 8 }]}>{data.persona.title}</Text>
-          <Text style={[styles.line, { color: WHITE, marginTop: 10 }]}>{data.persona.line}</Text>
-          <Text style={[type.caption, { color: SOFT, marginTop: 30 }]}>{data.period.label} · BudgetFriendly</Text>
+          <Reveal active={active}>
+            <Text style={label}>Your money personality</Text>
+          </Reveal>
+          <Reveal active={active} delay={300}>
+            <Text style={[styles.line, { color: SOFT, marginTop: 10 }]}>Drumroll...</Text>
+          </Reveal>
+          <Pop active={active} delay={900}>
+            <Text style={{ fontSize: 72, marginTop: 14 }}>{EMOJI[data.persona.key] ?? '✨'}</Text>
+          </Pop>
+          <Pop active={active} delay={1150}>
+            <Text style={[big, { marginTop: 8 }]}>{data.persona.title}</Text>
+          </Pop>
+          <Reveal active={active} delay={1500}>
+            <Text style={[styles.line, { color: WHITE, marginTop: 10 }]}>{data.persona.line}</Text>
+            <Text style={[type.caption, { color: SOFT, marginTop: 30 }]}>{data.period.label} · BudgetFriendly</Text>
+          </Reveal>
         </>
       )
     });
     return out;
   }, [data, glyph, hide]);
 
-  const go = (i: number) => {
-    const next = Math.max(0, Math.min(slides.length - 1, i));
-    scrollRef.current?.scrollTo({ x: next * cardW, animated: true });
-    setIndex(next);
-  };
+  const go = useCallback(
+    (i: number) => {
+      const next = Math.max(0, Math.min(slides.length - 1, i));
+      scrollRef.current?.scrollTo({ x: next * cardW, animated: true });
+      setIndex(next);
+    },
+    [cardW, slides.length]
+  );
+
+  /**
+   * The story clock. Each slide holds for a few seconds and then moves on by itself, and the bar across the
+   * top shows how long is left. A finger held on the card pauses it, which is how anybody reads a long slide
+   * or takes a screenshot. It stops on the last card rather than looping.
+   */
+  const progress = useRef(new Animated.Value(0)).current;
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    progress.setValue(0);
+    if (!slides.length || paused || index >= slides.length - 1) return;
+    const anim = Animated.timing(progress, { toValue: 1, duration: SLIDE_MS, easing: Easing.linear, useNativeDriver: false });
+    anim.start(({ finished }) => {
+      if (finished) go(index + 1);
+    });
+    return () => anim.stop();
+  }, [index, paused, slides.length, progress, go]);
+
+  // A small knock when the personality lands, since that is the moment people wait for.
+  useEffect(() => {
+    if (slides.length && index === slides.length - 1) haptic.success();
+  }, [index, slides.length]);
 
   const share = async () => {
     const node = slideRefs.current[index];
@@ -334,7 +466,16 @@ export default function WrappedScreen() {
         <>
           <View style={styles.dots}>
             {slides.map((s, i) => (
-              <View key={s.key} style={[styles.dot, { backgroundColor: i <= index ? theme.colors.primary : theme.colors.border }]} />
+              <View key={s.key} style={[styles.dot, { backgroundColor: theme.colors.border }]}>
+                <Animated.View
+                  style={{
+                    height: 3,
+                    borderRadius: 2,
+                    backgroundColor: theme.colors.primary,
+                    width: i < index ? '100%' : i === index ? progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) : '0%'
+                  }}
+                />
+              </View>
             ))}
           </View>
           <ScrollView
@@ -346,7 +487,14 @@ export default function WrappedScreen() {
             onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / cardW))}
           >
             {slides.map((s, i) => (
-              <Pressable key={s.key} onPress={(e) => (e.nativeEvent.locationX < cardW / 3 ? go(index - 1) : go(index + 1))} style={{ width: cardW }}>
+              <Pressable
+                key={s.key}
+                onPress={(e) => (e.nativeEvent.locationX < cardW / 3 ? go(index - 1) : go(index + 1))}
+                onLongPress={() => setPaused(true)}
+                delayLongPress={220}
+                onPressOut={() => setPaused(false)}
+                style={{ width: cardW }}
+              >
                 <View
                   ref={(r) => {
                     slideRefs.current[i] = r;
@@ -355,7 +503,8 @@ export default function WrappedScreen() {
                   style={styles.slide}
                 >
                   <LinearGradient colors={s.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-                  {s.body}
+                  {s.body(i === index)}
+                  {s.key === 'persona' ? <Confetti active={i === index} width={cardW} /> : null}
                 </View>
               </Pressable>
             ))}
@@ -382,9 +531,10 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   dots: { flexDirection: 'row', gap: 4, marginTop: 14, marginBottom: 10 },
-  dot: { flex: 1, height: 3, borderRadius: 2 },
+  dot: { flex: 1, height: 3, borderRadius: 2, overflow: 'hidden' },
   slide: { flex: 1, borderRadius: 28, overflow: 'hidden', padding: 24, paddingTop: 30 },
-  big: { fontFamily: fonts.display, fontSize: 40, lineHeight: 46, letterSpacing: -1.2 },
+  big: { fontFamily: fonts.display, fontSize: 40, lineHeight: 46, letterSpacing: -1.2, color: WHITE },
+  count: { fontFamily: fonts.display, fontSize: 34, lineHeight: 42, letterSpacing: -1 },
   line: { fontFamily: fonts.medium, fontSize: 16, lineHeight: 23 },
   metricLabel: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },

@@ -26,12 +26,14 @@ import {
   UserPlus,
   Users,
   Wallet,
-  Wand2
+  Wand2,
+  Gift
 } from 'lucide-react-native';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
+import { useConfig } from '../contexts/ConfigContext';
 import { useTour } from '../contexts/TourContext';
 import { useGuides } from '../contexts/GuideContext';
 import { useNudges } from '../contexts/NudgesContext';
@@ -77,6 +79,7 @@ export default function SettingsScreen() {
   const { spacesEnabled, activeSpaceId, setSpacesEnabled } = useSpace();
   const { startFirstRunTour, resetTour } = useTour();
   const { resetGuides } = useGuides();
+  const { staff } = useConfig();
   const { resetAll: resetNudges } = useNudges();
   const { resetAll: resetLegacyHints } = useHints();
   const { all: categories } = useCategories();
@@ -360,6 +363,22 @@ export default function SettingsScreen() {
         />
         <ListRow icon={tile(RotateCcw)} title="Tips and intro" subtitle="Reset tips or replay the intro" onPress={openTipsMenu} chevron />
       </ListCard>
+
+      {/* Only the people who run the app see this. It opens Wrapped out of season, for checking before it goes live. */}
+      {staff ? (
+        <>
+          {group('Staff')}
+          <ListCard>
+            <ListRow
+              icon={tile(Gift)}
+              title="Preview Money Wrapped"
+              subtitle="Open it off season to check it before certifying"
+              onPress={() => nav.navigate('Wrapped', { spaceId: isBusiness ? 'business' : 'personal' })}
+              chevron
+            />
+          </ListCard>
+        </>
+      ) : null}
 
       <SelectSheet
         visible={reminderSheet}

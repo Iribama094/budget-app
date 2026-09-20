@@ -18,6 +18,8 @@ type ConfigValue = {
   feature: (key: string) => boolean;
   /** Whether this space has a Wrapped to show today. Personal and business keep separate calendars. */
   wrappedFor: (space: 'personal' | 'business') => WrappedAvailability;
+  /** True for the people who run the app: they can open things early to check them. */
+  staff: boolean;
   refresh: () => void;
 };
 
@@ -27,6 +29,7 @@ const ConfigContext = createContext<ConfigValue>({
   loading: true,
   feature: () => false,
   wrappedFor: () => OFF,
+  staff: false,
   refresh: () => undefined
 });
 
@@ -104,6 +107,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
       // Unknown means off. A feature appearing late is better than one appearing where it should not.
       feature: (key: string) => features[key] === true,
       wrappedFor: (space) => config?.wrapped?.[space] ?? OFF,
+      staff: config?.staff === true,
       refresh: () => void load()
     };
   }, [config, loading, load]);

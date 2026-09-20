@@ -650,6 +650,8 @@ export type WrappedAvailability =
 
 export type AppConfig = {
   features: Record<string, boolean>;
+  /** True when this account runs the app, which unlocks previewing things before anyone else sees them. */
+  staff?: boolean;
   /** Personal looks back twice a year, a business every quarter, so each space answers for itself. */
   wrapped: { personal: WrappedAvailability; business: WrappedAvailability };
   refreshAfterSeconds: number;

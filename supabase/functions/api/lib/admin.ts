@@ -44,6 +44,16 @@ export async function requireAdmin(req: Request, area?: keyof typeof CAN): Promi
   return row;
 }
 
+/** Whether this account runs the app. Used to offer staff a preview of things nobody else can see yet. */
+export async function isStaff(userId: string): Promise<boolean> {
+  const [row] = await sql`
+    select 1 as ok from public.admin_users a
+    join public.profiles p on lower(p.email) = lower(a.email)
+    where p.id = ${userId} and a.disabled_at is null limit 1
+  `;
+  return !!row;
+}
+
 /** Writes what happened. Called after the change lands, so a failed change leaves no line. */
 export async function audit(admin: Admin, action: string, target?: string | null, detail?: unknown): Promise<void> {
   try {
