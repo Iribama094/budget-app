@@ -1,6 +1,6 @@
 import { requireAuth } from '../lib/auth.ts';
 import { json, methodNotAllowed } from '../lib/http.ts';
-import { inRollout, listFlags, openWrappedPeriod } from '../lib/admin.ts';
+import { inRollout, listFlags, openWrappedPeriods } from '../lib/admin.ts';
 import type { Ctx } from '../index.ts';
 
 /**
@@ -18,14 +18,19 @@ export async function appConfig(ctx: Ctx) {
   for (const f of flags) features[f.key] = f.enabled && inRollout(userId, f.key, f.rolloutPercent);
 
   // Wrapped needs the switch AND a certified period inside its window. Either one missing means the app shows
-  // no Wrapped card, no Profile row and sends no notification about it.
-  const period = features.money_wrapped ? await openWrappedPeriod() : null;
+  // no Wrapped card, no Profile row and sends no notification about it. Personal and business run to their own
+  // calendars, so each space answers separately.
+  const open = features.money_wrapped ? await openWrappedPeriods() : [];
+  const forSpace = (space: 'personal' | 'business') => {
+    const p = open.find((x) => x.space === space);
+    return p ? { available: true as const, kind: p.kind, quarter: p.quarter, year: p.year, closesOn: p.closesOn } : { available: false as const };
+  };
 
   return json(
     200,
     {
       features,
-      wrapped: period ? { available: true, kind: period.kind, year: period.year, closesOn: period.closesOn } : { available: false },
+      wrapped: { personal: forSpace('personal'), business: forSpace('business') },
       // The app caches this; a short life keeps a switch quick without asking on every screen.
       refreshAfterSeconds: 600
     },

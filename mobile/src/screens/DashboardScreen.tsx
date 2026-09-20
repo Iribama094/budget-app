@@ -112,10 +112,13 @@ export function DashboardScreen() {
    * Wrapped shows only when the staff console says so: a period that has been certified, inside its window.
    * Off season there is no card here at all, and the calendar alone never brings it back.
    */
-  const { wrapped } = useConfig();
+  const wrapped = useConfig().wrappedFor(spacesEnabled && activeSpaceId === 'business' ? 'business' : 'personal');
   const wrappedPromo = useMemo(() => {
     if (!wrapped.available) return null;
-    const { kind, year } = wrapped;
+    const { kind, year, quarter } = wrapped;
+    if (kind === 'quarter') {
+      return { kind, year, title: `Q${quarter} ${year} don wrap 🎁`, line: 'How the business did last quarter, in one story.' };
+    }
     if (kind === 'h1') return { kind, year, title: `Your ${year} half-year is ready 🎁`, line: 'See how January to June went. Tap to open am!' };
     return { kind, year, title: `${year} don wrap 🎁`, line: 'The whole year in one story. Who you be with money?' };
   }, [wrapped]);

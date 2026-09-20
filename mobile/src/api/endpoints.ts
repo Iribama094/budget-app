@@ -644,9 +644,14 @@ export async function assistantChat(message: string, history: ChatTurn[] = []): 
 }
 
 /** What the staff console says this app should show. See contexts/ConfigContext. */
+export type WrappedAvailability =
+  | { available: false }
+  | { available: true; kind: 'h1' | 'year' | 'quarter'; quarter: number | null; year: number; closesOn: string };
+
 export type AppConfig = {
   features: Record<string, boolean>;
-  wrapped: { available: false } | { available: true; kind: 'h1' | 'year'; year: number; closesOn: string };
+  /** Personal looks back twice a year, a business every quarter, so each space answers for itself. */
+  wrapped: { personal: WrappedAvailability; business: WrappedAvailability };
   refreshAfterSeconds: number;
 };
 

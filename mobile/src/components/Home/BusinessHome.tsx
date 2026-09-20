@@ -51,7 +51,7 @@ export function BusinessHome() {
   const nav = useNavigation<any>();
   const { user, refreshUser } = useAuth();
   const { theme } = useTheme();
-  const { wrapped } = useConfig();
+  const wrapped = useConfig().wrappedFor('business');
   const { showAmounts, toggleShowAmounts } = useAmountVisibility();
   const { hasUnreadNotifications } = useNotificationBadges();
   const glyph = currencySymbol(user?.currency);

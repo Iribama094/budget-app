@@ -44,7 +44,12 @@ create table public.feature_flags (
 
 create table public.wrapped_periods (
   id uuid primary key default gen_random_uuid(),
-  kind text not null check (kind in ('h1', 'year')),
+  -- Personal money and a business keep different rhythms: a person looks back twice a year, a business every
+  -- quarter, because that is how VAT, PAYE and stock cycles already run.
+  space text not null default 'personal' check (space in ('personal', 'business')),
+  kind text not null check (kind in ('h1', 'year', 'quarter')),
+  -- 1 to 4 for a quarter, null otherwise.
+  quarter int check (quarter is null or quarter between 1 and 4),
   year int not null check (year between 2024 and 2100),
   -- building: the numbers are being written. ready: built, nobody has checked it.
   -- published: certified, and visible inside its window. hidden: pulled back.
@@ -60,9 +65,11 @@ create table public.wrapped_periods (
   built_at timestamptz,
   people_included int not null default 0,
   updated_at timestamptz not null default now(),
-  constraint wrapped_periods_kind_year_key unique (kind, year),
-  constraint wrapped_periods_window check (closes_on > opens_on)
+  constraint wrapped_periods_window check (closes_on > opens_on),
+  constraint wrapped_periods_quarter_shape check ((kind = 'quarter') = (quarter is not null))
 );
+-- One period per space, kind, year and quarter. coalesce keeps the personal rows, which have no quarter, unique.
+create unique index wrapped_periods_period_key on public.wrapped_periods (space, kind, year, coalesce(quarter, 0));
 
 /* ------------------------------------------------------- words, without a deploy */
 
@@ -124,7 +131,13 @@ on conflict (key) do nothing;
 
 -- The windows people expect: the half year from 1 July, the year from 20 December into January. Both start
 -- hidden. Nothing shows until someone certifies them.
-insert into public.wrapped_periods (kind, year, state, opens_on, closes_on) values
-  ('h1', 2026, 'hidden', '2026-07-01', '2026-08-01'),
-  ('year', 2026, 'hidden', '2026-12-20', '2027-02-01')
-on conflict (kind, year) do nothing;
+insert into public.wrapped_periods (space, kind, quarter, year, state, opens_on, closes_on) values
+  ('personal', 'h1', null, 2026, 'hidden', '2026-07-01', '2026-08-01'),
+  ('personal', 'year', null, 2026, 'hidden', '2026-12-20', '2027-02-01'),
+  -- A business quarter opens the day after it ends and runs for three weeks, which is roughly the window
+  -- somebody is thinking about the last quarter before the next one swallows them.
+  ('business', 'quarter', 1, 2026, 'hidden', '2026-04-01', '2026-04-22'),
+  ('business', 'quarter', 2, 2026, 'hidden', '2026-07-01', '2026-07-22'),
+  ('business', 'quarter', 3, 2026, 'hidden', '2026-10-01', '2026-10-22'),
+  ('business', 'quarter', 4, 2026, 'hidden', '2027-01-01', '2027-01-22')
+on conflict do nothing;

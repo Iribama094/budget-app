@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { AppState } from 'react-native';
 
 import { useAuth } from './AuthContext';
-import { getAppConfig, type AppConfig } from '../api/endpoints';
+import { getAppConfig, type AppConfig, type WrappedAvailability } from '../api/endpoints';
 import { readCache, writeCache } from '../lib/localCache';
 
 /**
@@ -10,13 +10,14 @@ import { readCache, writeCache } from '../lib/localCache';
  * front, and every ten minutes, so switching a feature off reaches people within a minute without an app
  * update. The last answer is kept on the phone, so a cold start offline still behaves like last time.
  */
-export type WrappedAvailability = { available: false } | { available: true; kind: 'h1' | 'year'; year: number; closesOn: string };
+export type { WrappedAvailability };
 
 type ConfigValue = {
   /** True while nothing is known yet: treat features as off rather than flashing them on screen. */
   loading: boolean;
   feature: (key: string) => boolean;
-  wrapped: WrappedAvailability;
+  /** Whether this space has a Wrapped to show today. Personal and business keep separate calendars. */
+  wrappedFor: (space: 'personal' | 'business') => WrappedAvailability;
   refresh: () => void;
 };
 
@@ -25,7 +26,7 @@ const OFF: WrappedAvailability = { available: false };
 const ConfigContext = createContext<ConfigValue>({
   loading: true,
   feature: () => false,
-  wrapped: OFF,
+  wrappedFor: () => OFF,
   refresh: () => undefined
 });
 
@@ -102,7 +103,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
       loading: loading && !config,
       // Unknown means off. A feature appearing late is better than one appearing where it should not.
       feature: (key: string) => features[key] === true,
-      wrapped: (config?.wrapped as WrappedAvailability) ?? OFF,
+      wrappedFor: (space) => config?.wrapped?.[space] ?? OFF,
       refresh: () => void load()
     };
   }, [config, loading, load]);

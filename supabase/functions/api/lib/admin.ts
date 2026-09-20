@@ -78,9 +78,13 @@ export function inRollout(userId: string, key: string, percent: number): boolean
   return h % 100 < percent;
 }
 
+export type WrappedSpace = 'personal' | 'business';
+
 export type WrappedPeriodRow = {
   id: string;
-  kind: 'h1' | 'year';
+  space: WrappedSpace;
+  kind: 'h1' | 'year' | 'quarter';
+  quarter: number | null;
   year: number;
   state: 'building' | 'ready' | 'published' | 'hidden';
   opensOn: string;
@@ -95,20 +99,31 @@ export type WrappedPeriodRow = {
 
 export async function listWrappedPeriods(): Promise<WrappedPeriodRow[]> {
   return await sql<WrappedPeriodRow[]>`
-    select id, kind, year, state, opens_on, closes_on, certified_at, certified_by, note, published_at, built_at, people_included
-    from public.wrapped_periods order by year desc, kind desc
+    select id, space, kind, quarter, year, state, opens_on, closes_on, certified_at, certified_by, note, published_at, built_at, people_included
+    from public.wrapped_periods order by year desc, space, kind desc, quarter desc
   `;
 }
 
+export type OpenWrapped = { space: WrappedSpace; kind: 'h1' | 'year' | 'quarter'; quarter: number | null; year: number; closesOn: string };
+
 /**
- * The period a person should see right now, or null. Published, and today inside its window: that is the whole
- * rule. Off season this returns null and the app shows no Wrapped anywhere.
+ * The periods on show right now, at most one per space. Published, and today inside its window: that is the
+ * whole rule. Off season this is empty and the app shows no Wrapped anywhere.
+ *
+ * Personal looks back twice a year; a business looks back every quarter, because that is the rhythm VAT, PAYE
+ * and stock already run on.
  */
-export async function openWrappedPeriod(today = todayIso()): Promise<{ kind: 'h1' | 'year'; year: number; closesOn: string } | null> {
-  const [row] = await sql<{ kind: 'h1' | 'year'; year: number; closesOn: string }[]>`
-    select kind, year, closes_on from public.wrapped_periods
+export async function openWrappedPeriods(today = todayIso()): Promise<OpenWrapped[]> {
+  return await sql<OpenWrapped[]>`
+    select distinct on (space) space, kind, quarter, year, closes_on
+    from public.wrapped_periods
     where state = 'published' and opens_on <= ${today}::date and closes_on >= ${today}::date
-    order by year desc, kind desc limit 1
+    order by space, year desc, quarter desc nulls last
   `;
-  return row ?? null;
+}
+
+/** The personal period, for the nightly job that tells people their story is ready. */
+export async function openWrappedPeriod(today = todayIso()): Promise<OpenWrapped | null> {
+  const open = await openWrappedPeriods(today);
+  return open.find((p) => p.space === 'personal') ?? null;
 }

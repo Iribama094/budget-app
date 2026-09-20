@@ -32,7 +32,7 @@ export function ProfileScreen() {
   const { user, logout } = useAuth();
   const { theme } = useTheme();
   const { spacesEnabled, activeSpaceId } = useSpace();
-  const { wrapped } = useConfig();
+  const wrapped = useConfig().wrappedFor('personal');
   const glyph = currencySymbol(user?.currency);
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
 
