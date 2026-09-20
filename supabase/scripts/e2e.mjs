@@ -289,7 +289,10 @@ try {
   const other = imported.find((t) => t.id !== debit?.id);
   check('ignore imported transaction', (await call(a.token, 'POST', `/imported-transactions/${other?.id}/ignore`)).data?.transaction?.status === 'ignored');
   check('demo link sync reports not live', (await call(a.token, 'POST', `/bank-links/${linkId}/sync`)).data?.live === false);
-  check('Mono connect reports not configured', (await call(a.token, 'POST', '/bank-links/mono', { code: 'test-code' })).status === 501);
+  // 501 when the project has no Mono keys; 502 once it does, because a made-up code is rejected by Mono.
+  // Either way the point is the same: a bad code never creates a connection.
+  r = await call(a.token, 'POST', '/bank-links/mono', { code: 'test-code' });
+  check('Mono connect refuses a bad code', r.status === 501 || r.status === 502, r);
   check('disconnect bank', (await call(a.token, 'DELETE', `/bank-links/${linkId}`)).status === 200);
   check('imported transactions removed with link', (await call(a.token, 'GET', '/imported-transactions?status=pending')).data?.items?.length === 0);
 
