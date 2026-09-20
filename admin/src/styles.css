@@ -82,7 +82,7 @@ input, select { font-family: inherit; font-size: 14px; }
 .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
-.tile .label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
+.label, .tile .label { font-size: 12px; font-weight: 700; color: #3c4e4a; text-transform: uppercase; letter-spacing: 0.6px; }
 .tile .value { font-family: Sora, sans-serif; font-size: 26px; font-weight: 600; margin-top: 10px; }
 .tile .note { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 18px; }
 

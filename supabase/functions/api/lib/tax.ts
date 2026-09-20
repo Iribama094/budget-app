@@ -73,23 +73,58 @@ const RULES: Record<string, TaxRule> = {
 };
 
 /** The shape a version has to have before it can be saved. Wrong bands are worse than no bands. */
-export const RULE_SHAPE = z.object({
-  country: z.string().min(2).max(60),
-  version: z.string().min(1).max(60),
-  effectiveDate: z.string().min(4).max(20),
-  currency: z.string().max(8).optional(),
-  notes: z.string().max(400).optional(),
-  brackets: z
-    .array(z.object({ from: z.number().min(0), to: z.number().min(0).nullable().optional(), rate: z.number().min(0).max(1) }))
-    .min(1)
-    .max(12),
-  deductions: z.record(z.object({ cap: z.number().min(0).optional(), rate: z.number().min(0).max(1).optional() })).optional(),
-  minimumTaxRate: z.number().min(0).max(1).optional(),
-  noTaxIfGrossMonthlyAtOrBelow: z.number().min(0).optional(),
-  company: z
-    .object({ smallCompanyTurnover: z.number().min(0), rate: z.number().min(0).max(1), note: z.string().max(400) })
-    .optional()
-});
+export const RULE_SHAPE = z
+  .object({
+    country: z.string().min(2).max(60),
+    version: z.string().min(1).max(60),
+    effectiveDate: z.string().min(4).max(20),
+    currency: z.string().max(8).optional(),
+    notes: z.string().max(1200).optional(),
+    lastReviewed: z.string().max(20).optional(),
+    sources: z.array(z.string().max(300)).max(10).optional(),
+    brackets: z
+      .array(z.object({ from: z.number().min(0), to: z.number().min(0).nullable().optional(), rate: z.number().min(0).max(1) }))
+      .min(1)
+      .max(12),
+    // Allowances come off the gross before the bands. Nigeria's CRA was one of these, so a shape that drops
+    // them would quietly overstate what somebody owes.
+    allowances: z
+      .record(
+        z.union([
+          z.number().min(0),
+          z.object({
+            type: z.enum(['percentOfGross', 'maxOfFixedOrPercentOfGross', 'cra']),
+            rate: z.number().min(0).max(1).optional(),
+            fixed: z.number().min(0).optional(),
+            minRate: z.number().min(0).max(1).optional()
+          })
+        ])
+      )
+      .optional(),
+    deductions: z.record(z.object({ cap: z.number().min(0).optional(), rate: z.number().min(0).max(1).optional() })).optional(),
+    minimumTaxRate: z.number().min(0).max(1).optional(),
+    noTaxIfGrossMonthlyAtOrBelow: z.number().min(0).optional(),
+    company: z
+      .object({ smallCompanyTurnover: z.number().min(0), rate: z.number().min(0).max(1), note: z.string().max(400) })
+      .optional()
+  })
+  // Bands that overlap or leave a hole do not fail loudly, they just tax the wrong amount, so they are refused
+  // here rather than discovered by somebody's payslip.
+  .superRefine((rule, ctx) => {
+    const bands = [...rule.brackets].sort((a, b) => a.from - b.from);
+    const bad = (message: string) => ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['brackets'], message });
+    if (bands[0].from !== 0) bad('The first band has to start at 0.');
+    bands.forEach((b, i) => {
+      const last = i === bands.length - 1;
+      if (!last && (b.to == null || b.to <= b.from)) {
+        bad(`Band ${i + 1} has to end above where it starts, and only the top band can be open ended.`);
+        return;
+      }
+      if (last && b.to != null) bad('The top band has to be open ended, or the highest earners fall outside every band.');
+      const next = bands[i + 1];
+      if (next && b.to !== next.from) bad(`Band ${i + 2} has to start exactly where band ${i + 1} ends, with no gap and no overlap.`);
+    });
+  });
 
 /**
  * Approved versions from the staff console, held for five minutes. Empty means nothing has been approved, and
@@ -208,15 +243,29 @@ export function computeTax(rule: TaxRule, input: { grossAnnual: number; deductio
  * reads rather than the shape the calculator uses. Read only on purpose, since a wrong band changes what
  * somebody believes they owe.
  */
+/**
+ * What is in force per country, for the console: the approved version if there is one, otherwise the code.
+ *
+ * The whole rule goes out, not a summary of it, because the console copies this to start a new version. A
+ * summary that dropped reliefs would produce a draft that quietly removes them on approval.
+ */
 export function taxRulesSummary() {
-  return Object.entries(RULES).map(([code, rule]) => ({
-    code,
-    country: rule.country,
-    version: rule.version ?? null,
-    brackets: rule.brackets.map((b) => ({ from: b.from, to: b.to ?? null, rate: b.rate })),
-    deductions: Object.keys(rule.deductions ?? {}),
-    noTaxIfGrossMonthlyAtOrBelow: rule.noTaxIfGrossMonthlyAtOrBelow ?? null,
-    minimumTaxRate: rule.minimumTaxRate ?? null,
-    company: rule.company ?? null
-  }));
+  return Object.keys(RULES).map((code) => {
+    const rule = loadRuleForCountry(code) as TaxRule;
+    return {
+      code,
+      country: rule.country,
+      version: rule.version ?? null,
+      source: ruleSource(code),
+      effectiveDate: rule.effectiveDate ?? null,
+      notes: rule.notes ?? null,
+      brackets: rule.brackets.map((b) => ({ from: b.from ?? 0, to: b.to ?? null, rate: b.rate })),
+      deductions: rule.deductions ?? {},
+      allowances: rule.allowances ?? {},
+      noTaxIfGrossMonthlyAtOrBelow: rule.noTaxIfGrossMonthlyAtOrBelow ?? null,
+      minimumTaxRate: rule.minimumTaxRate ?? null,
+      company: rule.company ?? null,
+      rule
+    };
+  });
 }

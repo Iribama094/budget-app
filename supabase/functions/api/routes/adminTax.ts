@@ -14,7 +14,8 @@ import type { Ctx } from '../index.ts';
 const VersionInput = z.object({
   country: z.string().length(2),
   effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  payload: RULE_SHAPE,
+  /** Left out to copy what is in force, which is how the console starts every draft. */
+  payload: RULE_SHAPE.optional(),
   note: z.string().max(400).optional()
 });
 
@@ -37,10 +38,20 @@ export async function adminTaxRules(ctx: Ctx) {
     const admin = await requireAdmin(ctx.req, 'taxRules');
     const input = await body(ctx.req, VersionInput);
     const country = input.country.toLowerCase();
+
+    // Copying happens here rather than in the browser. The console only ever saw a summary, so a payload it
+    // rebuilt would arrive missing the reliefs, and approving it would quietly raise everybody's estimate.
+    let payload: unknown = input.payload;
+    if (!payload) {
+      const inForce = loadRuleForCountry(country);
+      if (!inForce) badRequest('There are no rules for that country to copy from.');
+      payload = { ...inForce, effectiveDate: input.effectiveFrom, version: `${inForce.country} ${input.effectiveFrom}` };
+    }
+
     const [row] = await sql`
       insert into public.tax_rule_versions (country, effective_from, payload, note, created_by)
-      values (${country}, ${input.effectiveFrom}::date, ${sql.json(input.payload as any)}, ${input.note ?? null}, ${admin.id})
-      returning id, country, effective_from, state
+      values (${country}, ${input.effectiveFrom}::date, ${sql.json(payload as any)}, ${input.note ?? null}, ${admin.id})
+      returning id, country, effective_from, state, payload, note, created_at, created_by
     `;
     await audit(admin, 'tax.draft', `${country} from ${input.effectiveFrom}`);
     return json(201, { version: row });
@@ -67,7 +78,7 @@ export async function adminTaxVersion(ctx: Ctx) {
         note = coalesce(${input.note ?? null}, note),
         effective_from = coalesce(${input.effectiveFrom ?? null}::date, effective_from)
       where id::text = ${id}
-      returning id, state, effective_from
+      returning id, state, effective_from, payload, note
     `;
     await audit(admin, 'tax.edit-draft', `${version.country} from ${row.effectiveFrom}`);
     return json(200, { version: row });
@@ -78,6 +89,11 @@ export async function adminTaxVersion(ctx: Ctx) {
 
   if (action === 'submit') {
     if (version.state !== 'draft') badRequest('Only a draft can be sent for approval.');
+    // Checked again on the way out of draft: the shape may have tightened since this one was written.
+    const check = RULE_SHAPE.safeParse(version.payload);
+    if (!check.success) {
+      badRequest(`This draft is not ready: ${check.error.issues.map((i) => i.message).join(' ')}`);
+    }
     await sql`update public.tax_rule_versions set state = 'pending' where id::text = ${id}`;
     await audit(admin, 'tax.submit', `${version.country} from ${version.effectiveFrom}`);
     return json(200, { state: 'pending', message: 'Sent for approval. Someone else has to approve it before it counts.' });

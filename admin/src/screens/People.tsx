@@ -60,8 +60,9 @@ export function People({ admin }: { admin: Admin }) {
         <div>
           <h1>People</h1>
           <p className="sub">
-            Find somebody who has written in, and help them. You can see how their account is set up, never what they spent. Searching needs their
-            full email, so this cannot be used to browse everyone.
+            Find somebody who has written in, and help them. You can see how their account is set up, never what they spent. Search by first or
+            last name, by their email or the start of it, or by their account id. Three letters at least, twenty results at most, so this is looking
+            one person up rather than browsing everyone.
           </p>
         </div>
       </div>
@@ -71,9 +72,9 @@ export function People({ admin }: { admin: Admin }) {
 
       <form className="card" onSubmit={search}>
         <div className="field">
-          <label htmlFor="q">Their email address</label>
+          <label htmlFor="q">Their name, email or account id</label>
           <div style={{ display: 'flex', gap: 10 }}>
-            <input id="q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="amaka@example.com" style={{ flexGrow: 1 }} required />
+            <input id="q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Amaka, or amaka@example.com" style={{ flexGrow: 1 }} required />
             <button type="submit" className="btn primary" disabled={busy}>
               {busy ? 'Looking...' : 'Find'}
             </button>
@@ -81,18 +82,21 @@ export function People({ admin }: { admin: Admin }) {
         </div>
       </form>
 
-      {matches && matches.length === 0 ? <div className="banner warn">Nobody with that email. Check the spelling with them.</div> : null}
+      {matches && matches.length === 0 ? <div className="banner warn">Nobody by that name or email. Try fewer letters, or the other half of their name.</div> : null}
 
       {matches && matches.length > 1 ? (
         <div className="card">
+          <h2>{matches.length === 20 ? 'First 20 matches' : `${matches.length} matches`}</h2>
           {matches.map((m) => (
             <div className="row" key={m.id}>
               <div className="grow">
                 <p className="name">{m.name ?? m.email}</p>
-                <p className="meta">{m.email}</p>
+                <p className="meta">
+                  {m.email}, joined {new Date(m.createdAt).toLocaleDateString()}, {m.transactions} logged
+                </p>
               </div>
-              <button type="button" className="btn small" onClick={() => void open(m.id)}>
-                Open
+              <button type="button" className="btn small" disabled={detail?.person.id === m.id} onClick={() => void open(m.id)}>
+                {detail?.person.id === m.id ? 'Open below' : 'Open'}
               </button>
             </div>
           ))}
@@ -108,7 +112,12 @@ export function People({ admin }: { admin: Admin }) {
                 {detail.person.email}, joined {new Date(detail.person.createdAt).toLocaleDateString()}
               </p>
             </div>
-            <span className="chip on">{detail.person.budgetPeriod === 'monthly' ? 'Calendar months' : 'Payday to payday'}</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <span className="chip on">{detail.person.budgetPeriod === 'monthly' ? 'Calendar months' : 'Payday to payday'}</span>
+              <span className={`chip ${detail.person.onboardingCompletedAt ? 'on' : 'wait'}`}>
+                {detail.person.onboardingCompletedAt ? 'Plan set up' : detail.person.onboardingSkippedAt ? 'Skipped setup' : 'Setup unfinished'}
+              </span>
+            </div>
           </div>
 
           <div className="grid four" style={{ marginTop: 16 }}>

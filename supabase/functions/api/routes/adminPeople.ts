@@ -52,7 +52,9 @@ export async function adminPerson(ctx: Ctx) {
   const id = ctx.parts[2] ?? '';
 
   const [person] = await sql`
-    select id, email, name, currency, created_at, budget_period, onboarding from public.profiles where id::text = ${id}
+    select id, email, name, currency, created_at, budget_period, monthly_income,
+           onboarding_completed_at, onboarding_skipped_at
+    from public.profiles where id::text = ${id}
   `;
   if (!person) notFound('No such person');
 

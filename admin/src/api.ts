@@ -58,10 +58,27 @@ export type Overview = {
 
 export type StaffRow = Admin & { createdAt: string; lastSeenAt: string | null; disabledAt: string | null };
 
-export type PersonMatch = { id: string; email: string; name: string | null; transactions: number; budgets: number; devices: number };
+export type PersonMatch = {
+  id: string;
+  email: string;
+  name: string | null;
+  createdAt: string;
+  transactions: number;
+  budgets: number;
+  devices: number;
+};
 
 export type PersonDetail = {
-  person: { id: string; email: string; name: string | null; currency: string | null; createdAt: string; budgetPeriod: string };
+  person: {
+    id: string;
+    email: string;
+    name: string | null;
+    currency: string | null;
+    createdAt: string;
+    budgetPeriod: string;
+    onboardingCompletedAt: string | null;
+    onboardingSkippedAt: string | null;
+  };
   counts: { transactions: number; budgets: number; goals: number; devices: number; lastLogged: string | null };
   plan: { monthlyIncome: number; committed: number; status: string; shortfall: number; note: string | null } | null;
 };
@@ -76,7 +93,7 @@ export type TaxVersion = {
   effectiveFrom: string;
   state: 'draft' | 'pending' | 'live' | 'retired';
   note: string | null;
-  payload: unknown;
+  payload: TaxRule;
   createdAt: string;
   approvedAt: string | null;
   createdBy: string | null;
@@ -95,15 +112,40 @@ export type WrappedStory = {
   habits: { daysLogged: number; transactions: number };
 };
 
+export type TaxBand = { from: number; to: number | null; rate: number };
+
+/** The whole rule, which is what a new version is copied from. */
+export type TaxRule = {
+  country: string;
+  version: string;
+  effectiveDate: string;
+  currency?: string;
+  notes?: string;
+  lastReviewed?: string;
+  sources?: string[];
+  brackets: TaxBand[];
+  allowances?: Record<string, number | { type: string; rate?: number; fixed?: number; minRate?: number }>;
+  deductions?: Record<string, { cap?: number; rate?: number }>;
+  minimumTaxRate?: number;
+  noTaxIfGrossMonthlyAtOrBelow?: number;
+  company?: { smallCompanyTurnover: number; rate: number; note: string };
+};
+
 export type TaxCountry = {
   code: string;
   country: string;
   version: string | null;
-  brackets: Array<{ from: number; to: number | null; rate: number }>;
-  deductions: string[];
+  /** Whether the rules in force came from an approved version or from the app itself. */
+  source: 'approved' | 'code';
+  effectiveDate: string | null;
+  notes: string | null;
+  brackets: TaxBand[];
+  deductions: Record<string, { cap?: number; rate?: number }>;
+  allowances: Record<string, unknown>;
   noTaxIfGrossMonthlyAtOrBelow: number | null;
   minimumTaxRate: number | null;
   company: { smallCompanyTurnover: number; rate: number; note: string } | null;
+  rule: TaxRule;
 };
 
 export class ApiError extends Error {
@@ -157,8 +199,11 @@ export const api = {
   seedQuotes: () => call<{ added: number; total: number }>('/admin/content/seed-quotes', { method: 'POST' }),
 
   taxRules: () => call<{ editable: boolean; you: string; inCode: TaxCountry[]; versions: TaxVersion[]; today: string }>('/admin/tax-rules'),
-  addTaxVersion: (input: { country: string; effectiveFrom: string; payload: unknown; note?: string }) =>
+  /** No payload means copy whatever is in force, which the server does so nothing is lost on the way. */
+  addTaxVersion: (input: { country: string; effectiveFrom: string; note?: string }) =>
     call<{ version: TaxVersion }>('/admin/tax-rules', { method: 'POST', body: JSON.stringify(input) }),
+  saveTaxVersion: (id: string, patch: { payload?: TaxRule; note?: string; effectiveFrom?: string }) =>
+    call<{ version: TaxVersion }>(`/admin/tax-rules/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   taxVersionAction: (id: string, action: 'submit' | 'approve' | 'retire') =>
     call<{ state: string; message: string }>(`/admin/tax-rules/${id}/${action}`, { method: 'POST' }),
 
