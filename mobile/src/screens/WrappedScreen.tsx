@@ -174,7 +174,7 @@ export default function WrappedScreen() {
             </Pop>
             <Reveal active={active} delay={560}>
               <Text style={[styles.line, { color: SOFT }]}>
-                chopped {top.share}% of your spending{hide ? '' : `, ${formatAmount(top.amount, glyph)}`}.
+                took {top.share}% of your spending{hide ? '' : `, ${formatAmount(top.amount, glyph)}`}.
               </Text>
             </Reveal>
             <View style={{ marginTop: 22, gap: 12 }}>
@@ -212,7 +212,7 @@ export default function WrappedScreen() {
             </Pop>
             <Reveal active={active} delay={540}>
               <Text style={[styles.line, { color: SOFT }]}>
-                na that month money waka pass{hide ? '' : `, ${formatAmount(data.biggestMonth!.amount, glyph)}`}.
+                was your biggest spending month{hide ? '' : `, ${formatAmount(data.biggestMonth!.amount, glyph)}`}.
               </Text>
             </Reveal>
             <View style={styles.chart}>
@@ -262,7 +262,7 @@ export default function WrappedScreen() {
                 <Reveal active={active} delay={600}>
                   <Text style={[styles.line, { color: SOFT }]}>
                     {data.topMerchant.visits} visit{data.topMerchant.visits === 1 ? '' : 's'}
-                    {hide ? '' : ` · ${formatAmount(data.topMerchant.amount, glyph)}`}. Na your spot be that 😄
+                    {hide ? '' : ` · ${formatAmount(data.topMerchant.amount, glyph)}`}. Looks like your regular spot 😄
                   </Text>
                 </Reveal>
               </>
@@ -292,7 +292,7 @@ export default function WrappedScreen() {
             <Text style={[big, { marginTop: 14 }]}>{h.daysLogged} days</Text>
           </Pop>
           <Reveal active={active} delay={540}>
-            <Text style={[styles.line, { color: SOFT }]}>you logged your money, out of {h.trackedDays} since you started. Consistency na the real flex.</Text>
+            <Text style={[styles.line, { color: SOFT }]}>you logged your money, out of {h.trackedDays} since you started tracking.</Text>
           </Reveal>
           <View style={{ marginTop: 24, gap: 14 }}>
             {[
