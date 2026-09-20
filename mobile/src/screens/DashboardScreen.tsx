@@ -51,6 +51,7 @@ import { BusinessHome } from '../components/Home/BusinessHome';
 import { PendingSavingsCard } from '../components/Home/PendingSavingsCard';
 import { ShortfallCard } from '../components/Home/ShortfallCard';
 import { usePlan } from '../lib/usePlan';
+import { useConfig } from '../contexts/ConfigContext';
 import { readCache, writeCache } from '../lib/localCache';
 import { useHiddenIds } from '../lib/undoDelete';
 
@@ -107,16 +108,17 @@ export function DashboardScreen() {
   const hasBudget = !!currentBudget;
   const showGettingStarted = !isLoading && !error && !hasTransactions && !hasBudget;
   const showConnectBank = !isLoading && !error && (bankSummary?.banks ?? 0) === 0 && !!(user as any)?.premium;
-  /** Wrapped is seasonal: the half-year in Jul/Aug, the year so far in December, and last year's recap in January. */
+  /**
+   * Wrapped shows only when the staff console says so: a period that has been certified, inside its window.
+   * Off season there is no card here at all, and the calendar alone never brings it back.
+   */
+  const { wrapped } = useConfig();
   const wrappedPromo = useMemo(() => {
-    const now = new Date();
-    const m = now.getMonth();
-    const y = now.getFullYear();
-    if (m === 6 || m === 7) return { kind: 'h1' as const, year: y, title: `Your ${y} half-year is ready 🎁`, line: 'See how Jan to Jun went. Tap to open am!' };
-    if (m === 11) return { kind: 'year' as const, year: y, title: `Your ${y} Money Wrapped 🎉`, line: 'The whole year in one story. Who you be with money?' };
-    if (m === 0) return { kind: 'year' as const, year: y - 1, title: `${y - 1} don wrap 🎁`, line: 'Look back at last year before you plan this one.' };
-    return null;
-  }, []);
+    if (!wrapped.available) return null;
+    const { kind, year } = wrapped;
+    if (kind === 'h1') return { kind, year, title: `Your ${year} half-year is ready 🎁`, line: 'See how January to June went. Tap to open am!' };
+    return { kind, year, title: `${year} don wrap 🎁`, line: 'The whole year in one story. Who you be with money?' };
+  }, [wrapped]);
   const summaryLabel = summaryRangeKey === 'today' ? 'Today' : summaryRangeKey === 'week' ? 'This week' : 'This month';
   const summaryLabelLower = summaryLabel.toLowerCase();
 

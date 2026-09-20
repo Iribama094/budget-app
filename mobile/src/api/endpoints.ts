@@ -642,3 +642,14 @@ export type EntryDraft = {
 export async function assistantChat(message: string, history: ChatTurn[] = []): Promise<{ reply: string; draft?: EntryDraft }> {
   return (await apiFetch('/v1/assistant/chat', { method: 'POST', body: JSON.stringify({ message, history }) })) as { reply: string; draft?: EntryDraft };
 }
+
+/** What the staff console says this app should show. See contexts/ConfigContext. */
+export type AppConfig = {
+  features: Record<string, boolean>;
+  wrapped: { available: false } | { available: true; kind: 'h1' | 'year'; year: number; closesOn: string };
+  refreshAfterSeconds: number;
+};
+
+export async function getAppConfig(): Promise<AppConfig> {
+  return (await apiFetch('/v1/config', { method: 'GET' })) as AppConfig;
+}

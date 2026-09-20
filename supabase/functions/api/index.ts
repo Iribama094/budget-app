@@ -48,6 +48,9 @@ import { voiceTranscribe } from './routes/voice.ts';
 import { sendBusinessReminders } from './lib/business.ts';
 import { voice } from './lib/voice.ts';
 import { weeklySummary } from './lib/weekly.ts';
+import { appConfig } from './routes/config.ts';
+import { openWrappedPeriod } from './lib/admin.ts';
+import { adminAudit, adminFlags, adminMe, adminOverview, adminStaff, adminWrapped } from './routes/admin.ts';
 
 export type Ctx = {
   req: Request;
@@ -151,20 +154,22 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
     summary.insights = { users: active.length, sent };
   }
 
-  // Money Wrapped: the first half of the year on 1 July, the full year on 1 December.
-  if (today.endsWith('-07-01') || today.endsWith('-12-01')) {
-    const h1 = today.endsWith('-07-01');
-    const year = Number(today.slice(0, 4));
+  // Money Wrapped: never on a date alone. A period has to be certified in the staff console AND inside its
+  // window, which is the same check the app itself makes, so nobody is told about a story they cannot open.
+  const openWrapped = await openWrappedPeriod(today);
+  if (openWrapped) {
+    const { kind, year } = openWrapped;
     const people = await sql`select distinct user_id from public.transactions where occurred_at > now() - interval '60 days' limit 5000`;
     let sent = 0;
     for (const { userId } of people) {
       try {
         const delivered = await notifyUser(userId, {
           kind: 'insight',
-          ...voice.wrappedReady(h1 ? `H1 ${year}` : `${year}`),
-          data: { screen: 'Wrapped', kind: h1 ? 'h1' : 'year', year },
-          dedupeKey: `wrapped:${today}`,
-          dedupeTtlSec: 30 * 86400
+          ...voice.wrappedReady(kind === 'h1' ? `H1 ${year}` : `${year}`),
+          data: { screen: 'Wrapped', kind, year },
+          // Once per person per period, however long the window stays open.
+          dedupeKey: `wrapped:${kind}:${year}`,
+          dedupeTtlSec: 120 * 86400
         });
         if (delivered) sent++;
       } catch (err) {
@@ -193,6 +198,16 @@ function route(parts: string[]): Handler | null {
 
   if (a === 'recurring' && n === 1) return recurringIndex;
   if (a === 'recurring' && n === 2) return recurringById;
+
+  if (a === 'config' && n === 1) return appConfig;
+
+  // The staff console. Each one checks the admin_users table before anything else.
+  if (a === 'admin' && b === 'me') return adminMe;
+  if (a === 'admin' && b === 'overview') return adminOverview;
+  if (a === 'admin' && b === 'flags' && n <= 3) return adminFlags;
+  if (a === 'admin' && b === 'wrapped' && n <= 3) return adminWrapped;
+  if (a === 'admin' && b === 'audit') return adminAudit;
+  if (a === 'admin' && b === 'staff' && n <= 3) return adminStaff;
 
   if (a === 'notifications' && n <= 2) return notifications;
   if (a === 'push-tokens' && n === 1) return pushTokens;

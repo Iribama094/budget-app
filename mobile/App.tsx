@@ -52,6 +52,7 @@ import AnalyticsMiniBudgetsDetailScreen from './src/screens/AnalyticsMiniBudgets
 import { navigationRef } from './src/navigation/navigationRef';
 import { TourProvider } from './src/contexts/TourContext';
 import { GuideProvider } from './src/contexts/GuideContext';
+import { ConfigProvider } from './src/contexts/ConfigContext';
 import { NudgesProvider } from './src/contexts/NudgesContext';
 import { SyncProvider } from './src/contexts/SyncContext';
 import { AppServices } from './src/components/Common/AppServices';
@@ -292,6 +293,7 @@ export default function App() {
                   <HintsProvider>
                     <AuthProvider>
                       <ToastProvider>
+                        <ConfigProvider>
                         <CategoriesProvider>
                         <SyncProvider>
                         <NavigationContainer
@@ -313,6 +315,7 @@ export default function App() {
                         </NavigationContainer>
                         </SyncProvider>
                         </CategoriesProvider>
+                        </ConfigProvider>
                       </ToastProvider>
                     </AuthProvider>
                   </HintsProvider>

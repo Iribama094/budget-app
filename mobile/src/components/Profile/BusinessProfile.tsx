@@ -13,6 +13,7 @@ import { getBusinessSummary, type BusinessSummary } from '../../api/business';
 import { currencySymbol } from '../../utils/format';
 import { type } from '../../theme/typography';
 import { GuideAnchor } from '../Common/GuideAnchor';
+import { useConfig } from '../../contexts/ConfigContext';
 import { goBackOrHome } from '../../navigation/goBack';
 
 const LOOK = SPACE_LOOK.business;
@@ -22,6 +23,7 @@ export function BusinessProfile({ onLogout }: { onLogout: () => void }) {
   const nav = useNavigation<any>();
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { wrapped } = useConfig();
   const { showAmounts } = useAmountVisibility();
   const glyph = currencySymbol(user?.currency);
   const hide = !showAmounts;
@@ -159,7 +161,9 @@ export function BusinessProfile({ onLogout }: { onLogout: () => void }) {
           onPress={() => nav.navigate('PayYourself')}
           chevron
         />
-        <ListRow icon={bizTile(Gift)} title="Business Wrapped" subtitle="Your business year in one story 🎁" onPress={() => nav.navigate('Wrapped', { spaceId: 'business' })} chevron />
+        {wrapped.available ? (
+          <ListRow icon={bizTile(Gift)} title="Business Wrapped" subtitle="Your business year in one story 🎁" onPress={() => nav.navigate('Wrapped', { spaceId: 'business' })} chevron />
+        ) : null}
       </ListCard>
       </GuideAnchor>
 

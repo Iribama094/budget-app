@@ -7,6 +7,7 @@ import { Briefcase, Gift, HeartHandshake, Lock, Smartphone, UserRound } from 'lu
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
+import { useConfig } from '../contexts/ConfigContext';
 import { Amount, Card, IconTile, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader } from '../components/Common/ui';
 import { PlanSplit } from '../components/Plan/PlanSplit';
 import { BusinessProfile } from '../components/Profile/BusinessProfile';
@@ -31,6 +32,7 @@ export function ProfileScreen() {
   const { user, logout } = useAuth();
   const { theme } = useTheme();
   const { spacesEnabled, activeSpaceId } = useSpace();
+  const { wrapped } = useConfig();
   const glyph = currencySymbol(user?.currency);
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
 
@@ -160,7 +162,9 @@ export function ProfileScreen() {
           chevron
         />
         <ListRow icon={tile(UserRound)} title="Personal details" subtitle="Name, photo and currency" onPress={() => nav.navigate('ProfileEdit')} chevron />
-        <ListRow icon={tile(Gift)} title="Money Wrapped" subtitle="Your money story, the fun way 🎁" onPress={() => nav.navigate('Wrapped', { spaceId: 'personal' })} chevron />
+        {wrapped.available ? (
+          <ListRow icon={tile(Gift)} title="Money Wrapped" subtitle="Your money story, the fun way 🎁" onPress={() => nav.navigate('Wrapped', { spaceId: 'personal' })} chevron />
+        ) : null}
       </ListCard>
 
       {netWorth != null ? (

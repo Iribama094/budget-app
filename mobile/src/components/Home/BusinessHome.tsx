@@ -42,6 +42,7 @@ import { getBusinessSummary, type BusinessSummary } from '../../api/business';
 import { currencySymbol, formatRelativeDay, formatShortDate, toIsoDateTime } from '../../utils/format';
 import { fonts, type } from '../../theme/typography';
 import { GuideAnchor } from '../Common/GuideAnchor';
+import { useConfig } from '../../contexts/ConfigContext';
 
 const LOOK = SPACE_LOOK.business;
 
@@ -50,6 +51,7 @@ export function BusinessHome() {
   const nav = useNavigation<any>();
   const { user, refreshUser } = useAuth();
   const { theme } = useTheme();
+  const { wrapped } = useConfig();
   const { showAmounts, toggleShowAmounts } = useAmountVisibility();
   const { hasUnreadNotifications } = useNotificationBadges();
   const glyph = currencySymbol(user?.currency);
@@ -100,7 +102,8 @@ export function BusinessHome() {
     { label: 'Reports', Icon: ChartColumn, screen: 'BusinessReports' },
     { label: 'Upload', Icon: Upload, screen: 'StatementImport' },
     { label: 'Pay yourself', Icon: Wallet, screen: 'PayYourself' },
-    { label: 'Wrapped', Icon: Gift, screen: 'Wrapped' }
+    // Wrapped joins the tools only in season, once a period has been certified in the staff console.
+    ...(wrapped.available ? ([{ label: 'Wrapped', Icon: Gift, screen: 'Wrapped' }] as const) : [])
   ] as const;
 
   // A business finding its feet does not need eight tools on day one. Everything is still one tap away under
