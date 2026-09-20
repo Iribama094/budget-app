@@ -28,7 +28,7 @@ export async function adminPeople(ctx: Ctx) {
     select p.id, p.email, p.name, p.currency, p.created_at,
       (select count(*)::int from public.transactions t where t.user_id = p.id) as transactions,
       (select count(*)::int from public.budgets b where b.user_id = p.id) as budgets,
-      (select count(*)::int from public.devices d where d.user_id = p.id) as devices
+      (select count(*)::int from public.device_sessions d where d.user_id = p.id) as devices
     from public.profiles p
     where lower(p.email) = ${q}
        or p.id::text = ${q}
@@ -56,7 +56,7 @@ export async function adminPerson(ctx: Ctx) {
       (select count(*)::int from public.transactions where user_id = ${person.id}) as transactions,
       (select count(*)::int from public.budgets where user_id = ${person.id}) as budgets,
       (select count(*)::int from public.goals where user_id = ${person.id}) as goals,
-      (select count(*)::int from public.devices where user_id = ${person.id}) as devices,
+      (select count(*)::int from public.device_sessions where user_id = ${person.id}) as devices,
       (select max(occurred_at) from public.transactions where user_id = ${person.id}) as last_logged
   `;
 
@@ -109,7 +109,7 @@ export async function adminPersonAction(ctx: Ctx) {
   }
 
   const [{ n }] = await sql<{ n: number }[]>`
-    with gone as (delete from public.devices where user_id = ${person.id} returning 1)
+    with gone as (delete from public.device_sessions where user_id = ${person.id} returning 1)
     select count(*)::int as n from gone
   `;
   await adminAuth().signOut(person.id as string, 'global').catch(() => undefined);
