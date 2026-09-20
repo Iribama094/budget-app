@@ -48,6 +48,18 @@ export async function adminTaxRules(ctx: Ctx) {
       payload = { ...inForce, effectiveDate: input.effectiveFrom, version: `${inForce.country} ${input.effectiveFrom}` };
     }
 
+    const [existing] = await sql`
+      select id, state from public.tax_rule_versions
+      where country = ${country} and effective_from = ${input.effectiveFrom}::date
+    `;
+    if (existing) {
+      badRequest(
+        existing.state === 'retired'
+          ? 'There is already a retired version for that date. Pick another date rather than reusing it, so the history stays readable.'
+          : `There is already a ${existing.state} version starting that day. Edit that one, or give this one a different date.`
+      );
+    }
+
     const [row] = await sql`
       insert into public.tax_rule_versions (country, effective_from, payload, note, created_by)
       values (${country}, ${input.effectiveFrom}::date, ${sql.json(payload as any)}, ${input.note ?? null}, ${admin.id})

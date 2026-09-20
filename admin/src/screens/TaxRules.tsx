@@ -117,10 +117,15 @@ export function TaxRules({ admin }: { admin: Admin }) {
     setBusy(c.code);
     setError(null);
     try {
-      const nextYear = new Date().getFullYear() + 1;
+      // A tax change lands on a new year, so that is the date offered. A retired version can still be holding
+      // one, and dates are unique per country, so this walks forward to the first free one. It is editable.
+      const taken = new Set(versions.filter((v) => v.country === c.code).map((v) => v.effectiveFrom.slice(0, 10)));
+      let year = new Date().getFullYear() + 1;
+      while (taken.has(`${year}-01-01`)) year++;
+
       const res = await api.addTaxVersion({
         country: c.code,
-        effectiveFrom: `${nextYear}-01-01`,
+        effectiveFrom: `${year}-01-01`,
         note: 'Copied from what is in force. Edit the bands before sending it for approval.'
       });
       await load();
