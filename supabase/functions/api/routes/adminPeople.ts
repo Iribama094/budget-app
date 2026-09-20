@@ -14,7 +14,12 @@ import type { Ctx } from '../index.ts';
  * needs their transactions, they export them and send them.
  */
 
-/** GET /v1/admin/people?q=email — exact email only, so the console cannot be used to trawl the list. */
+/**
+ * GET /v1/admin/people?q= — their email, the start of it, their name, or their account id.
+ *
+ * Somebody writing in says "it's Amaka" and spells their address wrong, so a name has to work. Three letters
+ * minimum and twenty results at most, which keeps this looking somebody up rather than reading the list.
+ */
 export async function adminPeople(ctx: Ctx) {
   if (ctx.method !== 'GET') methodNotAllowed(['GET']);
   await requireAdmin(ctx.req, 'people');
@@ -32,7 +37,8 @@ export async function adminPeople(ctx: Ctx) {
     from public.profiles p
     where lower(p.email) = ${q}
        or p.id::text = ${q}
-       or (length(${q}) >= 3 and p.name is not null and p.name ilike ${'%' + q + '%'})
+       or p.email ilike ${q + '%'}
+       or (p.name is not null and p.name ilike ${'%' + q + '%'})
     order by (lower(p.email) = ${q}) desc, p.name
     limit 20
   `;
