@@ -4,26 +4,27 @@
  * at once on day one. Keyed by route name; `business` replaces the guide when the Business space is active.
  * Plain forms (edit profile, change password, legal text) have no guide on purpose.
  */
-export type GuideStep = { emoji: string; title: string; body: string };
+/** `anchor` is a tour anchor id (see useTourAnchor). When that element is on screen, the step highlights it. */
+export type GuideStep = { emoji: string; title: string; body: string; anchor?: string };
 export type ScreenGuide = { steps: GuideStep[]; business?: GuideStep[] };
 
 export const SCREEN_GUIDES: Record<string, ScreenGuide> = {
   /* ------------------------------------------------------------- tabs */
   Dashboard: {
     steps: [
-      { emoji: '👋', title: 'This is Home', body: 'The number at the top is what’s safe to spend today and still be fine until payday. Savings and bills due soon are already kept aside.' },
-      { emoji: '➕', title: 'Log spending in seconds', body: 'Tap + at the bottom. Type it, say it with the mic, or paste a bank alert, and we sort it into the right bucket.' },
+      { emoji: '👋', title: 'This is Home', body: 'The number at the top is what’s safe to spend today and still be fine until payday. Savings and bills due soon are already kept aside.', anchor: 'dashboard.hero' },
+      { emoji: '➕', title: 'Log spending in seconds', body: 'Tap + at the bottom. Type it, say it with the mic, or paste a bank alert, and we sort it into the right bucket.', anchor: 'dashboard.addTx' },
       { emoji: '✅', title: 'A quick daily check-in', body: 'Two minutes each evening keeps the number honest. Your weekly check-in lands every Sunday.' }
     ],
     business: [
       { emoji: '💼', title: 'Your business at a glance', body: 'Money in, money out and what customers owe you, kept apart from your personal money.' },
       { emoji: '🧰', title: 'Your business tools', body: 'Invoices, bills, payroll, tax and reports are all a tap away from here.' },
-      { emoji: '🔀', title: 'Switch spaces any time', body: 'Use the Personal / Business switch at the top to move between the two.' }
+      { emoji: '🔀', title: 'Switch spaces any time', body: 'Use the Personal / Business switch at the top to move between the two.', anchor: 'space.switcher' }
     ]
   },
   Budget: {
     steps: [
-      { emoji: '📋', title: 'Your budgets live here', body: 'Your own plan, a household budget you share every month, or a one-off like a trip or an owambe.' },
+      { emoji: '📋', title: 'Your budgets live here', body: 'Your own plan, a household budget you share every month, or a one-off like a trip or an owambe.', anchor: 'budget.create' },
       { emoji: '🧺', title: 'Needs, Wants and Savings', body: 'Each budget splits your money into buckets, so you can see which one is running hot before it’s too late.' },
       { emoji: '🔁', title: 'When a period ends', body: 'Start the next one with the same plan in one tap, and move anything left over into a goal.' }
     ],
@@ -33,7 +34,7 @@ export const SCREEN_GUIDES: Record<string, ScreenGuide> = {
   },
   Analytics: {
     steps: [
-      { emoji: '📊', title: 'See where it went', body: 'Spending by category and bucket for any period. Tap a bar or a category to dig in.' },
+      { emoji: '📊', title: 'See where it went', body: 'Spending by category and bucket for any period. Tap a bar or a category to dig in.', anchor: 'analytics.timeframe' },
       { emoji: '💡', title: 'Small, useful nudges', body: 'We point out patterns, like a category creeping up, with one simple thing to try.' }
     ],
     business: [
@@ -42,7 +43,7 @@ export const SCREEN_GUIDES: Record<string, ScreenGuide> = {
   },
   Goals: {
     steps: [
-      { emoji: '🎯', title: 'Save for what matters to you', body: 'Pick a goal and a date. We work out what to put aside each month, and cheer you on as it fills up.' },
+      { emoji: '🎯', title: 'Save for what matters to you', body: 'Pick a goal and a date. We work out what to put aside each month, and cheer you on as it fills up.', anchor: 'goals.add' },
       { emoji: '🌱', title: 'Small amounts count', body: 'Each time you set money aside, add it to a goal. Watching it grow is half the fun.' }
     ],
     business: [
@@ -53,7 +54,7 @@ export const SCREEN_GUIDES: Record<string, ScreenGuide> = {
   /* ---------------------------------------------------------- everyday */
   AddTransaction: {
     steps: [
-      { emoji: '⚡', title: 'Three ways to log', body: 'Type the amount, tap the mic and just say it, or paste a bank alert and we’ll fill it in for you.' },
+      { emoji: '⚡', title: 'Three ways to log', body: 'Type the amount, tap the mic and just say it, or paste a bank alert and we’ll fill it in for you.', anchor: 'addtx.voice' },
       { emoji: '🏷️', title: 'Categories do the sorting', body: 'Pick a category and it lands in Needs, Wants or Savings. Missing one? Add your own right here.' }
     ]
   },

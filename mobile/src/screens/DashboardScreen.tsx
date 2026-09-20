@@ -97,6 +97,7 @@ export function DashboardScreen() {
   const planShort = plan?.status === 'short' && plan.shortfall > 0;
 
   const addTxAnchorRef = useTourAnchor('dashboard.addTx');
+  const heroAnchorRef = useTourAnchor('dashboard.hero');
   const spaceSwitcherAnchorRef = useTourAnchor('space.switcher');
 
   const showAddTxNudge = !isTourActive && !seen['dashboard.addTx'] && !isLoading && !error && recent.length === 0;
@@ -586,6 +587,7 @@ export function DashboardScreen() {
 
       {currentBudget && pace ? (
         <Pressable
+          ref={heroAnchorRef}
           onPress={() => nav.navigate('BudgetDetail', { budgetId: String(currentBudget.id) })}
           accessibilityRole="button"
           accessibilityLabel="Open current budget"

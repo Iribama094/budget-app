@@ -23,6 +23,10 @@ type TourContextValue = {
   resetTour: () => void;
   registerAnchor: (id: string, ref: React.RefObject<any>) => void;
   unregisterAnchor: (id: string) => void;
+  /** The element registered under this id on the screen showing now, for highlighting it. */
+  getAnchor: (id: string) => React.RefObject<any> | null;
+  /** Changes whenever an anchor appears or goes, so a highlight can re-check for its target. */
+  anchorTick: number;
 };
 
 const TourContext = createContext<TourContextValue | undefined>(undefined);
@@ -247,7 +251,17 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   }, [current?.anchorId, anchorTick]);
 
   return (
-    <TourContext.Provider value={{ startFirstRunTour: (o) => void startFirstRunTour(o), isTourActive: active, resetTour, registerAnchor, unregisterAnchor }}>
+    <TourContext.Provider
+      value={{
+        startFirstRunTour: (o) => void startFirstRunTour(o),
+        isTourActive: active,
+        resetTour,
+        registerAnchor,
+        unregisterAnchor,
+        getAnchor: (id: string) => anchors.current[id] ?? null,
+        anchorTick
+      }}
+    >
       {children}
 
       <TourWelcomeModal

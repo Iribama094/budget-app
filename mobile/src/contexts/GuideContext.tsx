@@ -7,6 +7,7 @@ import { useAuth } from './AuthContext';
 import { useSpace } from './SpaceContext';
 import { useTheme } from './ThemeContext';
 import { useTour } from './TourContext';
+import { CoachmarkOverlay } from '../components/Common/CoachmarkOverlay';
 import { navigationRef } from '../navigation/navigationRef';
 import { guideFor, type GuideStep } from '../guides/screenGuides';
 import { PrimaryButton, TextButton } from '../components/Common/ui';
@@ -112,18 +113,52 @@ export function GuideProvider({ children }: { children: React.ReactNode }) {
   return (
     <GuideContext.Provider value={value}>
       {children}
-      {active ? <GuideCard key={active.key} steps={active.steps} onClose={close} /> : null}
+      {active ? <GuideRunner key={active.key} steps={active.steps} onClose={close} /> : null}
     </GuideContext.Provider>
   );
 }
 
-function GuideCard({ steps, onClose }: { steps: GuideStep[]; onClose: () => void }) {
-  const { theme } = useTheme();
-  const insets = useSafeAreaInsets();
+/**
+ * Walks through a screen's steps. A step that names an element on screen highlights it, so the guide points at
+ * the real thing; a step about the screen as a whole shows a card at the bottom instead.
+ */
+function GuideRunner({ steps, onClose }: { steps: GuideStep[]; onClose: () => void }) {
+  const { getAnchor, anchorTick } = useTour();
   const [index, setIndex] = useState(0);
-  const rise = useRef(new Animated.Value(0)).current;
   const step = steps[index];
   const last = index === steps.length - 1;
+  const next = () => (last ? onClose() : setIndex((i) => i + 1));
+
+  // Re-checked on anchorTick so a highlight finds its target once the screen has drawn it.
+  const target = useMemo(() => (step.anchor ? getAnchor(step.anchor) : null), [step.anchor, getAnchor, anchorTick]);
+
+  if (target?.current) {
+    return (
+      <CoachmarkOverlay
+        visible
+        targetRef={target}
+        title={step.title}
+        body={step.body}
+        stepLabel={steps.length > 1 ? `${index + 1} of ${steps.length}` : undefined}
+        primaryLabel={last ? 'Got it' : 'Next'}
+        skipLabel="Skip"
+        showBack={index > 0}
+        onPrimary={next}
+        onBack={() => setIndex((i) => Math.max(0, i - 1))}
+        onSkip={onClose}
+        onRequestClose={onClose}
+      />
+    );
+  }
+
+  return <GuideCard step={step} index={index} count={steps.length} onNext={next} onClose={onClose} />;
+}
+
+function GuideCard({ step, index, count, onNext, onClose }: { step: GuideStep; index: number; count: number; onNext: () => void; onClose: () => void }) {
+  const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const rise = useRef(new Animated.Value(0)).current;
+  const last = index === count - 1;
 
   useEffect(() => {
     rise.setValue(0);
@@ -152,9 +187,9 @@ function GuideCard({ steps, onClose }: { steps: GuideStep[]; onClose: () => void
           <Text style={[type.body, { color: theme.colors.textMuted, marginTop: 6 }]}>{step.body}</Text>
 
           <View style={styles.footer}>
-            {steps.length > 1 ? (
-              <View style={styles.dots} accessibilityLabel={`Tip ${index + 1} of ${steps.length}`}>
-                {steps.map((_, i) => (
+            {count > 1 ? (
+              <View style={styles.dots} accessibilityLabel={`Tip ${index + 1} of ${count}`}>
+                {Array.from({ length: count }).map((_, i) => (
                   <View key={i} style={[styles.dot, { backgroundColor: i === index ? theme.colors.primary : theme.colors.border, width: i === index ? 18 : 6 }]} />
                 ))}
               </View>
@@ -162,7 +197,7 @@ function GuideCard({ steps, onClose }: { steps: GuideStep[]; onClose: () => void
               <View style={{ flex: 1 }} />
             )}
             {!last ? <TextButton title="Skip" onPress={onClose} color={theme.colors.textMuted} style={{ paddingHorizontal: 12 }} /> : null}
-            <PrimaryButton title={last ? 'Got it' : 'Next'} onPress={() => (last ? onClose() : setIndex((i) => i + 1))} style={{ minWidth: 110 }} />
+            <PrimaryButton title={last ? 'Got it' : 'Next'} onPress={onNext} style={{ minWidth: 110 }} />
           </View>
         </Animated.View>
       </View>
