@@ -15,6 +15,7 @@ import { useTour, useTourAnchor } from '../contexts/TourContext';
 import { useNudges } from '../contexts/NudgesContext';
 import { NudgeTooltip } from '../components/Common/NudgeTooltip';
 import { PendingSavingsCard } from '../components/Home/PendingSavingsCard';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 function formatDate(iso: string) {
   try {
@@ -180,6 +181,7 @@ export function GoalsScreen() {
 
   return (
     <Screen scrollable={false}>
+      <GuideAnchor id="goals.list" style={{ flex: 1 }}>
       <FlatList
         data={items}
         keyExtractor={(g) => g.id}
@@ -342,6 +344,7 @@ export function GoalsScreen() {
         onTargetPress={() => (nav as any).navigate('CreateGoal')}
         onDismiss={() => markSeen('goals.add')}
       />
+      </GuideAnchor>
     </Screen>
   );
 }

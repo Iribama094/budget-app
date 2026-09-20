@@ -17,6 +17,7 @@ import { useToast } from '../components/Common/Toast';
 import { Screen, SecondaryButton } from '../components/Common/ui';
 import { formatMoney, toIsoDate, toIsoDateTime } from '../utils/format';
 import { tokens } from '../theme/tokens';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 function parseIsoDateLocal(value?: string | null) {
   if (!value) return null;
@@ -356,6 +357,7 @@ export default function BudgetDetailScreen() {
 
       {budget ? (
         <View style={{ marginTop: 12 }}>
+          <GuideAnchor id="budgetdetail.buckets">
           <HeroCard>
             <Text style={[type.eyebrow, { color: theme.colors.inkText, opacity: 0.72 }]} numberOfLines={1}>
               {title.replace(/^My Budget ((.*))$/, '$1')}
@@ -377,6 +379,7 @@ export default function BudgetDetailScreen() {
               <ProgressBar value={progress} height={8} color={remaining < 0 ? '#F07565' : '#8FD6C3'} trackColor="rgba(255,255,255,0.14)" />
             </View>
           </HeroCard>
+          </GuideAnchor>
 
           {budget.purpose === 'event' || isSharedBudget ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
@@ -398,7 +401,9 @@ export default function BudgetDetailScreen() {
                   <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 4 }]}>
                     {isSharedBudget ? 'Start the next one with the same plan. Everyone sharing it comes along.' : 'Start the next one with the same plan and fresh numbers.'}
                   </Text>
-                  <PrimaryButton title="Start next period" onPress={startNext} loading={startingNext} style={{ marginTop: 10 }} />
+                  <GuideAnchor id="budgetdetail.next">
+                    <PrimaryButton title="Start next period" onPress={startNext} loading={startingNext} style={{ marginTop: 10 }} />
+                  </GuideAnchor>
                 </>
               ) : null}
               {showOnHome ? <TextButton title="Show this budget on Home" onPress={() => void putOnHome()} style={{ alignItems: 'flex-start', marginTop: canStartNext ? 6 : 0 }} /> : null}

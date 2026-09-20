@@ -12,6 +12,7 @@ import { Amount, Chip, IconTile, InlineError, ListCard, ListRow, Screen, ScreenH
 import { getBusinessSummary, type BusinessSummary } from '../../api/business';
 import { currencySymbol } from '../../utils/format';
 import { type } from '../../theme/typography';
+import { GuideAnchor } from '../Common/GuideAnchor';
 
 const LOOK = SPACE_LOOK.business;
 
@@ -119,6 +120,7 @@ export function BusinessProfile({ onLogout }: { onLogout: () => void }) {
       ) : null}
 
       {group('Your business')}
+      <GuideAnchor id="profile.business">
       <ListCard>
         <ListRow
           icon={bizTile(Building2)}
@@ -158,6 +160,7 @@ export function BusinessProfile({ onLogout }: { onLogout: () => void }) {
         />
         <ListRow icon={bizTile(Gift)} title="Business Wrapped" subtitle="Your business year in one story 🎁" onPress={() => nav.navigate('Wrapped', { spaceId: 'business' })} chevron />
       </ListCard>
+      </GuideAnchor>
 
       {group('You, the owner')}
       <ListCard>

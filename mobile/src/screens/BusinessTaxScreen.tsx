@@ -12,6 +12,7 @@ import { StatCard } from '../components/Business/parts';
 import { getBusinessSummary, updateBusinessSettings, type BusinessSettings, type BusinessSummary } from '../api/business';
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 const SET_ASIDE = [5, 10, 15, 20, 25, 30];
 const BUFFERS = [1, 2, 3, 6];
@@ -87,6 +88,7 @@ export default function BusinessTaxScreen() {
     <Screen bottomInset={48} onRefresh={load} refreshing={false}>
       <ScreenHeader title="Tax & VAT" subtitle={s.businessName ?? undefined} onBack={() => nav.goBack()} />
 
+      <GuideAnchor id="businesstax.hero">
       <HeroCard style={{ marginTop: 8 }}>
         <Text style={[type.eyebrow, { color: inkText, opacity: 0.72 }]}>Set aside for tax this month</Text>
         <Amount value={summary.tax.setAside} currency={glyph} size="hero" color={inkText} style={{ marginTop: 8 }} />
@@ -99,6 +101,7 @@ export default function BusinessTaxScreen() {
           ))}
         </View>
       </HeroCard>
+      </GuideAnchor>
 
       <View style={styles.tiles}>
         {s.vatRegistered ? (

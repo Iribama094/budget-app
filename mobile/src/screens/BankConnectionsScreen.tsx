@@ -12,6 +12,7 @@ import { listBankLinks, deleteBankLink, type ApiBankLink } from '../api/endpoint
 import { syncBankConnection } from '../api/features';
 import { formatMoney, formatRelativeDay } from '../utils/format';
 import { tokens } from '../theme/tokens';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 export default function BankConnectionsScreen() {
   const nav = useNavigation<any>();
@@ -81,6 +82,7 @@ export default function BankConnectionsScreen() {
 
   return (
     <Screen scrollable={false}>
+      <GuideAnchor id="banks.list" style={{ flex: 1 }}>
       <FlatList
         data={links}
         keyExtractor={(l) => l.id}
@@ -306,6 +308,7 @@ export default function BankConnectionsScreen() {
           );
         }}
       />
+      </GuideAnchor>
     </Screen>
   );
 }

@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { useTourAnchor } from '../contexts/TourContext';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { IconButton, InlineError, ListCard, PrimaryButton, Screen, SegmentedControl, TextField, formatAmount } from '../components/Common/ui';
 import { SelectField } from '../components/Common/SelectField';
 import { useVoiceNote } from '../lib/voice';
@@ -595,6 +596,7 @@ export function AddTransactionScreen() {
           </Pressable>
         ) : null}
 
+        <GuideAnchor id="addtx.categories">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll} contentContainerStyle={styles.chips} keyboardShouldPersistTaps="handled">
           {orderedCategories.map((c) => {
             const active = category === c.name;
@@ -629,6 +631,7 @@ export function AddTransactionScreen() {
             <Text style={[typo.smallStrong, { color: theme.colors.primary }]}>New</Text>
           </Pressable>
         </ScrollView>
+        </GuideAnchor>
         {suggested && suggested === category ? (
           <View style={styles.suggested}>
             <Sparkles color={theme.colors.primary} size={13} />

@@ -12,6 +12,7 @@ import { useToast } from '../components/Common/Toast';
 import { Card, Chip, IconTile, InfoTip, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SecondaryButton, SectionHeader, TextButton, TextField } from '../components/Common/ui';
 import { formatShortDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 const cleanCode = (t: string) => t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 const labelOf = (name: string) => name.replace(/^My Budget \((.*)\)$/, '$1');
@@ -172,7 +173,9 @@ export default function ShareBudgetScreen() {
 
   const joinSection = (
     <>
-      <SectionHeader title="Join a shared budget" />
+      <GuideAnchor id="share.join">
+        <SectionHeader title="Join a shared budget" />
+      </GuideAnchor>
       <Card>
         <Text style={[type.small, { color: theme.colors.textMuted, marginBottom: 12 }]}>
           Got a code from a partner, family member or housemate? Enter it to budget together. Your own budget stays yours.

@@ -30,6 +30,7 @@ import {
 import { formatMoney } from '../utils/format';
 import { tokens } from '../theme/tokens';
 import { useSpace } from '../contexts/SpaceContext';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 function directionLabel(direction: 'debit' | 'credit') {
   return direction === 'debit' ? 'Expense (debit)' : 'Income (credit)';
@@ -403,6 +404,7 @@ export default function PendingTransactionsScreen() {
 
   return (
     <Screen scrollable={false}>
+      <GuideAnchor id="pending.list" style={{ flex: 1 }}>
       <FlatList
         data={items}
         keyExtractor={(t) => t.id}
@@ -848,6 +850,7 @@ export default function PendingTransactionsScreen() {
           );
         }}
       />
+      </GuideAnchor>
     </Screen>
   );
 }

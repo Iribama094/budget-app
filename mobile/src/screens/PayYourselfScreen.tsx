@@ -11,6 +11,7 @@ import { LineItem, MoneyField, moneyText, parseMoney } from '../components/Busin
 import { getPayYourself, recordOwnerPay, type PayYourselfSuggestion } from '../api/business';
 import { currencySymbol, formatShortDate, monthName } from '../utils/format';
 import { type } from '../theme/typography';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 /**
  * A suggested safe amount to pay yourself from the business this month. BudgetFriendly doesn't move money:
@@ -104,6 +105,7 @@ export default function PayYourselfScreen() {
     <Screen bottomInset={48} onRefresh={load} refreshing={false}>
       <ScreenHeader title="Pay yourself" onBack={() => nav.goBack()} />
 
+      <GuideAnchor id="payyourself.hero">
       <HeroCard style={{ marginTop: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Wallet color="#E2B65C" size={16} />
@@ -115,6 +117,7 @@ export default function PayYourselfScreen() {
         </Text>
         {s.alreadyPaid > 0 ? <Text style={[type.caption, { color: inkText, opacity: 0.7, marginTop: 8 }]}>You’ve already paid yourself {formatAmount(s.alreadyPaid, glyph)} this month.</Text> : null}
       </HeroCard>
+      </GuideAnchor>
 
       <SectionHeader
         title="How we worked it out"

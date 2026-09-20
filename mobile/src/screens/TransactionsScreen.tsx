@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, SectionList, Pressable, TextInput, StyleSheet } from 'react-native';
 import { useHiddenIds } from '../lib/undoDelete';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { ChevronLeft, ChevronRight, Search, Trash2, X } from 'lucide-react-native';
@@ -186,7 +187,7 @@ export function TransactionsScreen() {
               </View>
             ) : null}
 
-            <View style={[styles.search, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <GuideAnchor id="transactions.search" style={[styles.search, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
               <Search color={theme.colors.textMuted} size={18} />
               <TextInput
                 value={search}
@@ -201,7 +202,7 @@ export function TransactionsScreen() {
                   <X color={theme.colors.textMuted} size={18} />
                 </Pressable>
               ) : null}
-            </View>
+            </GuideAnchor>
 
             <View style={styles.filters}>
               {filters.map((f) => {

@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { listBudgets, listTransactions, type ApiBudget } from '../api/endpoints';
 import { currencySymbol, toIsoDate } from '../utils/format';
 import { type } from '../theme/typography';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 export default function BudgetStreakDetailScreen() {
   const nav = useNavigation<any>();
@@ -147,6 +148,7 @@ export default function BudgetStreakDetailScreen() {
     <Screen bottomInset={48}>
       <ScreenHeader title="Budget streak" onBack={() => nav.goBack()} />
 
+      <GuideAnchor id="streak.card">
       <HeroCard style={{ marginTop: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -174,6 +176,7 @@ export default function BudgetStreakDetailScreen() {
           Day {periodInfo.elapsedDays} of {periodInfo.daysInPeriod}
         </Text>
       </HeroCard>
+      </GuideAnchor>
 
       <SectionHeader title="This period" />
       <ListCard>

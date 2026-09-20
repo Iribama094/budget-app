@@ -12,6 +12,7 @@ import { LineItem, MoneyField, Sheet, moneyText, parseMoney } from '../component
 import { addStaff, getPayroll, removeStaff, runPayroll, updateStaff, type PayrollRun, type Staff } from '../api/business';
 import { currencySymbol, formatShortDate, monthName } from '../utils/format';
 import { type } from '../theme/typography';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 type Draft = { id: string | null; name: string; role: string; gross: string; active: boolean };
 
@@ -157,7 +158,11 @@ export default function PayrollScreen() {
         </View>
       </HeroCard>
 
-      {active.length ? <PrimaryButton title="Record this month’s pay" iconLeft={<CalendarCheck color={theme.colors.onPrimary} size={18} />} onPress={() => setRunOpen(true)} style={{ marginTop: 14 }} /> : null}
+      {active.length ? (
+        <GuideAnchor id="payroll.run">
+          <PrimaryButton title="Record this month’s pay" iconLeft={<CalendarCheck color={theme.colors.onPrimary} size={18} />} onPress={() => setRunOpen(true)} style={{ marginTop: 14 }} />
+        </GuideAnchor>
+      ) : null}
 
       <SectionHeader title="Team" />
       {loading ? (

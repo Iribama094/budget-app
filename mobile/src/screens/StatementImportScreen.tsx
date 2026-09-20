@@ -16,6 +16,7 @@ import { importStatement, type StatementSource } from '../api/business';
 import { readStatement, type StatementPreview } from '../lib/statementCsv';
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 const SOURCES: Array<{ key: StatementSource; label: string; how: string }> = [
   { key: 'paystack', label: 'Paystack', how: 'In your Paystack dashboard, open Transactions and export them as CSV. Successful payments come in as sales.' },
@@ -127,7 +128,9 @@ export default function StatementImportScreen() {
         </>
       ) : null}
 
-      <PrimaryButton title={file ? 'Choose a different file' : 'Choose CSV file'} iconLeft={<FileSpreadsheet color={theme.colors.onPrimary} size={18} />} onPress={pick} style={{ marginTop: 18 }} />
+      <GuideAnchor id="statement.upload">
+        <PrimaryButton title={file ? 'Choose a different file' : 'Choose CSV file'} iconLeft={<FileSpreadsheet color={theme.colors.onPrimary} size={18} />} onPress={pick} style={{ marginTop: 18 }} />
+      </GuideAnchor>
 
       {error ? (
         <View style={{ marginTop: 12 }}>

@@ -12,6 +12,7 @@ import { calcTax, getTaxRules, patchMe } from '../api/endpoints';
 import { COUNTRIES } from '../utils/countries';
 import { formatMoney, formatNumberInput, parseNumberInput } from '../utils/format';
 import { type } from '../theme/typography';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 /** Nigeria Tax Act 2025: rent relief is 20% of annual rent, capped at ₦500,000. */
 const RENT_RELIEF_RATE = 0.2;
@@ -470,6 +471,7 @@ export default function TaxSettingsScreen() {
 
       {optInTaxFeature && isNigeria ? (
         <>
+          <GuideAnchor id="tax.reliefs">
           <SectionHeader
             title="Reliefs that lower your tax"
             info={`Paying rent? 20% of your yearly rent, up to ${formatMoney(RENT_RELIEF_CAP, currency)}, comes off your taxable income. Keep your tenancy agreement or receipts as proof. Pension, NHF, health insurance, life insurance and mortgage interest come off too.`}
@@ -492,6 +494,7 @@ export default function TaxSettingsScreen() {
               Already on your payslip?
             </InfoTip>
           </Card>
+          </GuideAnchor>
         </>
       ) : null}
 

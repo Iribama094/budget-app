@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AlertTriangle, Briefcase, Sparkles } from 'lucide-react-native';
@@ -205,7 +206,9 @@ export default function IncomeBillsScreen() {
         </View>
       )}
 
-      <SectionHeader title="Income" actionLabel="Add" onAction={() => setEditing({ id: null, draft: blankIncome(sources.length ? 'side_hustle' : 'salary') })} />
+      <GuideAnchor id="incomebills.income">
+        <SectionHeader title="Income" actionLabel="Add" onAction={() => setEditing({ id: null, draft: blankIncome(sources.length ? 'side_hustle' : 'salary') })} />
+      </GuideAnchor>
       {sources.length ? (
         <ListCard>
           {sources.map((s) => (

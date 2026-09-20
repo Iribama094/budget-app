@@ -10,6 +10,7 @@ import { Amount, Card, Chip, PrimaryButton, Screen, ScreenHeader, SecondaryButto
 import { parseBankAlert } from '../utils/bankAlert';
 import { currencySymbol, formatRelativeDay, formatShortDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 const EXAMPLE = 'Acct: 0123****89\nAmt: NGN18,450.00 DR\nDesc: POS PURCHASE SHOPRITE LEKKI\nDate: 13-Sep-2026 08:52\nAvail Bal: NGN245,100.00';
 
@@ -49,6 +50,7 @@ export default function BankAlertScreen() {
       </Text>
 
       <View style={[styles.box, { backgroundColor: theme.colors.surface, borderColor: parsed ? theme.colors.primary : theme.colors.border }]}>
+        <GuideAnchor id="bankalert.input">
         <TextInput
           value={text}
           onChangeText={setText}
@@ -60,6 +62,7 @@ export default function BankAlertScreen() {
           autoCorrect={false}
           accessibilityLabel="Bank alert text"
         />
+        </GuideAnchor>
       </View>
       <View style={styles.actions}>
         <SecondaryButton title="Paste" onPress={() => void paste()} iconLeft={<ClipboardPaste color={theme.colors.text} size={18} />} style={{ flex: 1 }} />

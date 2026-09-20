@@ -30,6 +30,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { haptic } from '../lib/haptics';
 import { pickQuote } from '../lib/quotes';
 import { QuoteLine } from '../components/Common/QuoteLine';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { useSpace } from '../contexts/SpaceContext';
 import { currencySymbol, formatNumberInput, formatShortDate } from '../utils/format';
 import { type as typo } from '../theme/typography';
@@ -324,7 +325,11 @@ export default function GoalDetailScreen() {
 
           {done ? <QuoteLine quote={pickQuote(['saving', 'patience'], goal.id)} style={{ marginTop: 16 }} /> : null}
 
-          {!done ? <PrimaryButton title="Add money" onPress={openAddMoney} iconLeft={<Plus color={theme.colors.onPrimary} size={18} />} style={{ marginTop: 14 }} /> : null}
+          {!done ? (
+            <GuideAnchor id="goaldetail.add">
+              <PrimaryButton title="Add money" onPress={openAddMoney} iconLeft={<Plus color={theme.colors.onPrimary} size={18} />} style={{ marginTop: 14 }} />
+            </GuideAnchor>
+          ) : null}
 
           <PendingSavingsCard goalId={goal.id} onAnswered={load} />
 
@@ -333,7 +338,7 @@ export default function GoalDetailScreen() {
             info="This is only a reminder: nothing moves automatically. When you record income we ask if you moved the money, and it counts once you say “I moved it”. BudgetFriendly never debits your account. What you record grows this goal and counts under Savings in your budget."
           />
           <Card>
-            <View style={styles.row}>
+            <GuideAnchor id="goaldetail.autosave" style={styles.row}>
               <IconTile bg={theme.colors.brassSoft} size={38}>
                 <Repeat color={theme.colors.brass} size={18} />
               </IconTile>
@@ -350,7 +355,7 @@ export default function GoalDetailScreen() {
                 trackColor={{ true: theme.colors.primary, false: theme.colors.border }}
                 thumbColor="#FFFFFF"
               />
-            </View>
+            </GuideAnchor>
             {goal.autoSavePercent ? (
               <View style={styles.chips}>
                 {AUTO_SAVE_OPTIONS.map((p) => {

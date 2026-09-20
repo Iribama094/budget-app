@@ -13,6 +13,7 @@ import { DateChoice, LineItem, MoneyField, Sheet, StatusChip, addDaysIso, dueTex
 import { createBill, deleteBill, listBills, payBill, updateBill, type SupplierBill } from '../api/business';
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 type Filter = 'open' | 'paid' | 'all';
 const CATEGORIES = ['Stock & supplies', 'Rent', 'Utilities', 'Transport & logistics', 'Marketing', 'Equipment', 'Professional fees', 'Other'];
@@ -146,6 +147,7 @@ export default function BillsScreen() {
       />
       {error ? <InlineError message={error} /> : null}
 
+      <GuideAnchor id="bills.hero">
       <HeroCard style={{ marginTop: 8 }}>
         <Text style={[type.eyebrow, { color: inkText, opacity: 0.72 }]}>You owe</Text>
         <Amount value={totals.owe} currency={glyph} size="hero" color={inkText} hidden={hide} style={{ marginTop: 8 }} />
@@ -159,6 +161,7 @@ export default function BillsScreen() {
                 : 'No open bills. Clean slate 🙌'}
         </Text>
       </HeroCard>
+      </GuideAnchor>
 
       <SegmentedControl
         style={{ marginTop: 16 }}

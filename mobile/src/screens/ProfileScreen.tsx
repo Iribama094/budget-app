@@ -14,6 +14,7 @@ import { getAnalyticsSummary } from '../api/endpoints';
 import { getPlan, type ApiPlan } from '../api/personal';
 import { currencySymbol } from '../utils/format';
 import { fonts, type } from '../theme/typography';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 const PAIN_LABELS: Record<string, string> = {
   runs_out: 'Money lasting until payday',
@@ -104,6 +105,7 @@ export function ProfileScreen() {
         </Pressable>
       </View>
 
+      <GuideAnchor id="profile.plan">
       <Card style={{ marginTop: 16 }}>
         <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Your plan</Text>
         {hasPlan ? (
@@ -138,6 +140,7 @@ export function ProfileScreen() {
           </>
         )}
       </Card>
+      </GuideAnchor>
 
       <Text style={[type.eyebrow, styles.groupLabel, { color: theme.colors.textMuted }]}>About you</Text>
       <ListCard>

@@ -44,6 +44,7 @@ import { listBankLinks, patchMe } from '../api/endpoints';
 import { getBusinessSettings, type BusinessSettings } from '../api/business';
 import { getDailyReminder, setDailyReminder, type DailyReminder } from '../lib/notifications';
 import { type } from '../theme/typography';
+import { GuideAnchor } from '../components/Common/GuideAnchor';
 
 const ONBOARDING_KEY = 'bf_onboarding_done_v1';
 
@@ -188,6 +189,7 @@ export default function SettingsScreen() {
       {isBusiness ? (
         <>
           {group('Your business')}
+          <GuideAnchor id="settings.list">
           <ListCard>
             <ListRow
               icon={tile(Building2)}
@@ -212,6 +214,7 @@ export default function SettingsScreen() {
               chevron
             />
           </ListCard>
+          </GuideAnchor>
 
           {group('Money in and out')}
           <ListCard>
@@ -237,6 +240,7 @@ export default function SettingsScreen() {
       ) : (
         <>
           {group('Money')}
+          <GuideAnchor id="settings.list">
           <ListCard>
             <ListRow
               icon={tile(Tags)}
@@ -251,6 +255,7 @@ export default function SettingsScreen() {
             <ListRow icon={tile(Calculator)} title="Tax" subtitle="Estimate your take-home pay and reliefs" onPress={() => nav.navigate('TaxSettings')} chevron />
             <ListRow icon={tile(Download)} title="Export data" subtitle="Download your transactions" onPress={() => nav.navigate('ExportData')} chevron />
           </ListCard>
+          </GuideAnchor>
 
           {group('Budgeting together')}
           <ListCard>
