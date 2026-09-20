@@ -15,6 +15,7 @@ import { getPlan, type ApiPlan } from '../api/personal';
 import { currencySymbol } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 const PAIN_LABELS: Record<string, string> = {
   runs_out: 'Money lasting until payday',
@@ -76,7 +77,7 @@ export function ProfileScreen() {
 
   return (
     <Screen bottomInset={48}>
-      <ScreenHeader title="Profile" subtitle={spacesEnabled ? 'Personal space' : undefined} onBack={() => nav.goBack()} />
+      <ScreenHeader title="Profile" subtitle={spacesEnabled ? 'Personal space' : undefined} onBack={() => goBackOrHome(nav)} />
 
       <View style={styles.profile}>
         {avatarUri ? (

@@ -7,6 +7,7 @@ import { useToast } from '../components/Common/Toast';
 import { changePassword } from '../api/endpoints';
 import { useTheme } from '../contexts/ThemeContext';
 import { type } from '../theme/typography';
+import { goBackOrHome } from '../navigation/goBack';
 
 const MIN_PASSWORD = 8;
 
@@ -30,7 +31,7 @@ export default function ChangePasswordScreen() {
     try {
       await changePassword(currPass, newPass);
       toast.show('Password updated', 'success');
-      nav.goBack();
+      goBackOrHome(nav);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not update your password. Try again.');
     } finally {
@@ -46,7 +47,7 @@ export default function ChangePasswordScreen() {
 
   return (
     <Screen bottomInset={40}>
-      <ScreenHeader title="Password" onBack={() => nav.goBack()} />
+      <ScreenHeader title="Password" onBack={() => goBackOrHome(nav)} />
       <Text style={[type.body, { color: theme.colors.textMuted, marginTop: 12, marginBottom: 20 }]}>
         Enter your current password, then choose a new one with at least {MIN_PASSWORD} characters.
       </Text>

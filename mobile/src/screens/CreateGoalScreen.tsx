@@ -13,6 +13,7 @@ import { Card, InlineError, PrimaryButton, Screen, TextButton, TextField, format
 import { currencySymbol, formatNumberInput, formatShortDate, toIsoDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 import { tokens } from '../theme/tokens';
+import { goBackOrHome } from '../navigation/goBack';
 
 type Preset = { key: string; emoji: string; label: string; months: number };
 
@@ -163,7 +164,7 @@ export default function CreateGoalScreen() {
 
   return (
     <Screen bottomInset={40}>
-      <Pressable onPress={() => nav.goBack()} hitSlop={8} accessibilityRole="button" style={({ pressed }) => [styles.back, { opacity: pressed ? 0.7 : 1 }]}>
+      <Pressable onPress={() => goBackOrHome(nav)} hitSlop={8} accessibilityRole="button" style={({ pressed }) => [styles.back, { opacity: pressed ? 0.7 : 1 }]}>
         <ChevronLeft color={theme.colors.text} size={20} />
         <Text style={[type.bodyStrong, { color: theme.colors.text }]}>Back</Text>
       </Pressable>

@@ -11,6 +11,7 @@ import { parseBankAlert } from '../utils/bankAlert';
 import { currencySymbol, formatRelativeDay, formatShortDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 const EXAMPLE = 'Acct: 0123****89\nAmt: NGN18,450.00 DR\nDesc: POS PURCHASE SHOPRITE LEKKI\nDate: 13-Sep-2026 08:52\nAvail Bal: NGN245,100.00';
 
@@ -44,7 +45,7 @@ export default function BankAlertScreen() {
 
   return (
     <Screen bottomInset={48}>
-      <ScreenHeader title="Paste a bank alert" onBack={() => nav.goBack()} />
+      <ScreenHeader title="Paste a bank alert" onBack={() => goBackOrHome(nav)} />
       <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 6 }]}>
         Copy the debit or credit SMS or email from your bank and paste it here. We’ll fill in the transaction for you to check.
       </Text>

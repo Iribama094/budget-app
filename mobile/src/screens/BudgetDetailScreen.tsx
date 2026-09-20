@@ -18,6 +18,7 @@ import { Screen, SecondaryButton } from '../components/Common/ui';
 import { formatMoney, toIsoDate, toIsoDateTime } from '../utils/format';
 import { tokens } from '../theme/tokens';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 function parseIsoDateLocal(value?: string | null) {
   if (!value) return null;
@@ -195,7 +196,7 @@ export default function BudgetDetailScreen() {
             if (spacesEnabled) await deleteBudgetInSpace(budget.id, activeSpaceId);
             else await deleteBudget(budget.id);
             toast.show('Budget deleted');
-            nav.goBack();
+            goBackOrHome(nav);
           } catch (e) {
             toast.show(e instanceof Error ? e.message : 'Failed to delete budget');
           }
@@ -296,7 +297,7 @@ export default function BudgetDetailScreen() {
     <Screen scrollable onRefresh={load} refreshing={isLoading}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Pressable
-          onPress={() => nav.goBack()}
+          onPress={() => goBackOrHome(nav)}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', opacity: pressed ? 0.8 : 1 })}
         >

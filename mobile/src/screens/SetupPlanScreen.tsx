@@ -30,6 +30,7 @@ import { QuoteLine } from '../components/Common/QuoteLine';
 import { setDailyReminder } from '../lib/notifications';
 import { currencySymbol, formatNumberInput, formatShortDate, toIsoDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
+import { goBackOrHome } from '../navigation/goBack';
 
 const PAIN_OPTIONS: Array<{ key: PainPoint; title: string; body: string }> = [
   { key: 'runs_out', title: 'My money runs out before payday', body: 'We’ll show what’s safe to spend each day.' },
@@ -200,7 +201,7 @@ export default function SetupPlanScreen() {
   };
 
   const leave = () => {
-    if (fromHome && nav.canGoBack()) nav.goBack();
+    if (fromHome && nav.canGoBack()) goBackOrHome(nav);
     else nav.reset({ index: 0, routes: [{ name: 'Main' }] });
   };
 

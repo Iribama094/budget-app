@@ -6,6 +6,7 @@ import { Calculator, ChevronDown, ChevronUp, Mail, Search, Sparkles, Users } fro
 import { useTheme } from '../contexts/ThemeContext';
 import { Card, IconTile, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SectionHeader, TextField } from '../components/Common/ui';
 import { type } from '../theme/typography';
+import { goBackOrHome } from '../navigation/goBack';
 
 type Faq = { q: string; a: string };
 type Topic = { title: string; items: Faq[] };
@@ -216,7 +217,7 @@ export default function HelpSupportScreen() {
 
   return (
     <Screen bottomInset={48}>
-      <ScreenHeader title="Help & support" subtitle="Quick answers, or talk to us" onBack={() => nav.goBack()} />
+      <ScreenHeader title="Help & support" subtitle="Quick answers, or talk to us" onBack={() => goBackOrHome(nav)} />
 
       <TextField
         label="Search help"

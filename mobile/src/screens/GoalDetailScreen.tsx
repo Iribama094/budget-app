@@ -34,6 +34,7 @@ import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { useSpace } from '../contexts/SpaceContext';
 import { currencySymbol, formatNumberInput, formatShortDate } from '../utils/format';
 import { type as typo } from '../theme/typography';
+import { goBackOrHome } from '../navigation/goBack';
 
 const AUTO_SAVE_OPTIONS = [5, 10, 15, 20, 30];
 
@@ -228,7 +229,7 @@ export default function GoalDetailScreen() {
             if (spacesEnabled) await deleteGoalInSpace(goal.id, activeSpaceId);
             else await deleteGoal(goal.id);
             toast.show('Goal deleted');
-            nav.goBack();
+            goBackOrHome(nav);
           } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to delete goal');
           }
@@ -277,7 +278,7 @@ export default function GoalDetailScreen() {
 
   return (
     <Screen bottomInset={48} onRefresh={load} refreshing={isLoading}>
-      <ScreenHeader title={title} subtitle={goal?.category ? String(goal.category) : undefined} onBack={() => nav.goBack()} right={headerActions} />
+      <ScreenHeader title={title} subtitle={goal?.category ? String(goal.category) : undefined} onBack={() => goBackOrHome(nav)} right={headerActions} />
 
       {error ? <InlineError message={error} /> : null}
       {!goal && isLoading ? <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 40 }} /> : null}

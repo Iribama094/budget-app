@@ -13,6 +13,7 @@ import { addStaff, getPayroll, removeStaff, runPayroll, updateStaff, type Payrol
 import { currencySymbol, formatShortDate, monthName } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 type Draft = { id: string | null; name: string; role: string; gross: string; active: boolean };
 
@@ -128,7 +129,7 @@ export default function PayrollScreen() {
     <Screen bottomInset={48} onRefresh={load} refreshing={false}>
       <ScreenHeader
         title="Staff & payroll"
-        onBack={() => nav.goBack()}
+        onBack={() => goBackOrHome(nav)}
         right={
           <Pressable
             onPress={() => setDraft({ id: null, name: '', role: '', gross: '', active: true })}

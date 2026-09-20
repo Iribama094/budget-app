@@ -15,6 +15,7 @@ import { ChoiceChip } from '../components/Plan/ChoiceChip';
 import { getWrapped, type Wrapped } from '../api/business';
 import { currencySymbol } from '../utils/format';
 import { fonts, type } from '../theme/typography';
+import { goBackOrHome } from '../navigation/goBack';
 
 const EMOJI: Record<string, string> = { stacker: '🐿️', planner: '📋', tracker: '🧾', enjoyer: '🎉', hustler: '💪', builder: '🏗️', grinder: '💼', survivor: '🙏' };
 const WHITE = '#FFFFFF';
@@ -286,7 +287,7 @@ export default function WrappedScreen() {
   return (
     <Screen scrollable={false}>
       <View style={styles.header}>
-        <IconButton round accessibilityLabel="Close" onPress={() => nav.goBack()}>
+        <IconButton round accessibilityLabel="Close" onPress={() => goBackOrHome(nav)}>
           <X color={theme.colors.text} size={19} />
         </IconButton>
         <SegmentedControl

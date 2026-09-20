@@ -11,6 +11,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
 import { Card, IconTile, InlineError, PrimaryButton, Screen, ScreenHeader, SecondaryButton } from '../components/Common/ui';
 import { type } from '../theme/typography';
+import { goBackOrHome } from '../navigation/goBack';
 
 const MONO_PUBLIC_KEY = process.env.EXPO_PUBLIC_MONO_PUBLIC_KEY ?? '';
 
@@ -88,7 +89,7 @@ export default function MonoConnectScreen() {
           4500
         );
         if (res.imported) nav.replace('PendingTransactions');
-        else nav.goBack();
+        else goBackOrHome(nav);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Your bank was linked at Mono but we couldn’t save it. Try again.');
         setPhase('failed');
@@ -99,7 +100,7 @@ export default function MonoConnectScreen() {
   if (!MONO_PUBLIC_KEY) {
     return (
       <Screen bottomInset={48}>
-        <ScreenHeader title="Connect a bank" onBack={() => nav.goBack()} />
+        <ScreenHeader title="Connect a bank" onBack={() => goBackOrHome(nav)} />
         <Card style={{ marginTop: 16 }}>
           <Text style={[type.bodyStrong, { color: theme.colors.text }]}>Live bank connections aren’t set up in this build</Text>
           <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 6 }]}>
@@ -129,7 +130,7 @@ export default function MonoConnectScreen() {
 
   return (
     <Screen bottomInset={48}>
-      <ScreenHeader title="Connect a bank" onBack={() => nav.goBack()} />
+      <ScreenHeader title="Connect a bank" onBack={() => goBackOrHome(nav)} />
       <View style={{ alignItems: 'flex-start', marginTop: 20 }}>
         <IconTile bg={theme.colors.primarySoft} size={52}>
           <Landmark color={theme.colors.primary} size={24} />
@@ -165,7 +166,7 @@ export default function MonoConnectScreen() {
         }}
         style={{ marginTop: 24 }}
       />
-      <SecondaryButton title="Not now" onPress={() => nav.goBack()} style={{ marginTop: 10 }} />
+      <SecondaryButton title="Not now" onPress={() => goBackOrHome(nav)} style={{ marginTop: 10 }} />
       <View style={styles.privacy}>
         <Lock color={theme.colors.textMuted} size={13} />
         <Text style={[type.caption, { color: theme.colors.textMuted, flex: 1 }]}>BudgetFriendly never sees your bank password.</Text>

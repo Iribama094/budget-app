@@ -36,6 +36,7 @@ import { blankIncome, describePay, fromApiIncome, toIncomeInput, type DraftIncom
 import { TIER_LABEL, billTier, gapRoutes, sortBills, type BillTier } from '../lib/billPriority';
 import { currencySymbol } from '../utils/format';
 import { type } from '../theme/typography';
+import { goBackOrHome } from '../navigation/goBack';
 
 const FREQ: Record<string, string> = { monthly: 'monthly', yearly: 'yearly', weekly: 'weekly', biweekly: 'every 2 weeks', irregular: 'varies' };
 const TIER_TONE: Record<BillTier, 'neutral' | 'brass' | 'primary'> = { must: 'neutral', reduce: 'brass', pause: 'primary' };
@@ -138,7 +139,7 @@ export default function IncomeBillsScreen() {
 
   return (
     <Screen bottomInset={48} onRefresh={load} refreshing={false}>
-      <ScreenHeader title="Income & bills" onBack={() => nav.goBack()} />
+      <ScreenHeader title="Income & bills" onBack={() => goBackOrHome(nav)} />
       {error ? <InlineError message={error} /> : null}
 
       {short && routes ? (

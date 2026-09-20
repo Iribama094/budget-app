@@ -12,6 +12,7 @@ import { useSpace } from '../contexts/SpaceContext';
 import { getAnalyticsSummary, type AnalyticsSummary } from '../api/endpoints';
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
+import { goBackOrHome } from '../navigation/goBack';
 
 type RouteParams = {
   range: { start: string; end: string };
@@ -76,7 +77,7 @@ export default function AnalyticsBucketDetailScreen() {
       <ScreenHeader
         title="Spending by bucket"
         subtitle={spacesEnabled ? [activeSpace?.name ?? 'Personal', periodLabel].filter(Boolean).join(' · ') : periodLabel}
-        onBack={() => nav.goBack()}
+        onBack={() => goBackOrHome(nav)}
       />
 
       {error ? <InlineError message={error} /> : null}

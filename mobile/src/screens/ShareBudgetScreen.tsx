@@ -13,6 +13,7 @@ import { Card, Chip, IconTile, InfoTip, InlineError, ListCard, ListRow, PrimaryB
 import { formatShortDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 const cleanCode = (t: string) => t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 const labelOf = (name: string) => name.replace(/^My Budget \((.*)\)$/, '$1');
@@ -202,7 +203,7 @@ export default function ShareBudgetScreen() {
 
   return (
     <Screen onRefresh={budgetId ? load : undefined} refreshing={loading} bottomInset={48}>
-      <ScreenHeader title={budgetId ? 'Share budget' : 'Shared budgets'} onBack={() => nav.goBack()} />
+      <ScreenHeader title={budgetId ? 'Share budget' : 'Shared budgets'} onBack={() => goBackOrHome(nav)} />
 
       {budgetId ? (
         <Card style={{ marginTop: 14 }}>

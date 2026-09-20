@@ -11,6 +11,7 @@ import { useSpace } from '../contexts/SpaceContext';
 import { getAnalyticsSummary, type AnalyticsSummary } from '../api/endpoints';
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
+import { goBackOrHome } from '../navigation/goBack';
 
 type RouteParams = {
   range: { start: string; end: string };
@@ -63,7 +64,7 @@ export default function AnalyticsMiniBudgetsDetailScreen() {
 
   return (
     <Screen bottomInset={48} onRefresh={load} refreshing={isLoading}>
-      <ScreenHeader title="Mini budget spending" subtitle={range ? `${formatShortDate(range.start)} – ${formatShortDate(range.end)}` : undefined} onBack={() => nav.goBack()} />
+      <ScreenHeader title="Mini budget spending" subtitle={range ? `${formatShortDate(range.start)} – ${formatShortDate(range.end)}` : undefined} onBack={() => goBackOrHome(nav)} />
 
       {error ? <InlineError message={error} /> : null}
 

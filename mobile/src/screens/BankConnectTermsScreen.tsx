@@ -6,6 +6,7 @@ import { ArrowLeft } from 'lucide-react-native';
 import { Screen, Card, H1, P, PrimaryButton } from '../components/Common/ui';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
+import { goBackOrHome } from '../navigation/goBack';
 
 export default function BankConnectTermsScreen() {
   const nav = useNavigation<any>();
@@ -16,7 +17,7 @@ export default function BankConnectTermsScreen() {
     <Screen>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Pressable
-          onPress={() => nav.goBack()}
+          onPress={() => goBackOrHome(nav)}
           style={({ pressed }) => [
             {
               width: 44,

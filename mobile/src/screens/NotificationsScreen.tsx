@@ -39,6 +39,7 @@ import { scheduleWeeklyCheckIn } from '../lib/notifications';
 import { formatRelativeDay } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 const KIND_ICON: Record<NotificationKind, LucideIcon> = {
   pace: TrendingUp,
@@ -196,7 +197,7 @@ export default function NotificationsScreen() {
             <ScreenHeader
               title={isBusiness ? 'Business alerts' : 'Notifications'}
               subtitle={isBusiness ? 'Invoices, bills, tax dates and cost alerts' : spacesEnabled ? 'Your personal money alerts' : undefined}
-              onBack={() => nav.goBack()}
+              onBack={() => goBackOrHome(nav)}
               right={
                 <IconButton accessibilityLabel={showPrefs ? 'Hide notification settings' : 'Notification settings'} onPress={() => void togglePrefs()}>
                   <Settings2 color={showPrefs ? theme.colors.primary : theme.colors.text} size={19} />

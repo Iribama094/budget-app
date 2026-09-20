@@ -16,6 +16,7 @@ import type { ApiCategory } from '../api/personal';
 import { CATEGORY_ICONS, ICON_CHOICES, guessIconKey } from '../lib/categoryIcons';
 import { BUCKETS, bucketDescription, bucketDisplayName, type Bucket } from '../theme/buckets';
 import { type } from '../theme/typography';
+import { goBackOrHome } from '../navigation/goBack';
 
 type Draft = { id: string | null; name: string; type: 'income' | 'expense'; bucket: Bucket; icon: string; hidden: boolean; iconTouched: boolean };
 
@@ -105,7 +106,7 @@ export default function CategoriesScreen() {
     <Screen bottomInset={48}>
       <ScreenHeader
         title="Categories"
-        onBack={() => nav.goBack()}
+        onBack={() => goBackOrHome(nav)}
         right={
           <GuideAnchor id="categories.add">
             <IconButton accessibilityLabel="Add a category" onPress={openNew}>

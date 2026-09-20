@@ -45,6 +45,7 @@ import { getBusinessSettings, type BusinessSettings } from '../api/business';
 import { getDailyReminder, setDailyReminder, type DailyReminder } from '../lib/notifications';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 const ONBOARDING_KEY = 'bf_onboarding_done_v1';
 
@@ -184,7 +185,7 @@ export default function SettingsScreen() {
 
   return (
     <Screen bottomInset={48}>
-      <ScreenHeader title="Settings" subtitle={subtitle} onBack={() => nav.goBack()} />
+      <ScreenHeader title="Settings" subtitle={subtitle} onBack={() => goBackOrHome(nav)} />
 
       {isBusiness ? (
         <>

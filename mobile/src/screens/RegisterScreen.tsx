@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { IconButton, InlineError, PrimaryButton, Screen, TextField } from '../components/Common/ui';
 import { fonts, type } from '../theme/typography';
+import { goBackOrHome } from '../navigation/goBack';
 
 // Must match zPassword on the API (backend/_lib/validate.ts).
 const MIN_PASSWORD = 8;
@@ -45,7 +46,7 @@ export function RegisterScreen() {
     <Screen bottomInset={40}>
       <View style={{ paddingTop: 4, minHeight: 44, justifyContent: 'center' }}>
         {navigation.canGoBack() ? (
-          <IconButton accessibilityLabel="Go back" onPress={() => navigation.goBack()}>
+          <IconButton accessibilityLabel="Go back" onPress={() => goBackOrHome(navigation)}>
             <ChevronLeft color={theme.colors.text} size={20} />
           </IconButton>
         ) : null}

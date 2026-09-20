@@ -27,6 +27,7 @@ import { suggestCategory } from '../api/personal';
 import { BUCKETS, bucketDisplayName, normalizeBucket, type Bucket } from '../theme/buckets';
 import { guessIconKey, iconForKey } from '../lib/categoryIcons';
 import { currencySymbol, formatNumberInput, formatShortDate, toIsoDate, toIsoDateTime } from '../utils/format';
+import { goBackOrHome } from '../navigation/goBack';
 
 
 export function AddTransactionScreen() {
@@ -257,7 +258,7 @@ export function AddTransactionScreen() {
       if (result.status === 'queued') toast.show('Saved on this phone. It will sync when you’re back online.', 'info', 4000);
       else if (streak) toast.show(`${streak} days in a row 🔥 Omo, you’re consistent!`, 'success', 4000);
       else toast.show(type === 'expense' ? 'Expense saved' : 'Income saved', 'success');
-      nav.goBack();
+      goBackOrHome(nav);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save this transaction. Check your connection and try again.');
     } finally {
@@ -504,7 +505,7 @@ export function AddTransactionScreen() {
   return (
     <Screen scrollable={false} style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
       <View style={styles.header}>
-        <IconButton accessibilityLabel="Close" onPress={() => nav.goBack()}>
+        <IconButton accessibilityLabel="Close" onPress={() => goBackOrHome(nav)}>
           <X color={theme.colors.text} size={20} />
         </IconButton>
         <SegmentedControl

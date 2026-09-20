@@ -12,6 +12,7 @@ import { getPayYourself, recordOwnerPay, type PayYourselfSuggestion } from '../a
 import { currencySymbol, formatShortDate, monthName } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { goBackOrHome } from '../navigation/goBack';
 
 /**
  * A suggested safe amount to pay yourself from the business this month. BudgetFriendly doesn't move money:
@@ -53,7 +54,7 @@ export default function PayYourselfScreen() {
   if (!s) {
     return (
       <Screen bottomInset={48}>
-        <ScreenHeader title="Pay yourself" onBack={() => nav.goBack()} />
+        <ScreenHeader title="Pay yourself" onBack={() => goBackOrHome(nav)} />
         {error ? <InlineError message={error} /> : <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 40 }} />}
       </Screen>
     );
@@ -103,7 +104,7 @@ export default function PayYourselfScreen() {
 
   return (
     <Screen bottomInset={48} onRefresh={load} refreshing={false}>
-      <ScreenHeader title="Pay yourself" onBack={() => nav.goBack()} />
+      <ScreenHeader title="Pay yourself" onBack={() => goBackOrHome(nav)} />
 
       <GuideAnchor id="payyourself.hero">
       <HeroCard style={{ marginTop: 8 }}>
