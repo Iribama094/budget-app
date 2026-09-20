@@ -17,11 +17,24 @@ npx supabase link --project-ref uggmyokbpwfdbustnggo
 npx supabase migration new <name>      # then write the SQL in supabase/migrations
 npx supabase db push                   # apply migrations
 npx supabase db advisors --linked      # security and performance checks
-npx supabase functions deploy api --use-api --no-verify-jwt
+node supabase/scripts/deploy.mjs           # deploy the api function (see below); add a commit to deploy something other than origin/main
 npx --yes deno check supabase/functions/api/index.ts
 node supabase/scripts/e2e.mjs .
 npx supabase config diff               # always review this before: npx supabase config push
 ```
+
+## Deploying the API function
+
+Always deploy with `node supabase/scripts/deploy.mjs`, never `supabase functions deploy` by hand. The raw command uploads whatever is sitting in the folder, not what is committed, so one person's half finished work can reach production from someone else's checkout. That happened on 20 September 2026 and took the business endpoints down until the function was redeployed from a clean checkout.
+
+The script refuses to deploy unless:
+
+1. the working tree is clean, so no local edits ride along
+2. the commit is already on origin, so what is live can be found again
+3. every migration in that commit is already applied, so the code never reads columns that do not exist
+4. it builds from a fresh checkout of that exact commit
+
+Apply migrations first (`npx supabase db push`), then deploy, then run the end-to-end suite.
 
 The end-to-end script exercises personal budgeting as well as invoices, bills, payroll, statement imports, confirmable goal savings and Money Wrapped against the linked live project. It creates and removes throwaway users.
 
