@@ -51,12 +51,20 @@ const wanted = git('ls-tree', '--name-only', sha, 'supabase/migrations/')
   .split('\n')
   .map((f) => path.basename(f).split('_')[0])
   .filter((v) => /^\d{14}$/.test(v));
-const listed = run('npx', ['--yes', 'supabase@latest', 'migration', 'list', '--linked', '-o', 'json']);
-const applied = new Set(
-  JSON.parse(listed.slice(listed.indexOf('{')))
-    .migrations.filter((m) => m.remote)
-    .map((m) => m.remote)
-);
+const listed = run('npx', ['--yes', 'supabase@latest', 'migration', 'list', '--linked']);
+// The CLI prints JSON in some versions and a table in others, so read whichever came back.
+const applied = new Set();
+try {
+  const parsed = JSON.parse(listed.slice(listed.indexOf('{')));
+  for (const m of parsed.migrations ?? []) if (m.remote) applied.add(String(m.remote));
+} catch {
+  // Table form: the remote column is the second version on a row.
+  for (const line of listed.split('\n')) {
+    const versions = line.match(/\d{14}/g);
+    if (versions && versions.length >= 2) applied.add(versions[1]);
+  }
+}
+if (applied.size === 0) die('Could not read which migrations are applied. Run "npx supabase migration list --linked" and check the link.');
 const missing = wanted.filter((v) => !applied.has(v));
 if (missing.length) {
   die(`These migrations are in ${sha.slice(0, 7)} but not applied to the database:\n    ${missing.join('\n    ')}\n  Run "npx supabase db push" first. Deploying first is what causes 500s on live data.`);
