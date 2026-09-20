@@ -4,15 +4,21 @@ import { SignIn } from './screens/SignIn';
 import { Overview } from './screens/Overview';
 import { Flags } from './screens/Flags';
 import { Wrapped } from './screens/Wrapped';
+import { People } from './screens/People';
+import { Content } from './screens/Content';
+import { TaxRules } from './screens/TaxRules';
 import { Audit } from './screens/Audit';
 import { Staff } from './screens/Staff';
 
-type Page = 'overview' | 'flags' | 'wrapped' | 'audit' | 'staff';
+type Page = 'overview' | 'flags' | 'wrapped' | 'people' | 'content' | 'tax' | 'audit' | 'staff';
 
 const PAGES: Array<{ key: Page; label: string; owners?: boolean }> = [
   { key: 'overview', label: 'Overview' },
   { key: 'flags', label: 'Feature flags' },
   { key: 'wrapped', label: 'Money Wrapped' },
+  { key: 'people', label: 'People' },
+  { key: 'content', label: 'Content and copy' },
+  { key: 'tax', label: 'Tax rules' },
   { key: 'audit', label: 'Audit log' },
   { key: 'staff', label: 'Staff', owners: true }
 ];
@@ -106,6 +112,9 @@ export function App() {
         {page === 'overview' && <Overview onGoToWrapped={() => setPage('wrapped')} />}
         {page === 'flags' && <Flags admin={admin} />}
         {page === 'wrapped' && <Wrapped admin={admin} />}
+        {page === 'people' && <People admin={admin} />}
+        {page === 'content' && <Content admin={admin} />}
+        {page === 'tax' && <TaxRules />}
         {page === 'audit' && <Audit />}
         {page === 'staff' && <Staff admin={admin} />}
       </main>

@@ -141,3 +141,22 @@ export function computeTax(rule: TaxRule, input: { grossAnnual: number; deductio
     minimumTaxAnnual
   };
 }
+
+
+/**
+ * What the console shows on its Tax rules screen: the bands and thresholds in force, in the shape a person
+ * reads rather than the shape the calculator uses. Read only on purpose, since a wrong band changes what
+ * somebody believes they owe.
+ */
+export function taxRulesSummary() {
+  return Object.entries(RULES).map(([code, rule]) => ({
+    code,
+    country: rule.country,
+    version: rule.version ?? null,
+    brackets: rule.brackets.map((b) => ({ from: b.from, to: b.to ?? null, rate: b.rate })),
+    deductions: Object.keys(rule.deductions ?? {}),
+    noTaxIfGrossMonthlyAtOrBelow: rule.noTaxIfGrossMonthlyAtOrBelow ?? null,
+    minimumTaxRate: rule.minimumTaxRate ?? null,
+    company: rule.company ?? null
+  }));
+}

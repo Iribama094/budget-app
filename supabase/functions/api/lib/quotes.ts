@@ -62,15 +62,37 @@ function hash(s: string): number {
 }
 
 /** A quote for these themes. The same seed always gives the same quote, so a message never changes on refresh. */
-export function pickQuote(themes: QuoteTheme[], seed: string): Quote {
-  const fit = QUOTES.filter((q) => q.themes.some((t) => themes.includes(t)));
-  const list = fit.length ? fit : QUOTES;
+export function pickQuote(themes: QuoteTheme[], seed: string, from: Quote[] = QUOTES): Quote {
+  const fit = from.filter((q) => q.themes.some((t) => themes.includes(t)));
+  const list = fit.length ? fit : from;
   // Nigerian and African voices go in more than once, so they come up more often than the rest.
   const weighted = list.flatMap((q) => (q.local ? (Array(LOCAL_WEIGHT).fill(q) as Quote[]) : [q]));
   return weighted[hash(seed) % weighted.length];
 }
 
 export const quoteLine = (q: Quote) => `“${q.text}” — ${q.author}`;
+
+let cached: { at: number; list: Quote[] } | null = null;
+
+/**
+ * The quotes in force. Anything the staff console has saved wins; otherwise the list that ships in the code.
+ * Held for five minutes, so editing one reaches the next message without asking the database every time.
+ */
+export async function liveQuotes(): Promise<Quote[]> {
+  if (cached && Date.now() - cached.at < 5 * 60_000) return cached.list;
+  try {
+    const rows = await sql<{ key: string; value: Quote }[]>`
+      select key, value from public.content_blocks where kind = 'quote' and enabled
+    `;
+    const list = rows
+      .map((r) => ({ ...(r.value as Quote), id: r.key.replace(/^quote\./, '') }))
+      .filter((q) => q && typeof q.text === 'string' && typeof q.author === 'string');
+    cached = { at: Date.now(), list: list.length ? list : QUOTES };
+  } catch {
+    cached = { at: Date.now(), list: QUOTES };
+  }
+  return cached.list;
+}
 
 /**
  * Adds a quote to the end of an encouraging notification, at most once every three days per person so it stays

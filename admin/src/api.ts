@@ -54,6 +54,29 @@ export type Overview = {
 
 export type StaffRow = Admin & { createdAt: string; lastSeenAt: string | null; disabledAt: string | null };
 
+export type PersonMatch = { id: string; email: string; name: string | null; transactions: number; budgets: number; devices: number };
+
+export type PersonDetail = {
+  person: { id: string; email: string; name: string | null; currency: string | null; createdAt: string; budgetPeriod: string };
+  counts: { transactions: number; budgets: number; goals: number; devices: number; lastLogged: string | null };
+  plan: { monthlyIncome: number; committed: number; status: string; shortfall: number; note: string | null } | null;
+};
+
+export type QuoteValue = { text: string; author: string; source: string; themes: string[]; local?: boolean };
+
+export type ContentBlock = { key: string; kind: 'quote' | 'notification' | 'guide' | 'tip'; value: unknown; enabled: boolean; updatedAt: string };
+
+export type TaxCountry = {
+  code: string;
+  country: string;
+  version: string | null;
+  brackets: Array<{ from: number; to: number | null; rate: number }>;
+  deductions: string[];
+  noTaxIfGrossMonthlyAtOrBelow: number | null;
+  minimumTaxRate: number | null;
+  company: { smallCompanyTurnover: number; rate: number; note: string } | null;
+};
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -90,5 +113,19 @@ export const api = {
   staff: () => call<{ items: StaffRow[] }>('/admin/staff'),
   addStaff: (input: { email: string; name?: string; role: AdminRole }) =>
     call<{ staff: Admin }>('/admin/staff', { method: 'POST', body: JSON.stringify(input) }),
-  removeStaff: (id: string) => call<{ removed: boolean }>(`/admin/staff/${id}`, { method: 'DELETE' })
+  removeStaff: (id: string) => call<{ removed: boolean }>(`/admin/staff/${id}`, { method: 'DELETE' }),
+
+  people: (q: string) => call<{ items: PersonMatch[] }>(`/admin/people?q=${encodeURIComponent(q)}`),
+  person: (id: string) => call<PersonDetail>(`/admin/people/${id}`),
+  personAction: (id: string, action: 'send-password-reset' | 'sign-out-devices') =>
+    call<{ message: string }>(`/admin/people/${id}/action`, { method: 'POST', body: JSON.stringify({ action }) }),
+
+  content: () => call<{ items: ContentBlock[]; inCode: number }>('/admin/content'),
+  addContent: (block: { key: string; kind: string; value: unknown }) =>
+    call<{ block: ContentBlock }>('/admin/content', { method: 'POST', body: JSON.stringify(block) }),
+  setContent: (key: string, patch: { value?: unknown; enabled?: boolean }) =>
+    call<{ block: ContentBlock }>(`/admin/content/${encodeURIComponent(key)}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  seedQuotes: () => call<{ added: number; total: number }>('/admin/content/seed-quotes', { method: 'POST' }),
+
+  taxRules: () => call<{ editable: boolean; countries: TaxCountry[] }>('/admin/tax-rules')
 };

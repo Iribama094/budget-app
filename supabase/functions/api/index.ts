@@ -51,6 +51,8 @@ import { weeklySummary } from './lib/weekly.ts';
 import { appConfig } from './routes/config.ts';
 import { openWrappedPeriod } from './lib/admin.ts';
 import { adminAudit, adminFlags, adminMe, adminOverview, adminStaff, adminWrapped } from './routes/admin.ts';
+import { adminPeople, adminPerson, adminPersonAction } from './routes/adminPeople.ts';
+import { adminContent, adminSeedQuotes, adminTaxRules } from './routes/adminContent.ts';
 
 export type Ctx = {
   req: Request;
@@ -208,6 +210,12 @@ function route(parts: string[]): Handler | null {
   if (a === 'admin' && b === 'wrapped' && n <= 3) return adminWrapped;
   if (a === 'admin' && b === 'audit') return adminAudit;
   if (a === 'admin' && b === 'staff' && n <= 3) return adminStaff;
+  if (a === 'admin' && b === 'people' && n === 2) return adminPeople;
+  if (a === 'admin' && b === 'people' && n === 3) return adminPerson;
+  if (a === 'admin' && b === 'people' && n === 4 && parts[3] === 'action') return adminPersonAction;
+  if (a === 'admin' && b === 'content' && c === 'seed-quotes') return adminSeedQuotes;
+  if (a === 'admin' && b === 'content' && n <= 3) return adminContent;
+  if (a === 'admin' && b === 'tax-rules') return adminTaxRules;
 
   if (a === 'notifications' && n <= 2) return notifications;
   if (a === 'push-tokens' && n === 1) return pushTokens;
