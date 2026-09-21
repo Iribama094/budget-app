@@ -56,6 +56,7 @@ import { adminContent, adminSeedQuotes } from './routes/adminContent.ts';
 import { adminTaxRules, adminTaxVersion } from './routes/adminTax.ts';
 import { adminWrappedPreview } from './routes/admin.ts';
 import { ensureTaxRules } from './lib/tax.ts';
+import { waitlistJoin } from './routes/waitlist.ts';
 
 export type Ctx = {
   req: Request;
@@ -205,6 +206,9 @@ function route(parts: string[]): Handler | null {
   if (a === 'recurring' && n === 2) return recurringById;
 
   if (a === 'config' && n === 1) return appConfig;
+
+  // Public: the pre-launch waitlist page posts here. No sign-in; rate limited inside.
+  if (a === 'waitlist' && n === 1) return waitlistJoin;
 
   // The staff console. Each one checks the admin_users table before anything else.
   if (a === 'admin' && b === 'me') return adminMe;
