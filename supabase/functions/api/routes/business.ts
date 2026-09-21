@@ -878,11 +878,15 @@ export async function wrappedRoute(ctx: Ctx) {
   if (ctx.method !== 'GET') methodNotAllowed(['GET']);
   const { userId } = await requireAuth(ctx.req);
   const today = todayIso();
-  const kind = ctx.query.get('kind') === 'h1' ? 'h1' : 'year';
+  const rawKind = ctx.query.get('kind');
+  // A business looks back by quarter; personal by half-year or year.
+  const kind = rawKind === 'h1' ? 'h1' : rawKind === 'quarter' ? 'quarter' : 'year';
+  const quarter = kind === 'quarter' ? Number(ctx.query.get('quarter') ?? 1) : undefined;
+  if (kind === 'quarter' && !(quarter! >= 1 && quarter! <= 4)) badRequest('Choose a quarter from 1 to 4.');
   const year = Number(ctx.query.get('year') ?? today.slice(0, 4));
   if (!Number.isInteger(year) || year < 2000 || year > 2100) badRequest('Choose a valid year.');
   const space = spaceParam(ctx.query.get('spaceId')) ?? 'personal';
-  return json(200, { wrapped: await computeWrapped(userId, space, kind, year, today) });
+  return json(200, { wrapped: await computeWrapped(userId, space, kind, year, today, quarter) });
 }
 
 export const _internal = { addDaysIso, isUniqueViolation };

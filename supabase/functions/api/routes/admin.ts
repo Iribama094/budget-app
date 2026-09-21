@@ -2,7 +2,7 @@ import { sql } from '../lib/db.ts';
 import { badRequest, body, json, methodNotAllowed, notFound, z } from '../lib/http.ts';
 import { audit, listFlags, listWrappedPeriods, requireAdmin } from '../lib/admin.ts';
 import { todayIso } from '../lib/dates.ts';
-import { computeWrapped } from '../lib/wrapped.ts';
+import { computeWrapped, periodBounds } from '../lib/wrapped.ts';
 import type { Ctx } from '../index.ts';
 
 /** GET /v1/admin/me — who am I, and what may I change. The console calls this first. */
@@ -157,18 +157,50 @@ export async function adminWrappedPreview(ctx: Ctx) {
   if (ctx.method !== 'GET') methodNotAllowed(['GET']);
   const admin = await requireAdmin(ctx.req, 'wrapped');
 
-  const email = (ctx.query.get('email') ?? '').trim().toLowerCase();
-  if (!email) badRequest('Whose story do you want to see? Give their email.');
-  const [person] = await sql`select id, email from public.profiles where lower(email) = ${email}`;
-  if (!person) notFound('Nobody with that email');
-
-  const kind = ctx.query.get('kind') === 'h1' ? 'h1' : 'year';
+  const rawKind = ctx.query.get('kind');
+  const kind = rawKind === 'h1' ? 'h1' : rawKind === 'quarter' ? 'quarter' : 'year';
+  const quarter = kind === 'quarter' ? Number(ctx.query.get('quarter') ?? 1) : undefined;
+  if (kind === 'quarter' && !(quarter! >= 1 && quarter! <= 4)) badRequest('Choose a quarter from 1 to 4.');
   const year = Number(ctx.query.get('year') ?? todayIso().slice(0, 4));
   if (!Number.isInteger(year) || year < 2000 || year > 2100) badRequest('Choose a valid year.');
   const space = ctx.query.get('space') === 'business' ? 'business' : 'personal';
 
-  const wrapped = await computeWrapped(person.id as string, space, kind, year);
-  await audit(admin, 'wrapped.preview', person.email as string, { kind, year, space });
+  // Staff remember a name more often than an exact email, so this matches the way People search does: an exact
+  // email or account id, an email that starts with what was typed, or any part of a name. Several matches come
+  // back as a short list to pick from, and no figures are read until one person is chosen.
+  const id = (ctx.query.get('id') ?? '').trim();
+  const q = (ctx.query.get('q') ?? ctx.query.get('email') ?? '').trim().toLowerCase();
+  if (!id && !q) badRequest('Whose story do you want to see? Give their name or email.');
+  if (!id && q.length < 3) badRequest('Type at least three letters of their name, or their email.');
+
+  // Counted inside the period itself, because a story only covers its own months: someone who started logging in
+  // September has a full year story but an empty January to June one, and staff should see that before opening it.
+  const bounds = periodBounds(kind, year, quarter);
+  const from = bounds.start;
+  const to = bounds.fullEnd;
+  const matches = await sql`
+    select p.id, p.email, p.name,
+      (select count(*)::int from public.transactions t
+        where t.user_id = p.id and t.space_id = ${space} and t.occurred_at >= ${from}::date and t.occurred_at < (${to}::date + 1)) as transactions
+    from public.profiles p
+    where ${
+      id
+        ? sql`p.id::text = ${id}`
+        : sql`lower(p.email) = ${q} or p.id::text = ${q} or p.email ilike ${q + '%'} or (p.name is not null and p.name ilike ${'%' + q + '%'})`
+    }
+    order by (lower(p.email) = ${q}) desc, transactions desc, p.name
+    limit 8
+  `;
+  if (!matches.length) notFound(`Nobody matches "${id || q}".`);
+  if (matches.length > 1) {
+    return json(200, {
+      matches: matches.map((m) => ({ id: m.id, email: m.email, name: m.name ?? null, transactions: Number(m.transactions) }))
+    });
+  }
+  const person = matches[0];
+
+  const wrapped = await computeWrapped(person.id as string, space, kind, year, undefined, quarter);
+  await audit(admin, 'wrapped.preview', person.email as string, { kind, quarter: quarter ?? null, year, space });
   return json(200, { wrapped, of: person.email });
 }
 

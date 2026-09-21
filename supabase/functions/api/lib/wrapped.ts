@@ -8,7 +8,24 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const round = (n: number) => Math.round(n);
 
-export type WrappedKind = 'h1' | 'year';
+export type WrappedKind = 'h1' | 'year' | 'quarter';
+
+/**
+ * The months a story covers. Personal looks back over a half-year or a year; a business looks back every quarter,
+ * the rhythm VAT, PAYE and stock already run on.
+ */
+export function periodBounds(kind: WrappedKind, year: number, quarter?: number) {
+  if (kind === 'quarter') {
+    const q = Math.min(4, Math.max(1, Math.round(quarter ?? 1)));
+    const firstMonth = (q - 1) * 3;
+    const lastMonth = firstMonth + 2;
+    const endDay = new Date(Date.UTC(year, lastMonth + 1, 0)).getUTCDate();
+    const mm = (m: number) => String(m + 1).padStart(2, '0');
+    return { start: `${year}-${mm(firstMonth)}-01`, fullEnd: `${year}-${mm(lastMonth)}-${endDay}`, firstMonth, monthCount: 3, label: `Q${q} ${year}` };
+  }
+  if (kind === 'h1') return { start: `${year}-01-01`, fullEnd: `${year}-06-30`, firstMonth: 0, monthCount: 6, label: `First half of ${year}` };
+  return { start: `${year}-01-01`, fullEnd: `${year}-12-31`, firstMonth: 0, monthCount: 12, label: `${year}` };
+}
 
 const PERSONAS = {
   stacker: { key: 'stacker', title: 'The Stacker', line: 'You saved like a squirrel 🐿️ More came in than went out, and you kept it.' },
@@ -25,16 +42,16 @@ const PERSONAS = {
  * A recap of a half-year (January to June) or a whole year, like the "wrapped" summaries of popular apps.
  * Before the period ends it's a "so far" recap. Everything comes from what the person recorded.
  */
-export async function computeWrapped(userId: string, space: Space, kind: WrappedKind, year: number, today = todayIso()) {
-  const start = `${year}-01-01`;
-  const fullEnd = kind === 'h1' ? `${year}-06-30` : `${year}-12-31`;
+export async function computeWrapped(userId: string, space: Space, kind: WrappedKind, year: number, today = todayIso(), quarter?: number) {
+  const bounds = periodBounds(kind, year, quarter);
+  const { start, fullEnd, firstMonth } = bounds;
   if (start > today) throw new HttpError(400, 'NOT_STARTED', 'That period hasn’t started yet.');
   const end = fullEnd > today ? today : fullEnd;
   const complete = fullEnd < today;
   const offset = tzOffsetMinutes() * 60000;
   const startTs = new Date(Date.parse(`${start}T00:00:00Z`) - offset);
   const endTs = new Date(Date.parse(`${end}T23:59:59.999Z`) - offset);
-  const prevStartTs = new Date(Date.parse(`${year - 1}-01-01T00:00:00Z`) - offset);
+  const prevStartTs = new Date(Date.parse(`${year - 1}-${start.slice(5)}T00:00:00Z`) - offset);
   const prevEndTs = new Date(Date.parse(`${year - 1}-${end.slice(5)}T23:59:59.999Z`) - offset);
 
   const [txs, [prev], [goalsRow], budgets, [{ currency }]] = await Promise.all([
@@ -65,8 +82,7 @@ export async function computeWrapped(userId: string, space: Space, kind: Wrapped
   let income = 0;
   let spending = 0;
   let ownerPay = 0;
-  const monthCount = kind === 'h1' ? 6 : 12;
-  const months = Array.from({ length: monthCount }, (_, i) => ({ month: MONTHS[i], income: 0, spending: 0 }));
+  const months = Array.from({ length: bounds.monthCount }, (_, i) => ({ month: MONTHS[firstMonth + i], income: 0, spending: 0 }));
   const byCategory = new Map<string, number>();
   const byDay = Array(7).fill(0);
   const merchants = new Map<string, { label: string; count: number; total: number }>();
@@ -79,7 +95,8 @@ export async function computeWrapped(userId: string, space: Space, kind: Wrapped
     const dayKey = d.toISOString().slice(0, 10);
     const amount = Number(t.amount);
     loggedDays.add(dayKey);
-    const mIdx = d.getUTCMonth();
+    // Position within the period, so a July transaction lands in Q3's first month rather than slot seven.
+    const mIdx = d.getUTCMonth() - firstMonth;
     if (t.type === 'income') {
       income += amount;
       if (months[mIdx]) months[mIdx].income += amount;
@@ -105,7 +122,7 @@ export async function computeWrapped(userId: string, space: Space, kind: Wrapped
   }
 
   const lastMonth = parseIsoDateUtcNoon(end).getUTCMonth();
-  const activeMonths = months.slice(0, lastMonth + 1);
+  const activeMonths = months.slice(0, lastMonth - firstMonth + 1);
   const withSpending = activeMonths.filter((mm) => mm.spending > 0);
   const biggestMonth = withSpending.length ? withSpending.reduce((a, b) => (b.spending > a.spending ? b : a)) : null;
   const calmestMonth = withSpending.length > 1 ? withSpending.reduce((a, b) => (b.spending < a.spending ? b : a)) : null;
@@ -148,7 +165,7 @@ export async function computeWrapped(userId: string, space: Space, kind: Wrapped
   }
 
   const base = {
-    period: { kind, year, start, end, complete, label: kind === 'h1' ? `First half of ${year}` : `${year}` },
+    period: { kind, year, quarter: kind === 'quarter' ? Math.min(4, Math.max(1, Math.round(quarter ?? 1))) : null, start, end, complete, label: bounds.label },
     space,
     currency,
     hasData: txs.length > 0,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, type Admin, type WrappedPeriod, type WrappedStory } from '../api';
+import { api, type Admin, type PreviewMatch, type WrappedPeriod, type WrappedStory } from '../api';
 
 const CAN_CHANGE: Admin['role'][] = ['owner', 'engineer'];
 
@@ -27,18 +27,28 @@ export function Wrapped({ admin }: { admin: Admin }) {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [previewEmail, setPreviewEmail] = useState('');
   const [preview, setPreview] = useState<{ of: string; story: WrappedStory } | null>(null);
+  const [matches, setMatches] = useState<PreviewMatch[] | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const mayChange = CAN_CHANGE.includes(admin.role);
 
   /** Certifying means saying the numbers are right, which needs looking at some. Every look is audited. */
-  const runPreview = async (p: WrappedPeriod, e: React.FormEvent) => {
-    e.preventDefault();
+  const runPreview = async (p: WrappedPeriod, e: React.FormEvent | null, pickedId?: string) => {
+    e?.preventDefault();
     setPreviewing(true);
     setError(null);
     setPreview(null);
+    if (!pickedId) setMatches(null);
     try {
-      const res = await api.wrappedPreview(previewEmail.trim(), p.kind === 'quarter' ? 'year' : p.kind, p.year, p.space);
-      setPreview({ of: res.of, story: res.wrapped });
+      const who = pickedId ? { id: pickedId } : { q: previewEmail.trim() };
+      // The story for exactly this period: a business quarter previews that quarter, not the whole year.
+      const res = await api.wrappedPreview(who, { kind: p.kind, quarter: p.quarter, year: p.year, space: p.space });
+      if (res.matches) {
+        // Several people fit what was typed: let staff pick, rather than guessing whose figures to open.
+        setMatches(res.matches);
+      } else if (res.wrapped && res.of) {
+        setMatches(null);
+        setPreview({ of: res.of, story: res.wrapped });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not build that preview');
     } finally {
@@ -169,17 +179,42 @@ export function Wrapped({ admin }: { admin: Admin }) {
                   </p>
                   <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
                     <input
-                      type="email"
+                      type="text"
                       value={previewEmail}
                       onChange={(ev) => setPreviewEmail(ev.target.value)}
-                      placeholder="their@email.com"
+                      placeholder="Their name or email"
+                      aria-label="Their name or email"
                       style={{ flexGrow: 1, height: 38, padding: '0 12px', borderRadius: 10, border: '1px solid var(--line)' }}
+                      minLength={3}
                       required
                     />
                     <button type="submit" className="btn" disabled={previewing}>
                       {previewing ? 'Building...' : 'Show me'}
                     </button>
                   </div>
+                  {matches ? (
+                    <div style={{ marginTop: 12 }}>
+                      <p className="muted" style={{ marginBottom: 6 }}>
+                        {matches.length} people match. Pick one to see their story.
+                      </p>
+                      {matches.map((m) => (
+                        <div className="row" key={m.id}>
+                          <div className="grow">
+                            <p className="name">{m.name ?? m.email}</p>
+                            <p className="meta">
+                              {m.name ? `${m.email} · ` : ''}
+                              {m.transactions
+                                ? `${m.transactions} ${p.space} transaction${m.transactions === 1 ? '' : 's'} in ${periodName(p)}`
+                                : `No ${p.space} transactions in ${periodName(p)}, so this story will be empty`}
+                            </p>
+                          </div>
+                          <button type="button" className="btn small" disabled={previewing} onClick={() => void runPreview(p, null, m.id)}>
+                            Show
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </form>
               ) : null}
 

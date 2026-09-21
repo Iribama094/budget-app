@@ -58,6 +58,8 @@ export type Overview = {
 
 export type StaffRow = Admin & { createdAt: string; lastSeenAt: string | null; disabledAt: string | null };
 
+export type PreviewMatch = { id: string; email: string; name: string | null; transactions: number };
+
 export type PersonMatch = {
   id: string;
   email: string;
@@ -207,8 +209,16 @@ export const api = {
   taxVersionAction: (id: string, action: 'submit' | 'approve' | 'retire') =>
     call<{ state: string; message: string }>(`/admin/tax-rules/${id}/${action}`, { method: 'POST' }),
 
-  wrappedPreview: (email: string, kind: 'h1' | 'year', year: number, space: 'personal' | 'business') =>
-    call<{ wrapped: WrappedStory; of: string }>(
-      `/admin/wrapped/preview?email=${encodeURIComponent(email)}&kind=${kind}&year=${year}&space=${space}`
+  /**
+   * The story one account would see. `who` is a name or email, or an account id once someone has been picked.
+   * More than one match comes back as `matches` to choose from, with no figures read yet.
+   */
+  wrappedPreview: (
+    who: { q?: string; id?: string },
+    period: { kind: 'h1' | 'year' | 'quarter'; quarter?: number | null; year: number; space: 'personal' | 'business' }
+  ) =>
+    call<{ wrapped?: WrappedStory; of?: string; matches?: PreviewMatch[] }>(
+      `/admin/wrapped/preview?${who.id ? `id=${encodeURIComponent(who.id)}` : `q=${encodeURIComponent(who.q ?? '')}`}` +
+        `&kind=${period.kind}${period.kind === 'quarter' ? `&quarter=${period.quarter ?? 1}` : ''}&year=${period.year}&space=${period.space}`
     )
 };
