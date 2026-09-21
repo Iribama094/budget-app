@@ -2,7 +2,7 @@ import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Check, Lock } from 'lucide-react-native';
+import { Check, Lock } from '../icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { Amount, Card, Chip, HeroCard, PrimaryButton, ProgressBar, Ring, SecondaryButton } from '../components/Common/ui';
 import { type } from '../theme/typography';

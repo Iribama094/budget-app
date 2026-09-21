@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { Briefcase, UserRound } from 'lucide-react-native';
+import { Briefcase, UserRound } from '../icons';
 import { fonts } from '../theme/typography';
 
 export type SpaceId = 'personal' | 'business';

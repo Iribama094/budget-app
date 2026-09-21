@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Calculator, ChevronDown, ChevronUp, Mail, Search, Sparkles, Users } from 'lucide-react-native';
+import { Calculator, ChevronDown, ChevronUp, Mail, Search, Sparkles, Users } from '../icons';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { Card, IconTile, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SectionHeader, TextField } from '../components/Common/ui';

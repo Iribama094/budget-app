@@ -4,7 +4,7 @@ import { useCategories } from '../contexts/CategoriesContext';
 import { ActivityIndicator, Modal, Pressable, Text, TextInput, View } from 'react-native';
 import { deleteWithUndo } from '../lib/undoDelete';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft } from '../icons';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';

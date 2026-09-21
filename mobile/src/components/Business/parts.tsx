@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, type LucideIcon } from 'lucide-react-native';
+import { X, type LucideIcon } from '../../icons';
 
 import { useTheme } from '../../contexts/ThemeContext';
 import { Card, Chip, TextField } from '../Common/ui';

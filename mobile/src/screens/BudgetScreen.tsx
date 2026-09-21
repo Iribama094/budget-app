@@ -6,7 +6,7 @@ import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/nativ
 import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createBudget, listBudgets, listTransactions, patchBudget, patchBudgetInSpace, calcTax, type ApiBudget, type ApiTransaction, type BudgetPurpose } from '../api/endpoints';
-import { ArrowRightLeft, CalendarDays, Check, ChevronLeft, ChevronRight, Eye, EyeOff, Minus, PartyPopper, Plus, Users, X } from 'lucide-react-native';
+import { ArrowRightLeft, CalendarDays, Check, ChevronLeft, ChevronRight, Eye, EyeOff, Minus, PartyPopper, Plus, Users, X } from '../icons';
 import { applyRollover, getRollover, type RolloverPreview } from '../api/features';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';

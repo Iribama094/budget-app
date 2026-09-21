@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Briefcase, Building2, FileText, Gift, Landmark, Lock, Receipt, Smartphone, UserRound, Users, Wallet } from 'lucide-react-native';
+import { Briefcase, Building2, FileText, Gift, Landmark, Lock, Receipt, Smartphone, UserRound, Users, Wallet } from '../../icons';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, Switch, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Briefcase, Check, Globe, House, Receipt } from 'lucide-react-native';
+import { Briefcase, Check, Globe, House, Receipt } from '../icons';
 
 import { Card, HeroCard, IconTile, InfoTip, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SectionHeader, SegmentedControl, TextField } from '../components/Common/ui';
 import { Sheet } from '../components/Business/parts';

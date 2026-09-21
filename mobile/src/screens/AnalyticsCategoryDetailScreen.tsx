@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { PieChart } from 'lucide-react-native';
+import { PieChart } from '../icons';
 
 import { Amount, EmptyState, HeroCard, InlineError, ListCard, ProgressBar, Screen, ScreenHeader, SectionHeader } from '../components/Common/ui';
 import { useTheme } from '../contexts/ThemeContext';

@@ -37,7 +37,7 @@ import {
   Wifi,
   Zap,
   type LucideIcon
-} from 'lucide-react-native';
+} from '../icons';
 
 /** Icon keys stored with each category (the API uses the same keys). */
 export const CATEGORY_ICONS: Record<string, LucideIcon> = {

@@ -4,7 +4,7 @@ import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Plus } from 'lucide-react-native';
+import { Plus } from '../icons';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';

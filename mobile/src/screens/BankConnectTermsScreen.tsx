@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Check, X } from 'lucide-react-native';
+import { Check, X } from '../icons';
 
 import { BankLogo } from '../components/Common/BankLogo';
 import { Card, HeroCard, PrimaryButton, Screen, ScreenHeader, SecondaryButton } from '../components/Common/ui';

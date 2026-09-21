@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft } from '../icons';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';

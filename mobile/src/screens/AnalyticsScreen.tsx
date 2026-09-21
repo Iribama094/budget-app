@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { bucketDisplayName } from '../theme/buckets';
 import { View, Text, Pressable, Animated, Easing, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { Calculator, Eye, EyeOff, Layers, PieChart, Wallet } from 'lucide-react-native';
+import { Calculator, Eye, EyeOff, Layers, PieChart, Wallet } from '../icons';
 
 import { getAnalyticsSummary, type AnalyticsSummary, listBudgets, listTransactions } from '../api/endpoints';
 import { useAuth } from '../contexts/AuthContext';

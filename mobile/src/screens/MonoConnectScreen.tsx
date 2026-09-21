@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
-import { Landmark, Lock } from 'lucide-react-native';
+import { Landmark, Lock } from '../icons';
 
 import { connectMonoAccount } from '../api/features';
 import { useAuth } from '../contexts/AuthContext';

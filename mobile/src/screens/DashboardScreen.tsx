@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator, Animated, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { ArrowDownLeft, ArrowUpRight, Bell, CalendarCheck, Check, ChevronRight, Eye, EyeOff, Flame, Gift, Landmark, PartyPopper, Settings as SettingsIcon, Sparkles, Users, WifiOff } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Bell, CalendarCheck, Check, ChevronRight, Eye, EyeOff, Flame, Gift, Landmark, PartyPopper, Settings as SettingsIcon, Sparkles, Users, WifiOff } from '../icons';
 import { useSync } from '../contexts/SyncContext';
 import { publishWidgetSnapshot } from '../lib/widgetData';
 import { useAuth } from '../contexts/AuthContext';

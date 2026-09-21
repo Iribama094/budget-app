@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Check, ChevronRight, X } from 'lucide-react-native';
+import { Check, ChevronRight, X } from '../../icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Card, ProgressBar } from '../Common/ui';

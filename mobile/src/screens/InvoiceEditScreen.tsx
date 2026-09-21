@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Plus, Trash2 } from 'lucide-react-native';
+import { Plus, Trash2 } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';

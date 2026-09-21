@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Wallet, BarChart3, Target, Plus } from 'lucide-react-native';
+import { Home, Wallet, BarChart3, Target, Plus } from '../../icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { fonts } from '../../theme/typography';
 

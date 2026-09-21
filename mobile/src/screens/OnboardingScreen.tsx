@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AlertTriangle, CalendarClock, Check, CircleCheck, Sparkles } from 'lucide-react-native';
+import { AlertTriangle, CalendarClock, Check, CircleCheck, Sparkles } from '../icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { Amount, Card, Chip, HeroCard, IconTile, PrimaryButton, ProgressBar, SecondaryButton } from '../components/Common/ui';
 import { bucketColors } from '../theme/tokens';

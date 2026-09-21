@@ -1,5 +1,5 @@
 import React from 'react';
-import { Briefcase, Car, HeartPulse, Home, Receipt, ShoppingBag, ShoppingCart, Tv, Wifi, Zap, PiggyBank, type LucideIcon } from 'lucide-react-native';
+import { Briefcase, Car, HeartPulse, Home, Receipt, ShoppingBag, ShoppingCart, Tv, Wifi, Zap, PiggyBank, type LucideIcon } from '../../icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCategories } from '../../contexts/CategoriesContext';
 import { iconForKey } from '../../lib/categoryIcons';

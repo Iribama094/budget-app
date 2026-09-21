@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
-import { Banknote, Check, FileText, MessageCircle, MoreHorizontal } from 'lucide-react-native';
+import { Banknote, Check, FileText, MessageCircle, MoreHorizontal } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';

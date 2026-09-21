@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text } from 'react-native';
-import { CalendarCheck } from 'lucide-react-native';
+import { CalendarCheck } from '../icons';
 import { useNavigation } from '@react-navigation/native';
 
 import { Amount, Chip, HeroCard, ListCard, ListRow, ProgressBar, Screen, ScreenHeader, SectionHeader } from '../components/Common/ui';

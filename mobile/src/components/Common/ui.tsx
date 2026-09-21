@@ -19,7 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import { ChevronLeft, ChevronRight, Info } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Info } from '../../icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { tokens } from '../../theme/tokens';
 import { fonts, type } from '../../theme/typography';

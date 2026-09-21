@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Share, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
-import { CalendarSync, Copy, Share2, Users } from 'lucide-react-native';
+import { CalendarSync, Copy, Share2, Users } from '../icons';
 
 import { acceptBudgetInvite, createBudgetInvite, listBudgetMembers, removeBudgetMember, type ApiBudgetMember } from '../api/features';
 import { listBudgets, patchMe, type ApiBudget } from '../api/endpoints';

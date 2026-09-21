@@ -3,7 +3,7 @@ import { BUCKETS, bucketDisplayName } from '../theme/buckets';
 import { View, FlatList, Text, Pressable, ActivityIndicator } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useNavigation } from '@react-navigation/native';
-import { X } from 'lucide-react-native';
+import { X } from '../icons';
 
 import { createMiniBudget, createMiniBudgetInSpace, listBudgets, listMiniBudgets, listMiniBudgetsInSpace, type ApiMiniBudget } from '../api/endpoints';
 import { useSpace } from '../contexts/SpaceContext';

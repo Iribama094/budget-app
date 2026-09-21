@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Check, ChevronDown, Search, X } from 'lucide-react-native';
+import { Check, ChevronDown, Search, X } from '../../icons';
 
 import { useTheme } from '../../contexts/ThemeContext';
 import { fonts, type } from '../../theme/typography';

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, View, Text, Pressable, Modal, TextInput, ScrollView, Switch, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CalendarDays, ChevronLeft, ChevronRight, ClipboardPaste, Delete, Mic, PieChart, Plus, Receipt, Repeat, Sparkles, Square, Wallet, X } from 'lucide-react-native';
+import { CalendarDays, ChevronLeft, ChevronRight, ClipboardPaste, Delete, Mic, PieChart, Plus, Receipt, Repeat, Sparkles, Square, Wallet, X } from '../icons';
 
 import { createTransaction, listBudgets, listGoals, listMiniBudgets, listMiniBudgetsInSpace, listTransactions, type ApiBudget, type ApiGoal } from '../api/endpoints';
 import { addMoneyToGoal, getBusinessSettings } from '../api/business';

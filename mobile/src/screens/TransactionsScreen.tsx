@@ -4,7 +4,7 @@ import { useHiddenIds } from '../lib/undoDelete';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
-import { ChevronLeft, ChevronRight, Search, Trash2, X } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Search, Trash2, X } from '../icons';
 import { deleteTransaction, deleteTransactionInSpace, listTransactions, type ApiTransaction } from '../api/endpoints';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';

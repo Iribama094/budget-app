@@ -19,7 +19,7 @@ import {
   TrendingUp,
   Users,
   type LucideIcon
-} from 'lucide-react-native';
+} from '../icons';
 
 import {
   getNotificationPrefs,

@@ -5,7 +5,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Amount as UiAmount, Card, Chip, HeroCard, PrimaryButton, ProgressBar, SectionHeader, TextButton } from '../components/Common/ui';
 import { type } from '../theme/typography';
 import { currencySymbol } from '../utils/format';
-import { CalendarPlus, ChevronLeft } from 'lucide-react-native';
+import { CalendarPlus, ChevronLeft } from '../icons';
 
 import { calcTax, deleteBudget, deleteBudgetInSpace, getBudget, getBudgetInSpace, listTransactions, patchMe, startNextBudget, type ApiBudget, type ApiTransaction } from '../api/endpoints';
 import { listBudgetMembers, type ApiBudgetMember } from '../api/features';

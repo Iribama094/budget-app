@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import { CircleCheck, FileSpreadsheet, ShieldCheck } from 'lucide-react-native';
+import { CircleCheck, FileSpreadsheet, ShieldCheck } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';

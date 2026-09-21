@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { CalendarClock, Pencil, PiggyBank, Plus, Repeat, Trash2 } from 'lucide-react-native';
+import { CalendarClock, Pencil, PiggyBank, Plus, Repeat, Trash2 } from '../icons';
 
 import { deleteGoal, deleteGoalInSpace, getGoal, getGoalInSpace, patchGoal, patchGoalInSpace, type ApiGoal } from '../api/endpoints';
 import { addMoneyToGoal } from '../api/business';

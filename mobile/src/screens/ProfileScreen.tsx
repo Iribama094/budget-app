@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, Pressable, Image, Alert, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
-import { Briefcase, Gift, HeartHandshake, Lock, Smartphone, UserRound } from 'lucide-react-native';
+import { Briefcase, Gift, HeartHandshake, Lock, Smartphone, UserRound } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';

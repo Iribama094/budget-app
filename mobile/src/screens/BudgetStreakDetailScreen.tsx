@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text } from 'react-native';
-import { Flame, Search, TrendingDown, Wallet } from 'lucide-react-native';
+import { Flame, Search, TrendingDown, Wallet } from '../icons';
 import { useNavigation } from '@react-navigation/native';
 
 import { Amount, Chip, HeroCard, IconTile, ListCard, ListRow, ProgressBar, Screen, ScreenHeader, SectionHeader } from '../components/Common/ui';

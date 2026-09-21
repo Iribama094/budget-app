@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, Modal, StyleSheet, type TextInput } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { ChevronLeft, ChevronRight, CalendarDays, Check } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, CalendarDays, Check } from '../icons';
 
 import { createGoal } from '../api/endpoints';
 import { getPlan } from '../api/personal';

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { View, Text, FlatList, Animated, Pressable, StyleSheet } from 'react-native';
-import { AlertTriangle, Check, Plus } from 'lucide-react-native';
+import { AlertTriangle, Check, Plus } from '../icons';
 
 import { listGoals, listBudgets, type ApiGoal, type ApiBudget } from '../api/endpoints';
 import { useAuth } from '../contexts/AuthContext';

@@ -4,7 +4,7 @@ import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowUp, Mic, Sparkles, Square, X } from 'lucide-react-native';
+import { ArrowUp, Mic, Sparkles, Square, X } from '../icons';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';

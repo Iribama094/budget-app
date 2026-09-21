@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ArrowLeft, Download, FileText, Mail } from 'lucide-react-native';
+import { ArrowLeft, Download, FileText, Mail } from '../icons';
 
 import { Screen, H1, P, Card, PrimaryButton } from '../components/Common/ui';
 import { useTheme } from '../contexts/ThemeContext';

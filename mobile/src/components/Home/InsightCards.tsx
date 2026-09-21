@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { AlertTriangle, CircleCheck, Lightbulb, X } from 'lucide-react-native';
+import { AlertTriangle, CircleCheck, Lightbulb, X } from '../../icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Card, IconTile, SectionHeader } from '../Common/ui';
 import { dismissInsight, listInsights, type ApiInsight } from '../../api/personal';

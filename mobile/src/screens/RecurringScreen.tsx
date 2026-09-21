@@ -4,7 +4,7 @@ import { useCategories } from '../contexts/CategoriesContext';
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Plus, Repeat, X } from 'lucide-react-native';
+import { Plus, Repeat, X } from '../icons';
 
 import { createRecurring, deleteRecurring, listRecurring, updateRecurring, type ApiRecurring, type RecurringFrequency } from '../api/features';
 import { useAuth } from '../contexts/AuthContext';

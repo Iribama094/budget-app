@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ClipboardPaste, Landmark, RefreshCw, Upload } from 'lucide-react-native';
+import { ClipboardPaste, Landmark, RefreshCw, Upload } from '../icons';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';

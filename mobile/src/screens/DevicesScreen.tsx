@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { Smartphone } from 'lucide-react-native';
+import { Smartphone } from '../icons';
 
 import { listSessions, revokeOtherSessions, revokeSession, type ApiSession } from '../api/features';
 import { useTheme } from '../contexts/ThemeContext';

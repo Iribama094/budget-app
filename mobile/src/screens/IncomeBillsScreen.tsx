@@ -4,7 +4,7 @@ import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AlertTriangle, Briefcase, Sparkles } from 'lucide-react-native';
+import { AlertTriangle, Briefcase, Sparkles } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';

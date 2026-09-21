@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
-import { ClipboardPaste, Lock } from 'lucide-react-native';
+import { ClipboardPaste, Lock } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';

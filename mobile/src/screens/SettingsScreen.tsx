@@ -28,7 +28,7 @@ import {
   Wallet,
   Wand2,
   Gift
-} from 'lucide-react-native';
+} from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';

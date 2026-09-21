@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Animated, Pressable, StyleSheet, Switch, Text
 import { KeyboardAwareScrollView, KeyboardStickyView } from 'react-native-keyboard-controller';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BellRing, Check, ChevronLeft, CircleDollarSign, Layers, ListChecks, Plus, Receipt, Sparkles, UserRound, Users, X } from 'lucide-react-native';
+import { BellRing, Check, ChevronLeft, CircleDollarSign, Layers, ListChecks, Plus, Receipt, Sparkles, UserRound, Users, X } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';

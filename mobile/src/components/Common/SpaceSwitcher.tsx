@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
-import { Briefcase, UserRound } from 'lucide-react-native';
+import { Briefcase, UserRound } from '../../icons';
 import { SPACE_LOOK, useSpace, type SpaceId } from '../../contexts/SpaceContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { type } from '../../theme/typography';

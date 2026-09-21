@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { ChevronLeft, Eye, EyeOff } from 'lucide-react-native';
+import { ChevronLeft, Eye, EyeOff } from '../icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Chip, IconButton, InlineError, PrimaryButton, Screen, TextButton, TextField } from '../components/Common/ui';

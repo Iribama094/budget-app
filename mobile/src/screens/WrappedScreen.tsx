@@ -4,7 +4,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
-import { ChevronLeft, ChevronRight, Eye, EyeOff, Share2, X } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Eye, EyeOff, Share2, X } from '../icons';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';

@@ -3,7 +3,7 @@ import { BUCKETS, bucketDisplayName } from '../theme/buckets';
 import { useCategories } from '../contexts/CategoriesContext';
 import { Alert, View, Text, FlatList, Pressable, ActivityIndicator, type TextStyle, type ViewStyle } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ArrowLeft, CheckCircle2, XCircle, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ArrowLeft, CheckCircle2, XCircle, AlertCircle, ChevronLeft, ChevronRight } from '../icons';
 import * as SecureStore from 'expo-secure-store';
 
 import { useTheme } from '../contexts/ThemeContext';

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Briefcase } from 'lucide-react-native';
+import { Briefcase } from '../icons';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';

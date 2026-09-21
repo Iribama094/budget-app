@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { X } from 'lucide-react-native';
+import { X } from '../../icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SegmentedControl } from '../Common/ui';
 import { SelectField, type SelectOption } from '../Common/SelectField';

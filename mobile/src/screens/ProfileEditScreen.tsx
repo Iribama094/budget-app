@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, Pressable, Image, Alert, Modal, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft } from '../icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Card, Screen, H1, P, TextField, PrimaryButton, SecondaryButton } from '../components/Common/ui';

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, TextInput, Image, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Check, ChevronLeft, Eye, EyeOff, Fingerprint, ScanFace } from 'lucide-react-native';
+import { Check, ChevronLeft, Eye, EyeOff, Fingerprint, ScanFace } from '../icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { IconButton, InlineError, PrimaryButton, Screen, SecondaryButton, TextButton, TextField } from '../components/Common/ui';
