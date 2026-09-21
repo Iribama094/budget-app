@@ -441,6 +441,101 @@ try {
   check('business Wrapped names the top customer', r.status === 200 && r.data.wrapped.business?.topCustomer?.name === 'Mama Put Ltd', r.data?.wrapped?.business ?? r);
   check('future Wrapped is refused', (await call(a.token, 'GET', '/wrapped?kind=h1&year=2099')).status === 400);
 
+  section('Money for everyone');
+  // Needs migration 20260921200000_money_for_everyone and the API that goes with it. Until both are live this
+  // section says so and skips, rather than failing everyone else's runs.
+  const probe = await call(a.token, 'GET', '/money');
+  if (probe.status !== 200) {
+    console.log('  skip  not live yet (GET /money answered', probe.status + ')');
+  } else {
+    // Linked demo bank accounts from earlier count already; everything below is measured from here.
+    const base = probe.data.totals;
+    check('your money starts with no cash, land or debts', probe.data.holdings.length === 0 && probe.data.debts.length === 0, probe.data);
+    r = await call(a.token, 'POST', '/holdings', { name: 'Cash at home', kind: 'cash', balance: 12000 });
+    check('add cash', r.status === 201 && r.data.holding.group === 'have', r);
+    const cashId = r.data?.holding?.id;
+    r = await call(a.token, 'PATCH', `/holdings/${cashId}`, { balance: 9000 });
+    check('update cash balance', r.status === 200 && r.data.holding.balance === 9000, r);
+    r = await call(a.token, 'POST', '/holdings', { name: 'Plot', kind: 'land', currency: 'USD', balance: 1000 });
+    check('add land in dollars', r.status === 201 && r.data.holding.group === 'own', r);
+    r = await call(a.token, 'PUT', '/fx-rates', { rates: { USD: 1500 } });
+    check('set own dollar rate', r.status === 200 && r.data.rates.USD === 1500, r);
+    r = await call(a.token, 'POST', '/debts', { direction: 'owe', person: 'Loan app', amount: 50000, monthlyRate: 15 });
+    check('add a debt I owe', r.status === 201 && r.data.debt.balance === 50000, r);
+    const loanId = r.data?.debt?.id;
+    r = await call(a.token, 'POST', '/debts', { direction: 'owe', person: 'Cooperative', amount: 30000, monthlyRate: 2 });
+    check('add a cheaper debt', r.status === 201, r);
+    r = await call(a.token, 'POST', '/debts', { direction: 'owed', person: 'Tunde', amount: 20000 });
+    check('add money owed to me', r.status === 201, r);
+    r = await call(a.token, 'POST', `/debts/${loanId}/payments`, { amount: 10000 });
+    check('repayment lowers the debt and counts as spending', r.status === 200 && r.data.debt.balance === 40000 && !!r.data.transactionId, r);
+    r = await call(a.token, 'GET', '/money');
+    check(
+      'totals add up in naira, dearest debt first',
+      r.status === 200 &&
+        r.data.totals.have === base.have + 9000 &&
+        r.data.totals.own === 1500000 &&
+        r.data.totals.owe === 70000 &&
+        r.data.totals.owedToYou === 20000 &&
+        r.data.totals.net === base.net + 1459000 &&
+        r.data.payoffOrder[0] === loanId,
+      r.data?.totals
+    );
+    const ownerNet = r.data?.totals?.net;
+    r = await call(a.token, 'GET', '/prices');
+    check('rising prices answers', r.status === 200 && 'livingCost' in r.data && Array.isArray(r.data.billsUp), r);
+
+    r = await call(a.token, 'POST', '/transactions', { type: 'expense', amount: 10000, category: 'Shopping', description: 'Shoes', occurredAt: new Date().toISOString() });
+    const shoesId = r.data?.transaction?.id;
+    r = await call(a.token, 'PATCH', `/transactions/${shoesId}`, { refund: 4000 });
+    check('part refund reduces the expense', r.status === 200 && r.data.transaction.amount === 6000 && r.data.transaction.refundedAmount === 4000, r);
+    r = await call(a.token, 'PATCH', `/transactions/${shoesId}`, { refund: 6000 });
+    check('full refund removes it', r.status === 200 && r.data.removed === true, r);
+
+    r = await call(a.token, 'POST', '/recurring', { type: 'expense', amount: 90000, category: 'School fees', description: 'School fees', frequency: 'termly', startDate: '2099-01-10' });
+    check('termly bill', r.status === 201 && r.data.recurring.frequency === 'termly', r);
+    const feesId = r.data?.recurring?.id;
+    r = await call(a.token, 'POST', '/goals', { name: 'School fees', targetAmount: 90000, targetDate: '2099-01-10', recurringId: feesId });
+    check('savings pot linked to the bill', r.status === 201 && r.data.goal.recurringId === feesId, r);
+    await call(a.token, 'DELETE', `/goals/${r.data?.goal?.id}`);
+    await call(a.token, 'DELETE', `/recurring/${feesId}`);
+
+    r = await call(a.token, 'POST', '/goals', { name: 'Income buffer', targetAmount: 150000, targetDate: '2099-01-01', currentAmount: 100000, kind: 'buffer', monthlyDraw: 50000 });
+    check('steady pay buffer', r.status === 201 && r.data.goal.kind === 'buffer' && r.data.goal.monthlyDraw === 50000, r);
+    const bufferId = r.data?.goal?.id;
+    r = await call(a.token, 'POST', `/goals/${bufferId}/contributions`, { amount: 50000, direction: 'out' });
+    check('pay yourself from the buffer', r.status === 201 && r.data.amount === -50000 && r.data.goal.currentAmount === 50000, r);
+    await call(a.token, 'DELETE', `/goals/${bufferId}`);
+
+    r = await call(a.token, 'POST', '/staff?spaceId=personal', { name: 'Driver', monthlyGross: 80000 });
+    check('add household staff', r.status === 201 && r.data.staff.payeEstimate === 0, r);
+    const home = await call(a.token, 'GET', '/payroll?spaceId=personal');
+    const work = await call(a.token, 'GET', '/payroll');
+    check('household staff stay out of business payroll', home.data?.staff?.length === 1 && !work.data?.staff?.some((s) => s.name === 'Driver'), { home: home.data?.staff?.length });
+
+    r = await call(a.token, 'POST', '/properties', { name: 'Flat 2', tenantName: 'Mr Obi', rentAmount: 600000, frequency: 'yearly', nextDue: '2099-03-01' });
+    check('add a property', r.status === 201 && r.data.property.status === 'paid_up', r);
+    const flatId = r.data?.property?.id;
+    r = await call(a.token, 'POST', `/properties/${flatId}/paid`, {});
+    check('rent received moves the due date a year', r.status === 200 && r.data.property.nextDue === '2100-03-01' && !!r.data.transactionId, r);
+    await call(a.token, 'DELETE', `/properties/${flatId}`);
+
+    r = await call(a.token, 'POST', '/delegates', { email: B.email, role: 'view' });
+    check('invite a helper', r.status === 201 && typeof r.data.code === 'string', r);
+    const code = r.data?.code;
+    check('someone else cannot use the code', (await call(a.token, 'POST', '/delegates/accept', { code })).status === 400);
+    r = await call(b.token, 'POST', '/delegates/accept', { code });
+    check('helper accepts', r.status === 200 && r.data.ownerId === a.id, r);
+    r = await call(b.token, 'GET', '/money', undefined, { 'x-act-as': a.id });
+    check('helper sees the owner’s money', r.status === 200 && r.data.totals.net === ownerNet, r.data?.totals);
+    check('view helper cannot add spending', (await call(b.token, 'POST', '/transactions', { type: 'expense', amount: 1, category: 'Other', occurredAt: new Date().toISOString() }, { 'x-act-as': a.id })).status === 403);
+    check('helper cannot change the owner’s settings', (await call(b.token, 'PATCH', '/users/me', { name: 'x' }, { 'x-act-as': a.id })).status === 403);
+    check('helper cannot add more helpers', (await call(b.token, 'GET', '/delegates', undefined, { 'x-act-as': a.id })).status === 403);
+    const helpers = await call(a.token, 'GET', '/delegates');
+    await call(a.token, 'DELETE', `/delegates/${helpers.data?.helpers?.[0]?.id}`);
+    check('removed helper loses access at once', (await call(b.token, 'GET', '/money', undefined, { 'x-act-as': a.id })).status === 403);
+  }
+
   section('Devices, passwords and recovery');
   r = await call(a.token, 'GET', '/auth/sessions');
   check('devices list names this phone', r.status === 200 && r.data.items.some((s) => s.current && s.deviceName === 'Test iPhone'), r);

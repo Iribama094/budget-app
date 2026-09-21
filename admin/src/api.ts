@@ -87,7 +87,9 @@ export type PersonDetail = {
 
 export type QuoteValue = { text: string; author: string; source: string; themes: string[]; local?: boolean };
 
-export type ContentBlock = { key: string; kind: 'quote' | 'notification' | 'guide' | 'tip'; value: unknown; enabled: boolean; updatedAt: string };
+export type ContentBlock = { key: string; kind: 'quote' | 'notification' | 'guide' | 'tip' | 'price_alert' | 'fx_rate'; value: unknown; enabled: boolean; updatedAt: string };
+export type PriceAlertValue = { title: string; body: string; categories: string[]; until?: string };
+export type FxRateValue = { currency: string; rate: number };
 
 export type TaxVersion = {
   id: string;

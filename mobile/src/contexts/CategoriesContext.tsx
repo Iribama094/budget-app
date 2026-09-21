@@ -2,7 +2,8 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import { useSpace } from './SpaceContext';
-import { createCategory, deleteCategory, listCategories, updateCategory, type ApiCategory } from '../api/personal';
+import { useActing } from './ActingContext';
+import { createCategory, deleteCategory, listCategories, updateCategory, type ApiCategory, type CategoryPatch } from '../api/personal';
 import { defaultCategories } from '../lib/categoryDefaults';
 import { BUCKETS, type Bucket } from '../theme/buckets';
 
@@ -15,7 +16,7 @@ type CategoriesState = {
   loading: boolean;
   refresh: () => Promise<void>;
   create: (input: { name: string; type: 'income' | 'expense'; bucket?: Bucket | null; icon?: string }) => Promise<ApiCategory>;
-  update: (id: string, patch: Partial<Pick<ApiCategory, 'name' | 'bucket' | 'icon' | 'hidden'>>) => Promise<ApiCategory>;
+  update: (id: string, patch: CategoryPatch) => Promise<{ category: ApiCategory; moved: number }>;
   remove: (id: string) => Promise<void>;
   find: (name?: string | null, type?: 'income' | 'expense') => ApiCategory | undefined;
 };
@@ -61,7 +62,9 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
   const { user } = useAuth();
   const { spacesEnabled, activeSpaceId } = useSpace();
   const space = spacesEnabled ? activeSpaceId : 'personal';
-  const cacheKey = user ? `bf_categories_v1:${user.id}:${space}` : null;
+  const { acting } = useActing();
+  // Someone else's categories while helping them, kept apart from your own.
+  const cacheKey = user ? `bf_categories_v1:${acting?.ownerId ?? user.id}:${space}` : null;
   const [items, setItems] = useState<ApiCategory[]>(() => defaultCategories(space));
   const [loading, setLoading] = useState(false);
 
@@ -116,9 +119,9 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
 
   const update = useCallback<CategoriesState['update']>(
     async (id, patch) => {
-      const updated = await updateCategory(id, patch);
-      save(items.map((c) => (c.id === id ? updated : c)));
-      return updated;
+      const result = await updateCategory(id, patch);
+      save(items.map((c) => (c.id === id ? result.category : c)));
+      return result;
     },
     [items, save]
   );

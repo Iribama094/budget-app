@@ -23,7 +23,10 @@ import { useSync } from '../contexts/SyncContext';
 import { bucketColor } from '../theme/theme';
 import { fonts, type as typo } from '../theme/typography';
 import { useCategories } from '../contexts/CategoriesContext';
-import { suggestCategory } from '../api/personal';
+import { getPlan, suggestCategory, type ApiPlan } from '../api/personal';
+import { getRates } from '../api/money';
+import { ChoiceChip } from '../components/Plan/ChoiceChip';
+import { useT } from '../lib/i18n';
 import { BUCKETS, bucketDisplayName, normalizeBucket, type Bucket } from '../theme/buckets';
 import { guessIconKey, iconForKey } from '../lib/categoryIcons';
 import { currencySymbol, formatNumberInput, formatShortDate, toIsoDate, toIsoDateTime } from '../utils/format';
@@ -40,6 +43,7 @@ export function AddTransactionScreen() {
   const keyboardVisible = useKeyboardState((s) => s.isVisible);
   const voiceAnchorRef = useTourAnchor('addtx.voice');
   const { saveTransaction } = useSync();
+  const t = useT();
 
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [applyToBudget, setApplyToBudget] = useState(true);
@@ -74,6 +78,22 @@ export function AddTransactionScreen() {
 
   const [goals, setGoals] = useState<ApiGoal[]>([]);
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
+
+  // Income that arrived in dollars or pounds: the keypad takes that currency and the rate turns it into naira.
+  const [fxCurrency, setFxCurrency] = useState<string | null>(null);
+  const [fxRate, setFxRate] = useState('');
+  const [rates, setRates] = useState<Record<string, number>>({});
+  // For people paid daily or irregularly: after logging income, how to split it, from their own plan.
+  const [plan, setPlan] = useState<ApiPlan | null>(null);
+  React.useEffect(() => {
+    if (type !== 'income') return;
+    getRates()
+      .then((r) => setRates(r.rates))
+      .catch(() => undefined);
+    getPlan()
+      .then(setPlan)
+      .catch(() => undefined);
+  }, [type]);
 
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
   // A VAT registered business can claim back the VAT inside what it buys, so the cost is split when asked.
@@ -182,10 +202,15 @@ export function AddTransactionScreen() {
     return miniBudgets.filter((m) => (m.category ?? null) === budgetCategoryLabel);
   }, [budgetCategoryLabel, miniBudgets]);
 
-  const parsedAmount = useMemo(() => {
+  const typedAmount = useMemo(() => {
     // Remove thousand separators; keep dot as decimal separator.
     const n = Number(amount.replace(/,/g, ''));
     return Number.isFinite(n) ? n : NaN;
+  }, [amount]);
+  const fx = type === 'income' && fxCurrency && Number(fxRate) > 0 ? { currency: fxCurrency, amount: typedAmount, rate: Number(fxRate) } : null;
+  const parsedAmount = useMemo(() => {
+    if (type === 'income' && fxCurrency) return Number(fxRate) > 0 ? Math.round(typedAmount * Number(fxRate) * 100) / 100 : NaN;
+    return typedAmount;
   }, [amount]);
 
   const resolvedCategory = category.trim();
@@ -242,6 +267,17 @@ export function AddTransactionScreen() {
     (!requiresBudget || !!selectedBudgetId) &&
     !isSaving;
 
+  // Daily and irregular earners get the split right when money lands: bills, savings, and what's free to spend.
+  const splitNote = (() => {
+    if (type !== 'income' || !plan || plan.monthlyIncome <= 0 || !(parsedAmount > 0)) return null;
+    if (!(plan.incomeSources ?? []).some((s) => s.frequency === 'daily' || s.frequency === 'irregular' || s.frequency === 'weekly')) return null;
+    const bills = Math.round((parsedAmount * Math.min(1, plan.committed / plan.monthlyIncome)) / 100) * 100;
+    const savings = Math.round((parsedAmount * Math.min(1, plan.split.Savings / plan.monthlyIncome)) / 100) * 100;
+    const free = Math.max(0, parsedAmount - bills - savings);
+    const g = currencySymbol(user?.currency);
+    return `Saved. Split it: ${formatAmount(bills, g)} for bills, ${formatAmount(savings, g)} to savings, ${formatAmount(free, g)} to spend.`;
+  })();
+
   const submit = async () => {
     if (!canSubmit) return;
     setError(null);
@@ -266,7 +302,8 @@ export function AddTransactionScreen() {
             }
           : {}),
         ...(spacesEnabled ? { spaceId: activeSpaceId } : {}),
-        ...(vatOnCost > 0 ? { vatAmount: vatOnCost } : {})
+        ...(vatOnCost > 0 ? { vatAmount: vatOnCost } : {}),
+        ...(fx && Number.isFinite(fx.amount) ? { fx } : {})
       });
 
       if (showGoalLink && selectedGoalId) {
@@ -285,7 +322,8 @@ export function AddTransactionScreen() {
       haptic.success();
       if (result.status === 'queued') toast.show('Saved on this phone. It will sync when you’re back online.', 'info', 4000);
       else if (streak) toast.show(`${streak} days in a row 🔥 Omo, you’re consistent!`, 'success', 4000);
-      else toast.show(type === 'expense' ? 'Expense saved' : 'Income saved', 'success');
+      else if (type === 'income' && splitNote) toast.show(splitNote, 'success', 7000);
+      else toast.show(t(type === 'expense' ? 'Expense saved' : 'Income saved'), 'success');
       goBackOrHome(nav);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save this transaction. Check your connection and try again.');
@@ -538,8 +576,8 @@ export function AddTransactionScreen() {
         </IconButton>
         <SegmentedControl
           options={[
-            { key: 'expense', label: 'Expense' },
-            { key: 'income', label: 'Income' }
+            { key: 'expense', label: t('Expense') },
+            { key: 'income', label: t('Income') }
           ]}
           value={type}
           onChange={(k) => {
@@ -584,7 +622,7 @@ export function AddTransactionScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.amountWrap} accessible accessibilityLabel={`Amount ${amount || '0'}`}>
-          <Text style={[styles.amountGlyph, { color: theme.colors.textMuted }]}>{glyph}</Text>
+          <Text style={[styles.amountGlyph, { color: theme.colors.textMuted }]}>{type === 'income' && fxCurrency ? currencySymbol(fxCurrency) : glyph}</Text>
           <Text style={[styles.amount, { color: amount ? theme.colors.text : theme.colors.textMuted }]} numberOfLines={1} adjustsFontSizeToFit>
             {amount || '0'}
           </Text>
@@ -730,9 +768,40 @@ export function AddTransactionScreen() {
             </Pressable>
           </View>
           {type === 'income' ? (
+            <View style={[styles.row, { flexWrap: 'wrap' }]}>
+              <Text style={[typo.body, { color: theme.colors.text, flex: 1, minWidth: 120 }]}>{t('Received in')}</Text>
+              {[null, 'USD', 'GBP', 'EUR'].map((c) => (
+                <ChoiceChip
+                  key={c ?? 'home'}
+                  label={c ?? glyph}
+                  active={fxCurrency === c}
+                  onPress={() => {
+                    setFxCurrency(c);
+                    setFxRate(c && rates[c] ? String(rates[c]) : '');
+                  }}
+                />
+              ))}
+            </View>
+          ) : null}
+          {type === 'income' && fxCurrency ? (
+            <View style={styles.row}>
+              <Text style={[typo.body, { color: theme.colors.text }]}>1 {fxCurrency} =</Text>
+              <TextInput
+                value={fxRate}
+                onChangeText={(v) => setFxRate(v.replace(/[^\d.]/g, ''))}
+                keyboardType="decimal-pad"
+                placeholder="rate you got"
+                placeholderTextColor={theme.colors.textMuted}
+                accessibilityLabel={`Naira for one ${fxCurrency}`}
+                style={[typo.bodyStrong, { color: theme.colors.text, flex: 1, paddingVertical: 0 }]}
+              />
+              <Text style={[typo.caption, { color: theme.colors.textMuted }]}>{parsedAmount > 0 ? `= ${formatAmount(parsedAmount, glyph)}` : glyph}</Text>
+            </View>
+          ) : null}
+          {type === 'income' ? (
             <View style={styles.row}>
               <Wallet color={theme.colors.textMuted} size={18} />
-              <Text style={[typo.body, { color: theme.colors.text, flex: 1 }]}>Count toward a budget</Text>
+              <Text style={[typo.body, { color: theme.colors.text, flex: 1 }]}>{t('Count toward a budget')}</Text>
               <Switch
                 value={applyToBudget}
                 onValueChange={(v) => {

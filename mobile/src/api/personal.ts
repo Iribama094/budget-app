@@ -27,8 +27,15 @@ export async function createCategory(input: { name: string; type: 'income' | 'ex
   return (await apiFetch('/v1/categories', { method: 'POST', body: JSON.stringify(input) })).category as ApiCategory;
 }
 
-export async function updateCategory(id: string, patch: Partial<Pick<ApiCategory, 'name' | 'bucket' | 'icon' | 'hidden'>>): Promise<ApiCategory> {
-  return (await apiFetch(`/v1/categories/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) })).category as ApiCategory;
+export type CategoryPatch = Partial<Pick<ApiCategory, 'name' | 'bucket' | 'icon' | 'hidden'>> & {
+  /** With a bucket change: also move this period's spending in the category to the new bucket. */
+  moveThisPeriod?: boolean;
+};
+
+/** `moved` is how many of this period's transactions followed the category to its new bucket. */
+export async function updateCategory(id: string, patch: CategoryPatch): Promise<{ category: ApiCategory; moved: number }> {
+  const data = await apiFetch(`/v1/categories/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) });
+  return { category: data.category as ApiCategory, moved: Number(data.moved) || 0 };
 }
 
 export async function deleteCategory(id: string): Promise<void> {
@@ -46,8 +53,8 @@ export async function suggestCategory(text: string, type: 'income' | 'expense', 
 /* ------------------------------------------------------------ income and plan */
 
 export type IncomeKind = 'salary' | 'business' | 'side_hustle' | 'allowance' | 'other';
-export type IncomeFrequency = 'monthly' | 'biweekly' | 'weekly' | 'irregular';
-export type BillFrequency = 'monthly' | 'yearly' | 'weekly';
+export type IncomeFrequency = 'daily' | 'monthly' | 'biweekly' | 'weekly' | 'irregular';
+export type BillFrequency = 'monthly' | 'termly' | 'yearly' | 'weekly';
 export type PainPoint = 'runs_out' | 'no_idea' | 'cant_save' | 'debt' | 'irregular';
 
 export type IncomeInput = {

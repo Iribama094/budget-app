@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, Pressable, Image, Alert, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
-import { Briefcase, Gift, HeartHandshake, Lock, Smartphone, UserRound } from '../icons';
+import { Briefcase, Gift, HeartHandshake, Lock, Smartphone, UserRound, Users, Wallet, Home } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -11,7 +11,9 @@ import { useConfig } from '../contexts/ConfigContext';
 import { Amount, Card, IconTile, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader } from '../components/Common/ui';
 import { PlanSplit } from '../components/Plan/PlanSplit';
 import { BusinessProfile } from '../components/Profile/BusinessProfile';
-import { getAnalyticsSummary } from '../api/endpoints';
+import { getMoney } from '../api/money';
+import { useActing } from '../contexts/ActingContext';
+import { formatAmount } from '../components/Common/ui';
 import { getPlan, type ApiPlan } from '../api/personal';
 import { currencySymbol } from '../utils/format';
 import { fonts, type } from '../theme/typography';
@@ -39,15 +41,16 @@ export function ProfileScreen() {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [plan, setPlan] = useState<ApiPlan | null>(null);
   const [netWorth, setNetWorth] = useState<number | null>(null);
+  const { acting } = useActing();
 
   useFocusEffect(
     useCallback(() => {
       if (isBusiness) return;
       SecureStore.getItemAsync('bf_avatar_uri_v1').then((v) => v && setAvatarUri(v)).catch(() => undefined);
       getPlan().then(setPlan).catch(() => setPlan(null));
-      const now = new Date();
-      getAnalyticsSummary(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10), now.toISOString().slice(0, 10), spacesEnabled ? { spaceId: activeSpaceId } : undefined)
-        .then((s) => Number.isFinite(Number(s?.totalBalance)) && setNetWorth(Number(s.totalBalance)))
+      // What they have and own, minus what they owe, once they've added anything to Your money.
+      getMoney()
+        .then((m) => setNetWorth(m.holdings.length || m.bankAccounts.length || m.debts.length ? m.totals.net : null))
         .catch(() => undefined);
     }, [activeSpaceId, isBusiness, spacesEnabled])
   );
@@ -167,13 +170,18 @@ export function ProfileScreen() {
         ) : null}
       </ListCard>
 
-      {netWorth != null ? (
-        <Card style={{ marginTop: 16 }}>
-          <Text style={[type.smallStrong, { color: theme.colors.textMuted }]}>Balance of everything you’ve tracked</Text>
-          <Amount value={netWorth} currency={glyph} size="lg" style={{ marginTop: 4 }} />
-          <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>All income minus all spending logged in BudgetFriendly.</Text>
-        </Card>
-      ) : null}
+      <Text style={[type.eyebrow, styles.groupLabel, { color: theme.colors.textMuted }]}>Your money</Text>
+      <ListCard>
+        <ListRow
+          icon={tile(Wallet)}
+          title="What you have, own and owe"
+          subtitle={netWorth != null ? `All together: ${formatAmount(netWorth, glyph)}` : 'Cash, accounts, land, loans, money people owe you'}
+          onPress={() => nav.navigate('Money')}
+          chevron
+        />
+        <ListRow icon={tile(Home)} title="Household staff" subtitle="Pay a driver, nanny or cook, with payslips" onPress={() => nav.navigate('Payroll', { spaceId: 'personal' })} chevron />
+        {acting ? null : <ListRow icon={tile(Users)} title="People who help" subtitle="Let someone you trust see your money" onPress={() => nav.navigate('Helpers')} chevron />}
+      </ListCard>
 
       <Text style={[type.eyebrow, styles.groupLabel, { color: theme.colors.textMuted }]}>Account security</Text>
       <ListCard>

@@ -7,7 +7,7 @@ const withSpace = (path: string, spaceId?: SpaceId) => (spaceId ? `${path}?space
 
 /* ------------------------------------------------------------ recurring */
 
-export type RecurringFrequency = 'weekly' | 'monthly' | 'yearly';
+export type RecurringFrequency = 'weekly' | 'monthly' | 'termly' | 'yearly';
 
 export type ApiRecurring = {
   id: string;
@@ -24,9 +24,20 @@ export type ApiRecurring = {
   budgetCategory: string | null;
   paused: boolean;
   lastCreatedFor: string | null;
+  /** A contribution group (ajo, esusu): when it's your turn and how much you collect. */
+  payoutDate?: string | null;
+  payoutAmount?: number | null;
   createdAt: string;
   updatedAt: string;
 };
+
+/** What a schedule costs in an average month. School terms are three a year. */
+export function monthlyEquivalent(r: Pick<ApiRecurring, 'amount' | 'frequency'>): number {
+  if (r.frequency === 'weekly') return (r.amount * 52) / 12;
+  if (r.frequency === 'termly') return r.amount / 4;
+  if (r.frequency === 'yearly') return r.amount / 12;
+  return r.amount;
+}
 
 export type RecurringInput = {
   type: 'income' | 'expense';
@@ -39,6 +50,8 @@ export type RecurringInput = {
   autoCreate?: boolean;
   remindDaysBefore?: number;
   budgetCategory?: string | null;
+  payoutDate?: string | null;
+  payoutAmount?: number | null;
   spaceId?: SpaceId;
 };
 
@@ -105,6 +118,8 @@ export type NotificationPrefs = {
   invoiceReminders: boolean;
   /** The daily summary of what others spent in budgets you share. */
   sharedActivity: boolean;
+  /** Pushes say only "You have an update": nothing on the lock screen for someone else to read. */
+  privateNotifications: boolean;
 };
 
 /** With a spaceId, returns that space's notifications (plus account-wide ones) and its unread count. */

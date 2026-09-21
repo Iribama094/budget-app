@@ -45,8 +45,8 @@ const UNITS: Record<string, number> = {
 };
 const SCALES: Record<string, number> = { hundred: 100, thousand: 1000, million: 1_000_000 };
 
-const INCOME_WORDS = /\b(received|receive|got paid|get paid|salary|income|earned|earn|credited|credit alert|sold|sales|paid me|refund|allowance|bonus)\b/i;
-const EXPENSE_WORDS = /\b(spent|spend|paid|pay|bought|buy|sent|send|gave|give|bill|fuel|transport|recharge|subscription|fees)\b/i;
+const INCOME_WORDS = /\b(received|receive|got paid|get paid|salary|income|earned|earn|credited|credit alert|sold|sales|paid me|refund|allowance|bonus|dem pay me|dem don pay me|dem send me|don enter|don land|i collect|i don collect|my alert)\b/i;
+const EXPENSE_WORDS = /\b(spent|spend|paid|pay|bought|buy|sent|send|gave|give|bill|fuel|transport|recharge|subscription|fees|chop|chopped|dash|dashed|i don pay|i don buy|okada|keke|danfo|mama put)\b/i;
 
 /** "five thousand two hundred" → 5200. Returns null when there are no number words. */
 function wordsToNumber(text: string): number | null {

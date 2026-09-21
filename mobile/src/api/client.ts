@@ -189,6 +189,18 @@ async function refreshAccessToken(): Promise<string | null> {
   return refreshInFlight;
 }
 
+/**
+ * Whose money this phone is looking at when the signed-in person helps someone else (a delegate). The server
+ * checks every request against the owner's grant; this only says which owner to ask about.
+ */
+let actingAs: string | null = null;
+export function setActingAs(ownerId: string | null) {
+  actingAs = ownerId;
+}
+export function getActingAs(): string | null {
+  return actingAs;
+}
+
 export async function apiFetch(path: string, init?: RequestInit & { skipAuth?: boolean }): Promise<any> {
   // If stub mode is enabled, return local fake responses instead of calling network.
   if (API_STUB) {
@@ -757,6 +769,8 @@ export async function apiFetch(path: string, init?: RequestInit & { skipAuth?: b
     if (!headers.has('Content-Type') && init?.body && !isFormData) headers.set('Content-Type', 'application/json');
     for (const [key, value] of Object.entries(deviceHeaders())) headers.set(key, value);
     if (token) headers.set('Authorization', `Bearer ${token}`);
+    // Sign-in and delegation are always about the person holding the phone.
+    if (actingAs && !/\/v1\/(auth|delegates|push-tokens)(\/|$|\?)/.test(url)) headers.set('X-Act-As', actingAs);
     return fetch(url, { ...init, headers });
   };
 

@@ -7,6 +7,7 @@ import { notifyUser } from '../lib/notify.ts';
 import { voice } from '../lib/voice.ts';
 import { afterTransactionCreated } from '../lib/effects.ts';
 import { learnCategory, suggestCategories } from '../lib/categories.ts';
+import { applyRefund, applyTransfer, matchImports, refundedFrom, undoMatch, type MatchHint } from '../lib/importMatch.ts';
 import type { Ctx } from '../index.ts';
 
 const toApiAccount = (a: any) => ({
@@ -32,8 +33,12 @@ const toApiImported = (t: any) => ({
   merchant: t.merchant,
   occurredAt: iso(t.occurredAt),
   status: t.status,
+  pairedId: t.pairedId ?? null,
   reconciledAt: t.reconciledAt ? iso(t.reconciledAt) : undefined
 });
+
+/** How the app describes a hint: moved between your accounts, or money given back. */
+const toApiMatch = (m: MatchHint | undefined) => (m ? { kind: m.kind, pairId: m.pairId } : null);
 
 const DemoLinkSchema = z.object({
   provider: z.string().min(1).max(80),
@@ -209,7 +214,7 @@ export async function importedIndex(ctx: Ctx) {
   if (ctx.method !== 'GET') methodNotAllowed(['GET']);
   const { userId } = await requireAuth(ctx.req);
   const raw = ctx.query.get('status') ?? 'pending';
-  const status = ['pending', 'reconciled', 'ignored'].includes(raw) ? raw : 'pending';
+  const status = ['pending', 'reconciled', 'ignored', 'transfer', 'refund'].includes(raw) ? raw : 'pending';
   const space = spaceParam(ctx.query.get('spaceId'));
   const items = await sql`
     select * from public.imported_transactions
@@ -225,6 +230,14 @@ export async function importedIndex(ctx: Ctx) {
     (items[0].spaceId ?? 'personal') as 'personal' | 'business',
     items.map((t) => ({ key: String(t.id), type: t.direction === 'credit' ? 'income' : 'expense', text: String(t.description ?? t.merchant ?? '') }))
   ).catch(() => new Map());
+  // Transfers between the person's own accounts and refunds: confirming these records nothing as spent or earned.
+  const matches = await matchImports(userId, items as any).catch(() => new Map<string, MatchHint>());
+  const refunds = await sql<{ pairedId: string; total: number }[]>`
+    select paired_id, sum(amount) as total from public.imported_transactions
+    where user_id = ${userId} and status = 'refund' and direction = 'credit' and paired_id in ${sql(items.map((t) => t.id))}
+    group by paired_id
+  `;
+  const refundedBy = new Map(refunds.map((r) => [String(r.pairedId), Number(r.total)]));
 
   const dates = items.map((t) => new Date(t.occurredAt).getTime());
   const existing = await sql<{ id: string; amount: number; type: string; description: string; occurredAt: Date; spaceId: string }[]>`
@@ -248,6 +261,8 @@ export async function importedIndex(ctx: Ctx) {
         suggestedCategory: s?.category ?? null,
         suggestedBucket: s?.bucket ?? null,
         suggestionSource: s?.source ?? null,
+        match: toApiMatch(matches.get(String(t.id))),
+        refunded: refundedBy.get(String(t.id)) ?? 0,
         duplicateOf: dupe ? { id: dupe.id, description: dupe.description, occurredAt: iso(dupe.occurredAt) } : null
       };
     })
@@ -263,7 +278,7 @@ const ReconcileSchema = z.object({
   miniBudgetId: z.union([z.string().min(1).max(120), z.null()]).optional()
 });
 
-/** POST /v1/imported-transactions/:id/reconcile | /ignore */
+/** POST /v1/imported-transactions/:id/reconcile | /ignore | /transfer | /refund | /undo */
 export async function importedAction(ctx: Ctx) {
   if (ctx.method !== 'POST') methodNotAllowed(['POST']);
   const { userId } = await requireAuth(ctx.req);
@@ -277,6 +292,22 @@ export async function importedAction(ctx: Ctx) {
     const [out] = await sql`update public.imported_transactions set status = 'ignored' where id = ${tx.id} returning *`;
     return json(200, { transaction: toApiImported(out) });
   }
+  if (action === 'transfer' || action === 'refund') {
+    if (tx.status !== 'pending') badRequest('This one is already sorted');
+    const hint = (await matchImports(userId, [tx as any])).get(String(tx.id));
+    if (action === 'transfer') await applyTransfer(userId, tx as any, hint?.kind === 'transfer' ? hint.pairId : null);
+    else {
+      if (tx.direction !== 'credit') badRequest('Only money coming in can be a refund');
+      await applyRefund(userId, tx as any, hint?.kind === 'refund' ? hint : { pairId: null, transactionId: null });
+    }
+    const [out] = await sql`select * from public.imported_transactions where id = ${tx.id}`;
+    return json(200, { transaction: toApiImported(out) });
+  }
+  if (action === 'undo') {
+    await undoMatch(userId, tx as any);
+    const [out] = await sql`select * from public.imported_transactions where id = ${tx.id}`;
+    return json(200, { transaction: toApiImported(out) });
+  }
   if (action !== 'reconcile') badRequest('Unsupported action');
 
   const input = await body(ctx.req, ReconcileSchema);
@@ -288,6 +319,13 @@ async function reconcileImported(userId: string, tx: any, input: z.infer<typeof 
   const type = input.type ?? (tx.direction === 'debit' ? 'expense' : 'income');
   const category = input.category ?? (type === 'income' ? 'Other income' : 'Uncategorized');
   const txSpace = tx.spaceId ?? 'personal';
+  // Refunds already matched to this debit come off it: record what it really cost, or nothing at all.
+  const refunded = tx.direction === 'debit' ? await refundedFrom(userId, tx.id) : 0;
+  const amount = Math.round((Number(tx.amount) - refunded) * 100) / 100;
+  if (amount <= 0) {
+    const [out] = await sql`update public.imported_transactions set status = 'refund', reconciled_at = now() where id = ${tx.id} returning *`;
+    return toApiImported(out);
+  }
 
   const clean = (v: string | null | undefined) => (v == null ? null : String(v).trim() || null);
   let budgetId = clean(input.budgetId);
@@ -304,25 +342,30 @@ async function reconcileImported(userId: string, tx: any, input: z.infer<typeof 
 
   const [created] = await sql`
     insert into public.transactions (user_id, space_id, type, amount, category, description, budget_id, budget_category, mini_budget_id, occurred_at)
-    values (${userId}, ${txSpace}, ${type}, ${tx.amount}, ${category}, ${input.description ?? (tx.description || tx.merchant || 'Imported transaction')},
+    values (${userId}, ${txSpace}, ${type}, ${amount}, ${category}, ${input.description ?? (tx.description || tx.merchant || 'Imported transaction')},
             ${budgetId}, ${budgetCategory}, ${miniBudgetId}, ${tx.occurredAt})
     returning id, user_id, space_id, type, amount, budget_id, budget_category
   `;
   if (type === 'income' && budgetId) {
-    await bumpBudget(budgetId, Number(tx.amount), budgetCategory, sql`b.user_id = ${userId} and b.space_id = ${txSpace}`);
+    await bumpBudget(budgetId, amount, budgetCategory, sql`b.user_id = ${userId} and b.space_id = ${txSpace}`);
   }
   await afterTransactionCreated(created as any);
   if (input.category) {
     await learnCategory(userId, type, tx.description || tx.merchant, input.category, budgetCategory).catch(() => undefined);
   }
 
-  const [out] = await sql`update public.imported_transactions set status = 'reconciled', reconciled_at = now() where id = ${tx.id} returning *`;
+  const [out] = await sql`
+    update public.imported_transactions set status = 'reconciled', reconciled_at = now(), transaction_id = ${created.id}
+    where id = ${tx.id} returning *
+  `;
   return toApiImported(out);
 }
 
 const BulkSchema = z.object({
   action: z.enum(['reconcile', 'ignore']),
-  ids: z.array(z.string().min(1).max(120)).min(1).max(200)
+  ids: z.array(z.string().min(1).max(120)).min(1).max(200),
+  /** Rows the person said to record as they are, even though they look like a transfer or refund. */
+  record: z.array(z.string().min(1).max(120)).max(200).optional()
 });
 
 /**
@@ -355,12 +398,34 @@ export async function importedBulk(ctx: Ctx) {
     rows.map((t) => ({ key: String(t.id), type: t.direction === 'credit' ? 'income' : 'expense', text: String(t.description ?? t.merchant ?? '') }))
   ).catch(() => new Map());
 
+  // Transfers and refunds among them are settled as such, never recorded as spending or income.
+  const matches = await matchImports(userId, rows as any).catch(() => new Map<string, MatchHint>());
+  const settled = new Set<string>();
+
   let done = 0;
   let failed = 0;
   for (const row of rows) {
+    if (settled.has(String(row.id))) {
+      done++;
+      continue;
+    }
     const s = suggestions.get(String(row.id));
+    const m = input.record?.includes(String(row.id)) ? undefined : matches.get(String(row.id));
     try {
-      await reconcileImported(userId, row, s ? { category: s.category, budgetCategory: s.bucket ?? undefined } : {});
+      if (m?.kind === 'transfer') {
+        await applyTransfer(userId, row as any, m.pairId);
+        if (m.pairId) settled.add(m.pairId);
+      } else if (m?.kind === 'refund') {
+        await applyRefund(userId, row as any, m);
+        if (m.pairId) settled.add(m.pairId);
+      } else {
+        const [fresh] = await sql`select status from public.imported_transactions where id = ${row.id}`;
+        if (fresh?.status !== 'pending') {
+          done++;
+          continue;
+        }
+        await reconcileImported(userId, row, s ? { category: s.category, budgetCategory: s.bucket ?? undefined } : {});
+      }
       done++;
     } catch (err) {
       console.error('[imported] bulk reconcile failed', row.id, err);

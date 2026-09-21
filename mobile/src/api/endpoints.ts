@@ -26,6 +26,8 @@ export type ApiUser = {
     optInTaxFeature?: boolean;
   } | null;
   netWorth?: number | null;
+  /** The app's language: 'pcm' is Nigerian Pidgin. */
+  language?: 'en' | 'pcm';
   /** Answers from the first-run plan. */
   onboarding?: { completedAt: string | null; skippedAt: string | null; painPoints: string[] };
   budgetPeriod?: 'payday' | 'monthly';
@@ -43,7 +45,7 @@ export async function getMe(): Promise<ApiUser> {
 }
 
 export async function patchMe(
-  patch: Partial<Pick<ApiUser, 'name' | 'currency' | 'locale' | 'monthlyIncome' | 'budgetPeriod' | 'budgetMode' | 'homeBudget'>> & { taxProfile?: any; painPoints?: string[] }
+  patch: Partial<Pick<ApiUser, 'name' | 'currency' | 'locale' | 'monthlyIncome' | 'budgetPeriod' | 'budgetMode' | 'homeBudget' | 'language'>> & { taxProfile?: any; painPoints?: string[] }
 ): Promise<ApiUser> {
   const data = await apiFetch('/v1/users/me', { method: 'PATCH', body: JSON.stringify(patch) });
   return (data as any).user as ApiUser;
@@ -96,6 +98,12 @@ export type ApiTransaction = {
   budgetId?: string | null;
   budgetCategory?: string | null;
   miniBudgetId?: string | null;
+  /** Given back on this expense; amount is already net of it. */
+  refundedAmount?: number;
+  /** Received in another currency: what arrived and the rate it was changed at. */
+  fxCurrency?: string | null;
+  fxAmount?: number | null;
+  fxRate?: number | null;
   occurredAt: string;
   createdAt: string;
   updatedAt: string;
@@ -186,6 +194,13 @@ export async function patchTransactionInSpace(
   return (data as any).transaction as ApiTransaction;
 }
 
+/** Money given back on an expense. Returns the updated expense, or null when the refund covered all of it. */
+export async function refundTransaction(id: string, amount: number, spaceId?: 'personal' | 'business'): Promise<ApiTransaction | null> {
+  const suffix = spaceId ? `?spaceId=${spaceId}` : '';
+  const data = await apiFetch(`/v1/transactions/${encodeURIComponent(id)}${suffix}`, { method: 'PATCH', body: JSON.stringify({ refund: amount }) });
+  return ((data as any).transaction ?? null) as ApiTransaction | null;
+}
+
 export async function deleteTransaction(id: string): Promise<void> {
   await apiFetch(`/v1/transactions/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
@@ -270,6 +285,13 @@ export type ApiGoal = {
   category?: string | null;
   /** Share of each income added to this goal automatically (0-50). */
   autoSavePercent?: number | null;
+  /** Saving for a bill: the pot pays it when it's due, then fills again. */
+  recurringId?: string | null;
+  /** 'buffer' holds uneven income and pays a steady amount out each month. */
+  kind?: 'goal' | 'buffer';
+  monthlyDraw?: number | null;
+  /** Target in another currency; null means the person's own. */
+  currency?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -304,6 +326,10 @@ export async function createGoal(input: {
   color?: string;
   category?: string;
   spaceId?: 'personal' | 'business';
+  recurringId?: string;
+  kind?: 'goal' | 'buffer';
+  monthlyDraw?: number;
+  currency?: string;
 }): Promise<ApiGoal> {
   const data = await apiFetch('/v1/goals', { method: 'POST', body: JSON.stringify(input) });
   return (data as any).goal as ApiGoal;
@@ -413,7 +439,8 @@ export async function createBudget(input: {
 }
 
 /** Starts the next period of a budget with the same plan (and people, if shared). Returns the existing one if it's already there. */
-export async function startNextBudget(id: string): Promise<{ budget: ApiBudget; existed: boolean }> {
+/** keptUp: needs cost more than planned last time, so the new period gives them what they really cost and wants give way. */
+export async function startNextBudget(id: string): Promise<{ budget: ApiBudget; existed: boolean; keptUp?: { from: number; to: number } | null }> {
   return apiFetch(`/v1/budgets/${encodeURIComponent(id)}/next`, { method: 'POST' });
 }
 
@@ -452,8 +479,14 @@ export type ApiImportedTransaction = {
   description: string;
   merchant: string;
   occurredAt: string;
-  status: 'pending' | 'reconciled' | 'ignored';
+  status: 'pending' | 'reconciled' | 'ignored' | 'transfer' | 'refund';
   reconciledAt?: string;
+  /** The other half of a transfer between your accounts, or the payment a refund gave back. */
+  pairedId?: string | null;
+  /** Money moved between your own accounts, or given back on an earlier payment. Neither is spending or income. */
+  match?: { kind: 'transfer' | 'refund'; pairId: string | null } | null;
+  /** Already given back on this payment; confirming it records only what's left. */
+  refunded?: number;
   /** The category we'd pick, from this person's own history first, then common payees. */
   suggestedCategory?: string | null;
   suggestedBucket?: 'Needs' | 'Wants' | 'Savings' | null;
@@ -581,10 +614,18 @@ export async function reconcileImportedTransactionInSpace(
 export async function bulkImportedTransactions(
   action: 'reconcile' | 'ignore',
   ids: string[],
-  params?: { spaceId?: 'personal' | 'business' }
+  params?: { spaceId?: 'personal' | 'business'; record?: string[] }
 ): Promise<{ done: number; failed: number }> {
   const qs = params?.spaceId ? `?spaceId=${params.spaceId}` : '';
-  return apiFetch(`/v1/imported-transactions/bulk${qs}`, { method: 'POST', body: JSON.stringify({ action, ids }) }) as Promise<{ done: number; failed: number }>;
+  const record = params?.record?.length ? params.record : undefined;
+  return apiFetch(`/v1/imported-transactions/bulk${qs}`, { method: 'POST', body: JSON.stringify({ action, ids, record }) }) as Promise<{ done: number; failed: number }>;
+}
+
+/** Settles a row as a transfer between your own accounts or a refund, or puts one back to be confirmed. */
+export async function settleImportedTransaction(id: string, action: 'transfer' | 'refund' | 'undo', spaceId?: 'personal' | 'business'): Promise<ApiImportedTransaction> {
+  const suffix = spaceId ? `?spaceId=${spaceId}` : '';
+  const data = await apiFetch(`/v1/imported-transactions/${encodeURIComponent(id)}/${action}${suffix}`, { method: 'POST', body: JSON.stringify({}) });
+  return (data as any).transaction as ApiImportedTransaction;
 }
 
 export async function ignoreImportedTransaction(id: string): Promise<ApiImportedTransaction> {

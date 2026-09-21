@@ -1,3 +1,4 @@
+import { isLite } from '../lib/lite';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
@@ -89,7 +90,8 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!userId) return;
-    const timer = setInterval(() => void load(), REFRESH_MS);
+    // Saving data: no background re-checks; coming back to the app still refreshes.
+    const timer = setInterval(() => void (isLite() ? undefined : load()), REFRESH_MS);
     const sub = AppState.addEventListener('change', (state) => {
       // Coming back to the front is the moment worth re-checking; a quick switch away should not re-ask.
       if (state === 'active' && Date.now() - fetchedAt.current > 60_000) void load();

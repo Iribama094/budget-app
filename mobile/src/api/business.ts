@@ -262,12 +262,18 @@ export type PayrollRun = {
   payeBillId: string | null;
 };
 
-export async function getPayroll(): Promise<{ staff: Staff[]; totals: { gross: number; paye: number; net: number }; runs: PayrollRun[] }> {
-  return apiFetch('/v1/payroll', { method: 'GET' });
+/** Business staff, or with spaceId 'personal', household staff (a driver, a nanny, a cook). */
+const staffPath = (path: string, spaceId?: 'personal' | 'business') => (spaceId === 'personal' ? `${path}?spaceId=personal` : path);
+
+export async function getPayroll(spaceId?: 'personal' | 'business'): Promise<{ staff: Staff[]; totals: { gross: number; paye: number; net: number }; runs: PayrollRun[] }> {
+  return apiFetch(staffPath('/v1/payroll', spaceId), { method: 'GET' });
 }
 
-export async function addStaff(input: { name: string; role?: string | null; monthlyGross: number; pensionEnabled?: boolean; pensionRate?: number; nhfEnabled?: boolean }): Promise<Staff> {
-  return (await apiFetch('/v1/staff', { method: 'POST', body: JSON.stringify(input) })).staff;
+export async function addStaff(
+  input: { name: string; role?: string | null; monthlyGross: number; pensionEnabled?: boolean; pensionRate?: number; nhfEnabled?: boolean },
+  spaceId?: 'personal' | 'business'
+): Promise<Staff> {
+  return (await apiFetch(staffPath('/v1/staff', spaceId), { method: 'POST', body: JSON.stringify(input) })).staff;
 }
 
 export async function updateStaff(
@@ -281,8 +287,8 @@ export async function removeStaff(id: string): Promise<void> {
   await apiFetch(`/v1/staff/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
-export async function runPayroll(input: { period: string; paidOn?: string; lines?: Array<{ staffId: string; gross: number }> }): Promise<PayrollRun> {
-  return (await apiFetch('/v1/payroll/runs', { method: 'POST', body: JSON.stringify(input) })).run;
+export async function runPayroll(input: { period: string; paidOn?: string; lines?: Array<{ staffId: string; gross: number }> }, spaceId?: 'personal' | 'business'): Promise<PayrollRun> {
+  return (await apiFetch(staffPath('/v1/payroll/runs', spaceId), { method: 'POST', body: JSON.stringify(input) })).run;
 }
 
 /* ------------------------------------------------------------ pay yourself */

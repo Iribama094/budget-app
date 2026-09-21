@@ -202,7 +202,7 @@ export async function computeWrapped(userId: string, space: Space, kind: Wrapped
       select count(*)::int as issued, count(*) filter (where status = 'paid')::int as paid
       from public.invoices where user_id = ${userId} and issue_date >= ${start}::date and issue_date <= ${end}::date and status <> 'void'
     `,
-    sql`select coalesce(sum(total_gross), 0) as gross from public.payroll_runs where user_id = ${userId} and paid_on >= ${start}::date and paid_on <= ${end}::date`
+    sql`select coalesce(sum(total_gross), 0) as gross from public.payroll_runs where user_id = ${userId} and space_id = 'business' and paid_on >= ${start}::date and paid_on <= ${end}::date`
   ]);
   const bestProfit = activeMonths.filter((mm) => mm.income > 0).reduce<{ month: string; income: number; spending: number } | null>((a, b) => (!a || b.income - b.spending > a.income - a.spending ? b : a), null);
   return {

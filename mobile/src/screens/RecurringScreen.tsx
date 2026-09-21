@@ -6,7 +6,8 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Plus, Repeat, X } from '../icons';
 
-import { createRecurring, deleteRecurring, listRecurring, updateRecurring, type ApiRecurring, type RecurringFrequency } from '../api/features';
+import { createRecurring, deleteRecurring, listRecurring, monthlyEquivalent, updateRecurring, type ApiRecurring, type RecurringFrequency } from '../api/features';
+import { createGoal, listGoals, type ApiGoal } from '../api/endpoints';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
@@ -37,7 +38,18 @@ import { currencySymbol, formatNumberInput, formatShortDate, parseNumberInput, t
 import { fonts, type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 
-const FREQ_LABEL: Record<RecurringFrequency, string> = { weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
+const FREQ_LABEL: Record<RecurringFrequency, string> = { weekly: 'Weekly', monthly: 'Monthly', termly: 'Each term', yearly: 'Yearly' };
+
+/** Bills big enough to save up for: once a term or once a year. */
+const isBigBill = (r: Pick<ApiRecurring, 'type' | 'frequency'>) => r.type === 'expense' && (r.frequency === 'termly' || r.frequency === 'yearly');
+
+/** Whole months until a date, at least one: how many times there is to set money aside. */
+function monthsUntil(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const now = new Date();
+  const months = (y - now.getFullYear()) * 12 + (m - 1 - now.getMonth()) + (d >= now.getDate() ? 0 : -1);
+  return Math.max(1, months);
+}
 
 type Draft = {
   id: string | null;
@@ -51,6 +63,10 @@ type Draft = {
   remindDaysBefore: number;
   budgetCategory: string | null;
   paused: boolean;
+  /** An ajo or esusu: your payout turn. */
+  ajo: boolean;
+  payoutDate: string;
+  payoutAmount: string;
 };
 
 function blankDraft(): Draft {
@@ -65,7 +81,10 @@ function blankDraft(): Draft {
     autoCreate: true,
     remindDaysBefore: 1,
     budgetCategory: 'Needs',
-    paused: false
+    paused: false,
+    ajo: false,
+    payoutDate: '',
+    payoutAmount: ''
   };
 }
 
@@ -93,6 +112,9 @@ export default function RecurringScreen() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  /** Savings pots that fill up for a big bill, by the bill's id. */
+  const [pots, setPots] = useState<Record<string, ApiGoal>>({});
+  const [startingPot, setStartingPot] = useState(false);
 
   const syncLocalReminders = useCallback(
     async (list: ApiRecurring[]) => {
@@ -120,6 +142,8 @@ export default function RecurringScreen() {
     try {
       const list = await listRecurring(spacesEnabled ? activeSpaceId : undefined);
       setItems(list);
+      const goals = await listGoals(spacesEnabled ? { spaceId: activeSpaceId } : undefined).catch(() => [] as ApiGoal[]);
+      setPots(Object.fromEntries(goals.filter((g) => g.recurringId).map((g) => [g.recurringId as string, g])));
       void syncLocalReminders(list);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load your recurring items.');
@@ -136,9 +160,23 @@ export default function RecurringScreen() {
 
   const active = items.filter((r) => !r.paused);
   const upcoming = useMemo(() => active.filter((r) => daysUntil(r.nextDueDate) <= 30).sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate)), [active]);
-  const monthlyOut = active
-    .filter((r) => r.type === 'expense')
-    .reduce((s, r) => s + (r.frequency === 'weekly' ? (r.amount * 52) / 12 : r.frequency === 'yearly' ? r.amount / 12 : r.amount), 0);
+  const monthlyOut = active.filter((r) => r.type === 'expense').reduce((s, r) => s + monthlyEquivalent(r), 0);
+
+  /** What still needs setting aside each month so a big bill is covered on the day. */
+  const setAside = (r: ApiRecurring) => Math.max(0, Math.ceil((r.amount - (pots[r.id]?.currentAmount ?? 0)) / monthsUntil(r.nextDueDate) / 100) * 100);
+
+  const startPot = async (r: { id: string; amount: number; nextDueDate: string; name: string }) => {
+    setStartingPot(true);
+    try {
+      const goal = await createGoal({ name: r.name, targetAmount: r.amount, targetDate: r.nextDueDate, recurringId: r.id, emoji: '🗓️', ...(spacesEnabled ? { spaceId: activeSpaceId } : {}) });
+      setPots((prev) => ({ ...prev, [r.id]: goal }));
+      toast.show(`Savings pot started. Add to it from Goals, and it pays ${r.name} when it's due.`, 'success', 4000);
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not start the pot', 'error');
+    } finally {
+      setStartingPot(false);
+    }
+  };
 
   const openEdit = (r: ApiRecurring) => {
     setFormError(null);
@@ -153,7 +191,10 @@ export default function RecurringScreen() {
       autoCreate: r.autoCreate,
       remindDaysBefore: r.remindDaysBefore,
       budgetCategory: r.budgetCategory,
-      paused: r.paused
+      paused: r.paused,
+      ajo: !!r.payoutDate,
+      payoutDate: r.payoutDate ?? '',
+      payoutAmount: r.payoutAmount ? formatNumberInput(String(r.payoutAmount)) : ''
     });
   };
 
@@ -162,6 +203,9 @@ export default function RecurringScreen() {
     const amount = parseNumberInput(draft.amount);
     if (!Number.isFinite(amount) || amount <= 0) return setFormError('Enter an amount.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.nextDueDate)) return setFormError('Use the date format YYYY-MM-DD.');
+    const ajo = draft.type === 'expense' && draft.budgetCategory === 'Savings' && draft.ajo;
+    if (ajo && !/^\d{4}-\d{2}-\d{2}$/.test(draft.payoutDate)) return setFormError('Add the date of your turn as YYYY-MM-DD.');
+    const payoutAmount = ajo ? parseNumberInput(draft.payoutAmount) : NaN;
     setFormError(null);
     setSaving(true);
     try {
@@ -173,7 +217,9 @@ export default function RecurringScreen() {
         frequency: draft.frequency,
         autoCreate: draft.autoCreate,
         remindDaysBefore: draft.type === 'expense' ? draft.remindDaysBefore : 0,
-        budgetCategory: draft.type === 'expense' ? draft.budgetCategory : null
+        budgetCategory: draft.type === 'expense' ? draft.budgetCategory : null,
+        payoutDate: ajo ? draft.payoutDate : null,
+        payoutAmount: ajo && Number.isFinite(payoutAmount) && payoutAmount > 0 ? payoutAmount : null
       };
       const res = draft.id
         ? await updateRecurring(draft.id, { ...common, nextDueDate: draft.nextDueDate, paused: draft.paused })
@@ -212,12 +258,25 @@ export default function RecurringScreen() {
   const row = (r: ApiRecurring) => {
     const d = daysUntil(r.nextDueDate);
     const when = d < 0 ? 'overdue' : d === 0 ? 'today' : d === 1 ? 'tomorrow' : `in ${d} days`;
+    const pot = pots[r.id];
+    // Big bills say what to put aside; an ajo says when it's your turn. Nothing else gets extra words.
+    const extra = r.paused
+      ? ''
+      : isBigBill(r)
+        ? pot && pot.currentAmount >= r.amount
+          ? ' · saved up ✓'
+          : ` · set aside ${formatAmount(setAside(r), glyph)} a month`
+        : r.payoutDate
+          ? ` · your turn ${formatShortDate(r.payoutDate)}`
+          : r.autoCreate
+            ? ' · automatic'
+            : '';
     return (
       <ListRow
         key={r.id}
         icon={<CategoryIcon category={r.category} type={r.type} />}
         title={r.description || r.category}
-        subtitle={r.paused ? `${FREQ_LABEL[r.frequency]} · paused` : `${FREQ_LABEL[r.frequency]} · next ${formatShortDate(r.nextDueDate)} (${when})${r.autoCreate ? ' · automatic' : ''}`}
+        subtitle={r.paused ? `${FREQ_LABEL[r.frequency]} · paused` : `${FREQ_LABEL[r.frequency]} · next ${formatShortDate(r.nextDueDate)} (${when})${extra}`}
         onPress={() => openEdit(r)}
         right={<Amount value={r.type === 'expense' ? -r.amount : r.amount} currency={glyph} size="sm" signed={r.type === 'income'} color={r.type === 'income' ? theme.colors.success : theme.colors.text} />}
       />
@@ -374,11 +433,41 @@ export default function RecurringScreen() {
                   options={[
                     { key: 'weekly', label: 'Weekly' },
                     { key: 'monthly', label: 'Monthly' },
+                    { key: 'termly', label: 'Termly' },
                     { key: 'yearly', label: 'Yearly' }
                   ]}
                   value={draft.frequency}
                   onChange={(k) => setDraft({ ...draft, frequency: k })}
                 />
+
+                {draft.id && isBigBill(draft) ? (
+                  (() => {
+                    const saved = items.find((x) => x.id === draft.id);
+                    const pot = pots[draft.id];
+                    const amount = parseNumberInput(draft.amount) || 0;
+                    return (
+                      <View style={[styles.switchRow, { borderColor: theme.colors.border }]}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[type.bodyStrong, { color: theme.colors.text }]}>Save up for it</Text>
+                          <Text style={[type.caption, { color: theme.colors.textMuted }]}>
+                            {pot
+                              ? `${formatAmount(pot.currentAmount, glyph)} of ${formatAmount(amount, glyph)} in your pot. It pays this bill when it's due.`
+                              : saved
+                                ? `Put aside ${formatAmount(setAside(saved), glyph)} a month and it's ready on ${formatShortDate(saved.nextDueDate)}.`
+                                : ''}
+                          </Text>
+                        </View>
+                        {!pot && saved ? (
+                          <SecondaryButton
+                            title={startingPot ? 'Starting…' : 'Start a pot'}
+                            onPress={() => startPot({ id: saved.id, amount: saved.amount, nextDueDate: saved.nextDueDate, name: saved.description || saved.category })}
+                            disabled={startingPot}
+                          />
+                        ) : null}
+                      </View>
+                    );
+                  })()
+                ) : null}
 
                 <Text style={[type.smallStrong, styles.label, { color: theme.colors.text }]}>{draft.id ? 'Next due date' : 'First due date'}</Text>
                 <View style={[styles.input, { borderColor: theme.colors.border }]}>
@@ -425,6 +514,54 @@ export default function RecurringScreen() {
                     />
                     <Text style={[type.smallStrong, styles.label, { color: theme.colors.text }]}>Budget bucket</Text>
                     <View style={styles.wrap}>{BUCKETS.map((b) => chip(b, draft.budgetCategory === b, () => setDraft({ ...draft, budgetCategory: b })))}</View>
+                  </>
+                ) : null}
+
+                {draft.type === 'expense' && draft.budgetCategory === 'Savings' ? (
+                  <>
+                    <View style={[styles.switchRow, { borderColor: theme.colors.border }]}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[type.bodyStrong, { color: theme.colors.text }]}>It's an ajo or esusu</Text>
+                        <Text style={[type.caption, { color: theme.colors.textMuted }]}>We'll remind you when it's your turn to collect</Text>
+                      </View>
+                      <Switch
+                        value={draft.ajo}
+                        onValueChange={(v) => setDraft({ ...draft, ajo: v })}
+                        trackColor={{ true: theme.colors.primary, false: theme.colors.border }}
+                        thumbColor="#FFFFFF"
+                      />
+                    </View>
+                    {draft.ajo ? (
+                      <View style={{ flexDirection: 'row', gap: 10 }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[type.smallStrong, styles.label, { color: theme.colors.text }]}>Your turn</Text>
+                          <View style={[styles.input, { borderColor: theme.colors.border }]}>
+                            <TextInput
+                              value={draft.payoutDate}
+                              onChangeText={(t) => setDraft({ ...draft, payoutDate: t.replace(/[^\d-]/g, '').slice(0, 10) })}
+                              placeholder="YYYY-MM-DD"
+                              placeholderTextColor={theme.colors.textMuted}
+                              keyboardType="numbers-and-punctuation"
+                              style={[styles.inputText, { color: theme.colors.text, fontFamily: fonts.medium, fontSize: 16 }]}
+                            />
+                          </View>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[type.smallStrong, styles.label, { color: theme.colors.text }]}>You collect</Text>
+                          <View style={[styles.input, { borderColor: theme.colors.border }]}>
+                            <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: theme.colors.textMuted }}>{glyph}</Text>
+                            <TextInput
+                              value={draft.payoutAmount}
+                              onChangeText={(t) => setDraft({ ...draft, payoutAmount: formatNumberInput(t) })}
+                              keyboardType="decimal-pad"
+                              placeholder="0"
+                              placeholderTextColor={theme.colors.textMuted}
+                              style={[styles.inputText, { color: theme.colors.text, fontFamily: fonts.medium, fontSize: 16 }]}
+                            />
+                          </View>
+                        </View>
+                      </View>
+                    ) : null}
                   </>
                 ) : null}
 

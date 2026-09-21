@@ -39,7 +39,23 @@ export function adminAuth() {
   return adminClient.auth.admin;
 }
 
-export type AuthContext = { userId: string; sessionId: string | null; email: string | null; token: string };
+/**
+ * `userId` is whose money the request is about. When someone helps another person with their money (a
+ * delegate), it's the owner's id and `actorId` is the helper's own; otherwise both are the caller.
+ */
+export type AuthContext = { userId: string; sessionId: string | null; email: string | null; token: string; actorId: string; delegateRole: 'view' | 'record' | null };
+
+/** What a helper may do in someone else's money. Everything else is refused before any route runs. */
+function delegateMayDo(req: Request, role: 'view' | 'record'): boolean {
+  // Same reading as the router: everything after the "v1" segment.
+  const segments = new URL(req.url).pathname.split('/').filter(Boolean);
+  const path = segments.slice(segments.indexOf('v1') + 1).join('/');
+  // Never: staff tools, sign-in and security, delegation itself, the owner's devices and alerts.
+  if (/^(admin|auth|delegates|push-tokens|notifications|cron|account)(\/|$)/.test(path)) return false;
+  if (req.method === 'GET' || req.method === 'HEAD') return true;
+  // "Record" helpers can add transactions, nothing more.
+  return role === 'record' && req.method === 'POST' && /^transactions\/?$/.test(path);
+}
 
 /**
  * Updates the caller's password through Auth as the user themself, so the device making the change
@@ -103,5 +119,16 @@ export async function requireAuth(req: Request): Promise<AuthContext> {
     }
   }
 
-  return { userId, sessionId, email: typeof claims.email === 'string' ? claims.email : null, token };
+  const email = typeof claims.email === 'string' ? claims.email : null;
+  const actAs = (req.headers.get('x-act-as') ?? '').trim();
+  if (!actAs || actAs === userId) return { userId, sessionId, email, token, actorId: userId, delegateRole: null };
+
+  const [grant] = await sql<{ role: 'view' | 'record' }[]>`
+    select role from public.delegates where owner_id = ${actAs} and delegate_id = ${userId} and accepted_at is not null
+  `;
+  if (!grant) throw new HttpError(403, 'FORBIDDEN', 'You no longer have access to this person’s money.');
+  if (!delegateMayDo(req, grant.role)) {
+    throw new HttpError(403, 'FORBIDDEN', grant.role === 'view' ? 'You can look, but only they can change things.' : 'You can add transactions, but only they can change anything else.');
+  }
+  return { userId: actAs, sessionId, email: null, token, actorId: userId, delegateRole: grant.role };
 }

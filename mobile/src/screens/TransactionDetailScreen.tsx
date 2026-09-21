@@ -26,6 +26,7 @@ import {
   type ApiTransaction
 } from '../api/endpoints';
 import { goBackOrHome } from '../navigation/goBack';
+import { RefundRow } from '../components/Transactions/RefundRow';
 
 
 
@@ -638,6 +639,14 @@ export default function TransactionDetailScreen() {
                 <SecondaryButton title={isEditing ? 'Cancel' : 'Delete'} onPress={isEditing ? () => { setIsEditing(false); void load(); } : confirmDelete} />
               </View>
             </View>
+            {!isEditing && tx ? (
+              <RefundRow
+                tx={tx}
+                currency={currency}
+                spaceId={spacesEnabled ? activeSpaceId : undefined}
+                onDone={(updated) => (updated ? void load() : goBackOrHome(nav))}
+              />
+            ) : null}
           </Card>
         </View>
       ) : null}

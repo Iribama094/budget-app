@@ -220,7 +220,8 @@ export function staffDeductions(s: { monthlyGross: number; pensionEnabled?: bool
 
 export function toApiStaff(s: any, country: string | null) {
   const gross = Number(s.monthlyGross);
-  const paye = monthlyPaye(country, gross);
+  // Household staff (a driver, a nanny) are paid in full: no PAYE is withheld at home. Pension stays optional.
+  const paye = s.spaceId === 'personal' ? 0 : monthlyPaye(country, gross);
   const { pension, nhf } = staffDeductions({ monthlyGross: gross, pensionEnabled: s.pensionEnabled, pensionRate: s.pensionRate, nhfEnabled: s.nhfEnabled });
   return {
     id: s.id,
@@ -299,7 +300,7 @@ export async function businessSummary(userId: string, today = todayIso()) {
              coalesce(sum(amount - amount_paid) filter (where kind = 'paye'), 0) as paye_owed
       from public.supplier_bills where user_id = ${userId} and status in ('unpaid', 'part_paid')
     `,
-    sql`select count(*)::int as staff_count from public.staff where user_id = ${userId} and active`,
+    sql`select count(*)::int as staff_count from public.staff where user_id = ${userId} and space_id = 'business' and active`,
     sql`
       select coalesce(sum(p.amount * case when i.total > 0 then i.vat_amount / i.total else 0 end), 0) as collected
       from public.invoice_payments p join public.invoices i on i.id = p.invoice_id
@@ -570,7 +571,7 @@ export async function sendBusinessReminders(today = todayIso()): Promise<{ invoi
     const prevMonth = clampedIso(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 2, 1).slice(0, 7);
     const people = await sql`
       select s.user_id, s.vat_registered,
-        exists (select 1 from public.staff st where st.user_id = s.user_id and st.active) as has_staff,
+        exists (select 1 from public.staff st where st.user_id = s.user_id and st.space_id = 'business' and st.active) as has_staff,
         (select coalesce(sum(b.amount - b.amount_paid), 0) from public.supplier_bills b where b.user_id = s.user_id and b.kind = 'paye' and b.status in ('unpaid', 'part_paid')) as paye_owed
       from public.business_settings s where s.filing_reminders
       limit 5000

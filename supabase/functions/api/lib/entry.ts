@@ -44,8 +44,8 @@ const UNITS: Record<string, number> = {
 };
 const SCALES: Record<string, number> = { hundred: 100, thousand: 1000, million: 1_000_000 };
 
-const INCOME_WORDS = /\b(received|receive|got paid|get paid|salary|earned|earn|credited|credit alert|sold|paid me|refund|bonus)\b/i;
-const EXPENSE_WORDS = /\b(spent|spend|paid|pay|bought|buy|sent|send|gave|give|subscribed|recharged)\b/i;
+const INCOME_WORDS = /\b(received|receive|got paid|get paid|salary|earned|earn|credited|credit alert|sold|paid me|refund|bonus|dem pay me|dem don pay me|dem send me|don enter|don land|i collect|i don collect|my alert)\b/i;
+const EXPENSE_WORDS = /\b(spent|spend|paid|pay|bought|buy|sent|send|gave|give|subscribed|recharged|chop|chopped|dash|dashed|i don pay|i don buy|okada|keke|danfo|mama put)\b/i;
 // "How much did I spend on fuel?" is a question, not something to record.
 const QUESTION = /^\s*(how|what|when|where|why|which|who|can|could|should|will|would|do|did|does|is|are|am|was|were|any|tell|show|explain)\b|\?\s*$/i;
 

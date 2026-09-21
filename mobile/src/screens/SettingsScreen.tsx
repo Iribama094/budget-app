@@ -27,7 +27,9 @@ import {
   Users,
   Wallet,
   Wand2,
-  Gift
+  Gift,
+  Globe,
+  Zap
 } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -48,6 +50,7 @@ import { getDailyReminder, setDailyReminder, type DailyReminder } from '../lib/n
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { isLite, setLite } from '../lib/lite';
 
 const ONBOARDING_KEY = 'bf_onboarding_done_v1';
 
@@ -108,6 +111,19 @@ export default function SettingsScreen() {
       <Icon color={isBusiness ? theme.colors.brass : theme.colors.primary} size={17} />
     </IconTile>
   );
+  // Pidgin for the words people see most; the rest stays in English until it's translated.
+  const [language, setLanguage] = useState<'en' | 'pcm'>((user?.language ?? 'en') as 'en' | 'pcm');
+  const changeLanguage = async (next: 'en' | 'pcm') => {
+    setLanguage(next);
+    try {
+      await patchMe({ language: next });
+      await refreshUser();
+    } catch {
+      setLanguage(language);
+    }
+  };
+  const [lite, setLiteState] = useState(isLite());
+
   const switchColors = { trackColor: { true: theme.colors.primary, false: theme.colors.border }, thumbColor: '#FFFFFF', ios_backgroundColor: theme.colors.border };
   const BioIcon = biometric.kind === 'fingerprint' ? Fingerprint : ScanFace;
   const customCount = categories.filter((c) => !c.isDefault).length;
@@ -339,6 +355,36 @@ export default function SettingsScreen() {
             style={{ marginTop: 10 }}
           />
         </View>
+        <View style={{ paddingVertical: 11 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            {tile(Globe)}
+            <Text style={[type.bodyStrong, { color: theme.colors.text }]}>Language</Text>
+          </View>
+          <SegmentedControl
+            options={[
+              { key: 'en', label: 'English' },
+              { key: 'pcm', label: 'Pidgin' }
+            ]}
+            value={language}
+            onChange={(k) => void changeLanguage(k)}
+            style={{ marginTop: 10 }}
+          />
+        </View>
+        <ListRow
+          icon={tile(Zap)}
+          title="Save data and battery"
+          subtitle="No buzzes or background checks. Good for older phones."
+          right={
+            <Switch
+              value={lite}
+              onValueChange={(v) => {
+                setLite(v);
+                setLiteState(v);
+              }}
+              {...switchColors}
+            />
+          }
+        />
       </ListCard>
 
       {group('Help')}

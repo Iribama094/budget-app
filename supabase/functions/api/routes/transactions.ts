@@ -6,6 +6,7 @@ import { parseQueryDate } from '../lib/dates.ts';
 import { budgetMemberIds, bumpBucket, bumpBudget, findVisibleBudget } from '../lib/budgets.ts';
 import { afterTransactionCreated } from '../lib/effects.ts';
 import { learnCategory } from '../lib/categories.ts';
+import { refundTransaction } from '../lib/importMatch.ts';
 import type { Ctx } from '../index.ts';
 
 const CreateSchema = z.object({
@@ -22,7 +23,9 @@ const CreateSchema = z.object({
   /** VAT inside a business cost, claimed back against VAT charged on sales. */
   vatAmount: z.number().finite().nonnegative().max(1e12).optional(),
   /** Client-generated id; retrying the same request (e.g. from the offline queue) returns the original. */
-  clientId: z.string().min(8).max(100).optional()
+  clientId: z.string().min(8).max(100).optional(),
+  /** Money that arrived in another currency: what came in and the rate it was changed at. amount is the result. */
+  fx: z.object({ currency: z.string().regex(/^[A-Za-z]{3}$/), amount: z.number().finite().positive(), rate: z.number().finite().positive() }).optional()
 });
 
 const PatchSchema = z
@@ -35,7 +38,9 @@ const PatchSchema = z
     budgetId: z.union([z.string().min(1).max(120), z.null()]).optional(),
     budgetCategory: z.union([z.string().min(1).max(60), z.null()]).optional(),
     miniBudgetId: z.union([z.string().min(1).max(120), z.null()]).optional(),
-    miniBudget: z.union([z.string().min(1).max(120), z.null()]).optional()
+    miniBudget: z.union([z.string().min(1).max(120), z.null()]).optional(),
+    /** Money given back on this expense. Taken off what it cost; the whole amount removes it. */
+    refund: z.number().finite().positive().optional()
   })
   .strict();
 
@@ -51,6 +56,10 @@ export function toApiTransaction(t: any, opts: { full?: boolean } = { full: true
     budgetId: t.budgetId ?? null,
     budgetCategory: t.budgetCategory ?? null,
     miniBudgetId: t.miniBudgetId ?? null,
+    refundedAmount: Number(t.refundedAmount ?? 0),
+    fxCurrency: t.fxCurrency ?? null,
+    fxAmount: t.fxAmount == null ? null : Number(t.fxAmount),
+    fxRate: t.fxRate == null ? null : Number(t.fxRate),
     ...(opts.full ? { recurringId: t.recurringId ?? null, clientId: t.clientId ?? null } : {}),
     occurredAt: iso(t.occurredAt),
     createdAt: iso(t.createdAt),
@@ -93,10 +102,12 @@ export async function transactionsIndex(ctx: Ctx) {
     try {
       [tx] = await sql`
         insert into public.transactions
-          (user_id, space_id, type, amount, category, description, budget_id, budget_category, mini_budget_id, client_id, occurred_at, vat_amount)
+          (user_id, space_id, type, amount, category, description, budget_id, budget_category, mini_budget_id, client_id, occurred_at, vat_amount,
+           fx_currency, fx_amount, fx_rate)
         values (${userId}, ${space}, ${input.type}, ${input.amount}, ${input.category}, ${input.description},
                 ${input.budgetId ?? null}, ${input.budgetCategory ?? null}, ${input.miniBudgetId ?? input.miniBudget ?? null},
-                ${input.clientId ?? null}, ${new Date(input.occurredAt)}, ${space === 'business' && input.type === 'expense' ? input.vatAmount ?? 0 : 0})
+                ${input.clientId ?? null}, ${new Date(input.occurredAt)}, ${space === 'business' && input.type === 'expense' ? input.vatAmount ?? 0 : 0},
+                ${input.fx?.currency.toUpperCase() ?? null}, ${input.fx?.amount ?? null}, ${input.fx?.rate ?? null})
         returning *
       `;
     } catch (err) {
@@ -186,6 +197,14 @@ export async function transactionById(ctx: Ctx) {
   }
 
   const patch = await body(ctx.req, PatchSchema);
+
+  if (patch.refund !== undefined) {
+    if (existing.type !== 'expense') badRequest('Only spending can be refunded');
+    const left = await refundTransaction(userId, id, patch.refund);
+    if (!left) return json(200, { transaction: null, removed: true });
+    const [t] = await sql`select * from public.transactions where id = ${id}`;
+    return json(200, { transaction: toApiTransaction(t, { full: false }), removed: false });
+  }
 
   const prevType = existing.type as 'income' | 'expense';
   const prevAmount = Number(existing.amount);

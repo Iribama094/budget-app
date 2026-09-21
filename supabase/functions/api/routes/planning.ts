@@ -17,7 +17,14 @@ const GoalCreateSchema = z.object({
   color: z.string().max(80).optional(),
   category: z.string().max(40).optional(),
   autoSavePercent: z.number().min(0).max(50).nullable().optional(),
-  spaceId: z.enum(['personal', 'business']).optional()
+  spaceId: z.enum(['personal', 'business']).optional(),
+  /** Saving for a bill: the pot pays it when it's due, then fills again. */
+  recurringId: z.string().uuid().nullable().optional(),
+  /** 'buffer' holds uneven income and pays a steady amount out each month. */
+  kind: z.enum(['goal', 'buffer']).optional(),
+  monthlyDraw: z.number().finite().positive().nullable().optional(),
+  /** A target in another currency, e.g. a relocation fund in GBP. Null is the person's own currency. */
+  currency: z.string().min(3).max(5).nullable().optional()
 });
 
 const GoalPatchSchema = z
@@ -29,7 +36,9 @@ const GoalPatchSchema = z
     emoji: z.string().max(8).optional(),
     color: z.string().max(80).optional(),
     category: z.string().max(40).optional(),
-    autoSavePercent: z.number().min(0).max(50).nullable().optional()
+    autoSavePercent: z.number().min(0).max(50).nullable().optional(),
+    monthlyDraw: z.number().finite().positive().nullable().optional(),
+    currency: z.string().min(3).max(5).nullable().optional()
   })
   .strict();
 
@@ -44,6 +53,10 @@ const toApiGoal = (g: any) => ({
   color: g.color ?? null,
   category: g.category ?? null,
   autoSavePercent: g.autoSavePercent == null ? null : Number(g.autoSavePercent),
+  recurringId: g.recurringId ?? null,
+  kind: g.kind ?? 'goal',
+  monthlyDraw: g.monthlyDraw == null ? null : Number(g.monthlyDraw),
+  currency: g.currency ?? null,
   createdAt: iso(g.createdAt),
   updatedAt: iso(g.updatedAt)
 });
@@ -55,10 +68,16 @@ export async function goalsIndex(ctx: Ctx) {
 
   if (ctx.method === 'POST') {
     const input = await body(ctx.req, GoalCreateSchema);
+    if (input.recurringId) {
+      const [bill] = await sql`select id from public.recurring where id = ${input.recurringId} and user_id = ${userId}`;
+      if (!bill) badRequest('That bill was not found');
+    }
     const [g] = await sql`
-      insert into public.goals (user_id, space_id, name, target_amount, current_amount, target_date, emoji, color, category, auto_save_percent)
+      insert into public.goals (user_id, space_id, name, target_amount, current_amount, target_date, emoji, color, category, auto_save_percent,
+                                recurring_id, kind, monthly_draw, currency)
       values (${userId}, ${input.spaceId ?? 'personal'}, ${input.name}, ${input.targetAmount}, ${input.currentAmount ?? 0},
-              ${input.targetDate}::date, ${input.emoji ?? null}, ${input.color ?? null}, ${input.category ?? null}, ${input.autoSavePercent ?? null})
+              ${input.targetDate}::date, ${input.emoji ?? null}, ${input.color ?? null}, ${input.category ?? null}, ${input.autoSavePercent ?? null},
+              ${input.recurringId ?? null}, ${input.kind ?? 'goal'}, ${input.monthlyDraw ?? null}, ${input.currency ?? null})
       returning *
     `;
     return json(201, { goal: toApiGoal(g) });
@@ -102,7 +121,9 @@ export async function goalById(ctx: Ctx) {
       emoji = ${pick('emoji', current.emoji) as string | null},
       color = ${pick('color', current.color) as string | null},
       category = ${pick('category', current.category) as string | null},
-      auto_save_percent = ${pick('autoSavePercent', current.autoSavePercent) as number | null}
+      auto_save_percent = ${pick('autoSavePercent', current.autoSavePercent) as number | null},
+      monthly_draw = ${pick('monthlyDraw', current.monthlyDraw) as number | null},
+      currency = ${pick('currency', current.currency) as string | null}
     where ${where}
     returning *
   `;
@@ -116,12 +137,15 @@ const RecurringFields = {
   amount: z.number().finite().positive(),
   category: z.string().min(1).max(60),
   description: z.string().max(120),
-  frequency: z.enum(['weekly', 'monthly', 'yearly']),
+  frequency: z.enum(['weekly', 'monthly', 'termly', 'yearly']),
   endDate: z.string().regex(ISO_DATE).nullable(),
   autoCreate: z.boolean(),
   remindDaysBefore: z.number().int().min(0).max(14),
   budgetCategory: z.string().max(60).nullable(),
-  paused: z.boolean()
+  paused: z.boolean(),
+  /** A contribution group (ajo, esusu): when it's your turn and how much you collect. */
+  payoutDate: z.string().regex(ISO_DATE).nullable(),
+  payoutAmount: z.number().finite().positive().nullable()
 };
 
 const RecurringCreateSchema = z.object({
@@ -132,6 +156,8 @@ const RecurringCreateSchema = z.object({
   remindDaysBefore: RecurringFields.remindDaysBefore.optional().default(1),
   budgetCategory: RecurringFields.budgetCategory.optional(),
   paused: RecurringFields.paused.optional().default(false),
+  payoutDate: RecurringFields.payoutDate.optional(),
+  payoutAmount: RecurringFields.payoutAmount.optional(),
   /** First due date. */
   startDate: z.string().regex(ISO_DATE),
   spaceId: z.enum(['personal', 'business']).optional()
@@ -149,6 +175,8 @@ const RecurringPatchSchema = z
     remindDaysBefore: RecurringFields.remindDaysBefore.optional(),
     budgetCategory: RecurringFields.budgetCategory.optional(),
     paused: RecurringFields.paused.optional(),
+    payoutDate: RecurringFields.payoutDate.optional(),
+    payoutAmount: RecurringFields.payoutAmount.optional(),
     nextDueDate: z.string().regex(ISO_DATE).optional()
   })
   .strict();
@@ -172,10 +200,11 @@ export async function recurringIndex(ctx: Ctx) {
   const [rec] = await sql<RecurringRow[]>`
     insert into public.recurring
       (user_id, space_id, type, amount, category, description, frequency, anchor_day, next_due_date, end_date,
-       auto_create, remind_days_before, budget_category, paused)
+       auto_create, remind_days_before, budget_category, paused, payout_date, payout_amount)
     values (${userId}, ${input.spaceId ?? 'personal'}, ${input.type}, ${input.amount}, ${input.category}, ${input.description},
             ${input.frequency}, ${parseIsoDateUtcNoon(input.startDate).getUTCDate()}, ${input.startDate}::date, ${input.endDate ?? null}::date,
-            ${input.autoCreate}, ${input.remindDaysBefore}, ${input.budgetCategory ?? null}, ${input.paused})
+            ${input.autoCreate}, ${input.remindDaysBefore}, ${input.budgetCategory ?? null}, ${input.paused},
+            ${input.payoutDate ?? null}::date, ${input.payoutAmount ?? null})
     returning *
   `;
   // A schedule that starts today (or in the past) records its due occurrences immediately.
@@ -219,6 +248,9 @@ export async function recurringById(ctx: Ctx) {
       remind_days_before = ${v(p.remindDaysBefore, existing.remindDaysBefore)},
       budget_category = ${v(p.budgetCategory, existing.budgetCategory)},
       paused = ${v(p.paused, existing.paused)},
+      payout_date = ${v(p.payoutDate, existing.payoutDate)}::date,
+      payout_amount = ${v(p.payoutAmount, existing.payoutAmount)},
+      payout_notified_for = ${p.payoutDate !== undefined ? null : existing.payoutNotifiedFor}::date,
       next_due_date = ${nextDue}::date,
       anchor_day = ${p.nextDueDate ? parseIsoDateUtcNoon(p.nextDueDate).getUTCDate() : existing.anchorDay},
       last_reminded_for = ${p.nextDueDate ? null : existing.lastRemindedFor}::date

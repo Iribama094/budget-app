@@ -400,13 +400,17 @@ async function countryOf(userId: string): Promise<string> {
   return p?.taxProfile?.country ?? 'NG';
 }
 
+/** Business staff by default; ?spaceId=personal is household staff (a driver, a nanny, a cook). */
+const staffSpace = (ctx: Ctx) => (spaceParam(ctx.query.get('spaceId')) === 'personal' ? 'personal' : 'business');
+
 /** GET /v1/payroll — staff with PAYE estimates, recent pay runs. POST /v1/staff adds someone. */
 export async function payrollIndex(ctx: Ctx) {
   if (ctx.method !== 'GET') methodNotAllowed(['GET']);
   const { userId } = await requireAuth(ctx.req);
+  const space = staffSpace(ctx);
   const [staff, runs, country] = await Promise.all([
-    sql`select * from public.staff where user_id = ${userId} order by active desc, name asc`,
-    sql`select * from public.payroll_runs where user_id = ${userId} order by period desc limit 24`,
+    sql`select * from public.staff where user_id = ${userId} and space_id = ${space} order by active desc, name asc`,
+    sql`select * from public.payroll_runs where user_id = ${userId} and space_id = ${space} order by period desc limit 24`,
     countryOf(userId)
   ]);
   const items = staff.map((s) => toApiStaff(s, country));
@@ -437,11 +441,12 @@ export async function staffIndex(ctx: Ctx) {
   if (ctx.method !== 'POST') methodNotAllowed(['POST']);
   const { userId } = await requireAuth(ctx.req);
   const input = await body(ctx.req, StaffSchema);
+  const space = staffSpace(ctx);
   const [{ n }] = await sql`select count(*)::int as n from public.staff where user_id = ${userId}`;
   if (n >= 200) badRequest('You can add up to 200 staff.');
   const [row] = await sql`
-    insert into public.staff (user_id, name, role, monthly_gross, active, pension_enabled, pension_rate, nhf_enabled)
-    values (${userId}, ${input.name}, ${input.role ?? null}, ${input.monthlyGross}, ${input.active ?? true},
+    insert into public.staff (user_id, space_id, name, role, monthly_gross, active, pension_enabled, pension_rate, nhf_enabled)
+    values (${userId}, ${space}, ${input.name}, ${input.role ?? null}, ${input.monthlyGross}, ${input.active ?? true},
             ${input.pensionEnabled ?? false}, ${input.pensionRate ?? 8}, ${input.nhfEnabled ?? false})
     returning *
   `;
@@ -485,17 +490,19 @@ export async function payrollRun(ctx: Ctx) {
   const input = await body(ctx.req, RunSchema);
   const today = todayIso();
   const paidOn = input.paidOn ?? today;
-  const [existing] = await sql`select id from public.payroll_runs where user_id = ${userId} and period = ${input.period}`;
+  const space = staffSpace(ctx);
+  const home = space === 'personal';
+  const [existing] = await sql`select id from public.payroll_runs where user_id = ${userId} and space_id = ${space} and period = ${input.period}`;
   if (existing) throw new HttpError(409, 'ALREADY_RUN', `Pay for ${monthLabel(input.period)} has already been recorded.`);
 
-  const staff = await sql`select * from public.staff where user_id = ${userId} and active order by name`;
+  const staff = await sql`select * from public.staff where user_id = ${userId} and space_id = ${space} and active order by name`;
   if (!staff.length) badRequest('Add your staff first.');
   const country = await countryOf(userId);
   const override = new Map((input.lines ?? []).map((l) => [l.staffId, l.gross]));
   const lines = staff
     .map((s) => {
       const gross = round2(override.get(s.id) ?? Number(s.monthlyGross));
-      const paye = monthlyPaye(country, gross);
+      const paye = home ? 0 : monthlyPaye(country, gross);
       const { pension, nhf } = staffDeductions({ monthlyGross: gross, pensionEnabled: s.pensionEnabled, pensionRate: s.pensionRate, nhfEnabled: s.nhfEnabled });
       return { staffId: s.id, name: s.name, role: s.role ?? null, gross, paye, pension, nhf, net: round2(Math.max(0, gross - paye - pension - nhf)) };
     })
@@ -507,21 +514,22 @@ export async function payrollRun(ctx: Ctx) {
     { gross: 0, paye: 0, pension: 0, nhf: 0, net: 0 }
   );
   const [run] = await sql`
-    insert into public.payroll_runs (user_id, period, paid_on, lines, total_gross, total_paye, total_net, total_pension, total_nhf)
-    values (${userId}, ${input.period}, ${paidOn}::date, ${sql.json(lines)}, ${round2(totals.gross)}, ${round2(totals.paye)}, ${round2(totals.net)},
+    insert into public.payroll_runs (user_id, space_id, period, paid_on, lines, total_gross, total_paye, total_net, total_pension, total_nhf)
+    values (${userId}, ${space}, ${input.period}, ${paidOn}::date, ${sql.json(lines)}, ${round2(totals.gross)}, ${round2(totals.paye)}, ${round2(totals.net)},
             ${round2(totals.pension)}, ${round2(totals.nhf)})
     returning *
   `;
 
-  await ensureCategory(userId, 'business', 'Payroll', 'expense', 'Needs', 'family');
+  const category = home ? 'Household staff' : 'Payroll';
+  await ensureCategory(userId, space, category, 'expense', 'Needs', 'family');
   for (const l of lines) {
     if (l.net <= 0) continue;
     await recordTransaction({
       userId,
-      space: 'business',
+      space,
       type: 'expense',
       amount: l.net,
-      category: 'Payroll',
+      category,
       description: `Salary · ${l.name} (${monthLabel(input.period)})`,
       occurredOn: paidOn,
       clientId: `payroll:${run.id}:${l.staffId}`

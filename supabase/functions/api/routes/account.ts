@@ -23,6 +23,7 @@ export function toApiUser(p: any, _opts: { withTax?: boolean } = {}) {
     budgetPeriod: p.budgetPeriod ?? 'payday',
     budgetMode: p.budgetMode ?? 'solo',
     homeBudget: p.homeBudget ?? 'own',
+    language: p.language ?? 'en',
     createdAt: iso(p.createdAt),
     updatedAt: iso(p.updatedAt)
   };
@@ -80,7 +81,9 @@ const PatchMeSchema = z
     budgetPeriod: z.enum(['payday', 'monthly']).optional(),
     painPoints: z.array(z.enum(['runs_out', 'no_idea', 'cant_save', 'debt', 'irregular'])).max(5).optional(),
     budgetMode: z.enum(['solo', 'shared', 'both']).optional(),
-    homeBudget: z.enum(['own', 'shared']).optional()
+    homeBudget: z.enum(['own', 'shared']).optional(),
+    /** 'pcm' is Nigerian Pidgin. */
+    language: z.enum(['en', 'pcm']).optional()
   })
   .strict();
 
@@ -102,7 +105,8 @@ export async function usersMe(ctx: Ctx) {
       budget_period = ${patch.budgetPeriod ?? current.budgetPeriod},
       budget_mode = ${patch.budgetMode ?? current.budgetMode ?? 'solo'},
       home_budget = ${patch.homeBudget ?? current.homeBudget ?? 'own'},
-      pain_points = ${patch.painPoints ?? current.painPoints}
+      pain_points = ${patch.painPoints ?? current.painPoints},
+      language = ${patch.language ?? current.language ?? 'en'}
     where id = ${auth.userId}
     returning *
   `;
@@ -245,7 +249,8 @@ const PrefsSchema = z
     weeklyCheckIn: z.boolean().optional(),
     autoSave: z.boolean().optional(),
     invoiceReminders: z.boolean().optional(),
-    sharedActivity: z.boolean().optional()
+    sharedActivity: z.boolean().optional(),
+    privateNotifications: z.boolean().optional()
   })
   .strict();
 const SpaceSchema = z.enum(['personal', 'business']);

@@ -27,6 +27,8 @@ export type NotificationPrefs = {
   invoiceReminders: boolean;
   /** The daily summary of what others spent in budgets you share. */
   sharedActivity: boolean;
+  /** Pushes say only "You have an update": no amounts, names or payees on a lock screen someone else can see. */
+  privateNotifications: boolean;
 };
 
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
@@ -35,7 +37,8 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   weeklyCheckIn: true,
   autoSave: true,
   invoiceReminders: true,
-  sharedActivity: true
+  sharedActivity: true,
+  privateNotifications: false
 };
 
 // VAT and PAYE ('tax') reminders are switched on and off in the business settings, so they have no preference here.
@@ -134,9 +137,12 @@ export async function notifyUser(
   `;
 
   const pref = PREF_FOR_KIND[n.kind];
-  if (!pref || (await getNotificationPrefs(userId))[pref]) {
+  const prefs = await getNotificationPrefs(userId);
+  if (!pref || prefs[pref]) {
+    // The full words stay in the app; a private push says only that there's something to see.
+    const shown = prefs.privateNotifications ? { title: 'BudgetFriendly', body: 'You have a new update. Open the app to see it.' } : { title: n.title, body: n.body };
     // spaceId lets the app open the notification in the right space.
-    await sendPushToUser(userId, { title: n.title, body: n.body, data: { ...(n.data ?? {}), kind: n.kind, spaceId } });
+    await sendPushToUser(userId, { ...shown, data: { ...(n.data ?? {}), kind: n.kind, spaceId } });
   }
   return true;
 }

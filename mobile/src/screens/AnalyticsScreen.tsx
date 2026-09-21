@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { bucketDisplayName } from '../theme/buckets';
 import { View, Text, Pressable, Animated, Easing, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { Calculator, Eye, EyeOff, Layers, PieChart, Wallet } from '../icons';
+import { Calculator, Eye, EyeOff, Layers, PieChart, TrendingUp, Wallet } from '../icons';
 
 import { getAnalyticsSummary, type AnalyticsSummary, listBudgets, listTransactions } from '../api/endpoints';
 import { useAuth } from '../contexts/AuthContext';
@@ -533,6 +533,17 @@ export function AnalyticsScreen() {
           title="Mini budgets"
           subtitle={miniSpend[0] ? `${miniSpend[0].mini} leads${hide ? '' : ` at ${formatAmount(miniSpend[0].amount, glyph)}`}` : 'No mini budget spending yet'}
           onPress={() => activeRangeIso && nav.navigate('AnalyticsMiniBudgetsDetail' as never, { range: activeRangeIso, timeframe } as never)}
+          chevron
+        />
+        <ListRow
+          icon={
+            <IconTile bg={theme.colors.brassSoft}>
+              <TrendingUp color={theme.colors.brass} size={19} />
+            </IconTile>
+          }
+          title="Rising prices"
+          subtitle="What your own needs cost now"
+          onPress={() => nav.navigate('Prices' as never)}
           chevron
         />
         <ListRow

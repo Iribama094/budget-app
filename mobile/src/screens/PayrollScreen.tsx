@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { CalendarCheck, Plus, UserRound } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -31,6 +31,10 @@ export default function PayrollScreen() {
   const glyph = currencySymbol(user?.currency);
   const hide = !showAmounts;
   const inkText = theme.colors.inkText;
+  // Opened from Personal as "Household staff": no PAYE is withheld at home, and pay counts as a household need.
+  const route = useRoute<any>();
+  const home = route.params?.spaceId === 'personal';
+  const staffSpace = home ? ('personal' as const) : undefined;
 
   const [staff, setStaff] = useState<Staff[]>([]);
   const [totals, setTotals] = useState({ gross: 0, paye: 0, net: 0 });
@@ -65,20 +69,21 @@ export default function PayrollScreen() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const res = await getPayroll();
+      const res = await getPayroll(staffSpace);
       setStaff(res.staff);
       setTotals(res.totals);
       setRuns(res.runs);
-      // Business name and contacts go at the top of every payslip.
-      getBusinessSettings()
-        .then(setBusiness)
-        .catch(() => undefined);
+      // Business name and contacts go at the top of every payslip. At home it's the person's own name.
+      if (!home)
+        getBusinessSettings()
+          .then(setBusiness)
+          .catch(() => undefined);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load payroll');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [home, staffSpace]);
 
   useFocusEffect(
     useCallback(() => {
@@ -119,7 +124,7 @@ export default function PayrollScreen() {
         nhfEnabled: draft.nhf
       };
       if (draft.id) await updateStaff(draft.id, { ...payload, active: draft.active });
-      else await addStaff(payload);
+      else await addStaff(payload, staffSpace);
       setDraft(null);
       await load();
     });
@@ -144,7 +149,7 @@ export default function PayrollScreen() {
 
   const recordPay = () =>
     act(async () => {
-      const run = await runPayroll({ period: chosen });
+      const run = await runPayroll({ period: chosen }, staffSpace);
       setRunOpen(false);
       toast.show(
         run.totalPaye > 0
@@ -159,7 +164,7 @@ export default function PayrollScreen() {
   return (
     <Screen bottomInset={48} onRefresh={load} refreshing={false}>
       <ScreenHeader
-        title="Staff & payroll"
+        title={home ? 'Household staff' : 'Staff & payroll'}
         onBack={() => goBackOrHome(nav)}
         right={
           <Pressable
@@ -184,8 +189,12 @@ export default function PayrollScreen() {
             <Amount value={totals.net} currency={glyph} size="sm" color={inkText} hidden={hide} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[type.caption, { color: inkText, opacity: 0.7 }]}>PAYE (estimate)</Text>
-            <Amount value={totals.paye} currency={glyph} size="sm" color={inkText} hidden={hide} />
+            <Text style={[type.caption, { color: inkText, opacity: 0.7 }]}>{home ? 'People' : 'PAYE (estimate)'}</Text>
+            {home ? (
+              <Text style={[type.bodyStrong, { color: inkText }]}>{active.length}</Text>
+            ) : (
+              <Amount value={totals.paye} currency={glyph} size="sm" color={inkText} hidden={hide} />
+            )}
           </View>
         </View>
       </HeroCard>
@@ -219,8 +228,12 @@ export default function PayrollScreen() {
         </ListCard>
       ) : (
         <EmptyState
-          title="Add your team"
-          body="Add each person’s monthly salary before tax. We estimate their PAYE and take-home pay, and remind you to remit PAYE by the 10th."
+          title={home ? 'Add the people who work in your home' : 'Add your team'}
+          body={
+            home
+              ? 'A driver, a nanny, a cook, security. Add what you pay each one a month, record it on payday, and send them a payslip.'
+              : 'Add each person’s monthly salary before tax. We estimate their PAYE and take-home pay, and remind you to remit PAYE by the 10th.'
+          }
           actionLabel="Add staff"
           onAction={() => setDraft({ id: null, name: '', role: '', gross: '', active: true, pension: false, nhf: false })}
         />
@@ -234,7 +247,7 @@ export default function PayrollScreen() {
               <View key={r.id}>
                 <ListRow
                   title={r.label}
-                  subtitle={`Paid ${formatShortDate(r.paidOn)} · ${r.lines.length} ${r.lines.length === 1 ? 'person' : 'people'} · PAYE ${hide ? '••••' : formatAmount(r.totalPaye, glyph)}`}
+                  subtitle={`Paid ${formatShortDate(r.paidOn)} · ${r.lines.length} ${r.lines.length === 1 ? 'person' : 'people'}${home ? '' : ` · PAYE ${hide ? '••••' : formatAmount(r.totalPaye, glyph)}`}`}
                   right={<Amount value={r.totalGross} currency={glyph} size="sm" hidden={hide} />}
                   onPress={() => setOpenRun((id) => (id === r.id ? null : r.id))}
                   chevron
@@ -273,16 +286,18 @@ export default function PayrollScreen() {
         </>
       ) : null}
 
-      <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 14 }]}>
-        PAYE figures are estimates from the app’s tax tables, not a payslip. Confirm with your accountant or the tax office.
-      </Text>
+      {home ? null : (
+        <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 14 }]}>
+          PAYE figures are estimates from the app’s tax tables, not a payslip. Confirm with your accountant or the tax office.
+        </Text>
+      )}
 
       <Sheet visible={!!draft} onClose={() => setDraft(null)} title={draft?.id ? 'Edit staff' : 'Add staff'}>
         {draft ? (
           <>
             <TextField label="Name" value={draft.name} onChangeText={(v) => setDraft({ ...draft, name: v })} placeholder="e.g. Tunde Bakare" />
             <TextField label="Role (optional)" value={draft.role} onChangeText={(v) => setDraft({ ...draft, role: v })} placeholder="e.g. Chef" />
-            <MoneyField label="Monthly salary before tax" value={draft.gross} onChange={(v) => setDraft({ ...draft, gross: v })} glyph={glyph} />
+            <MoneyField label={home ? 'Monthly pay' : 'Monthly salary before tax'} value={draft.gross} onChange={(v) => setDraft({ ...draft, gross: v })} glyph={glyph} />
             <ListCard>
               <ListRow
                 title="Pension"
@@ -331,10 +346,12 @@ export default function PayrollScreen() {
                 <LineItem key={s.id} label={s.name} value={formatAmount(s.netEstimate, glyph)} />
               ))}
               <LineItem label="Take-home, total" value={formatAmount(totals.net, glyph)} strong />
-              <LineItem label="PAYE to remit by the 10th" value={formatAmount(totals.paye, glyph)} />
+              {home ? null : <LineItem label="PAYE to remit by the 10th" value={formatAmount(totals.paye, glyph)} />}
             </Card>
             <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 10 }]}>
-              Each person’s take-home pay is recorded as a Payroll cost. The PAYE goes into Bills so you don’t forget to remit it.
+              {home
+                ? 'Each person’s pay is recorded as Household staff in your budget.'
+                : 'Each person’s take-home pay is recorded as a Payroll cost. The PAYE goes into Bills so you don’t forget to remit it.'}
             </Text>
             <PrimaryButton title={`Record pay for ${monthLabel(chosen)}`} onPress={recordPay} loading={busy} style={{ marginTop: 14 }} />
           </>

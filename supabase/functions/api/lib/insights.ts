@@ -6,6 +6,7 @@ import { normalizeBucket, patternOf, type Bucket } from './categories.ts';
 import type { Space } from './http.ts';
 import { pick } from './voice.ts';
 import { computeBusinessWarnings } from './business.ts';
+import { computePriceWatch } from './prices.ts';
 
 export type Insight = {
   key: string;
@@ -20,7 +21,12 @@ export type Insight = {
     | 'plan_drift'
     | 'logging_gap'
     | 'irregular_income'
-    | 'bills_over_income';
+    | 'bills_over_income'
+    | 'price_rise'
+    | 'bill_up'
+    | 'price_alert'
+    | 'steady_pay'
+    | 'family';
   tone: 'positive' | 'neutral' | 'warning';
   title: string;
   body: string;
@@ -306,6 +312,119 @@ export async function computeInsights(userId: string, space: Space = 'personal',
           title: 'Your income has been changing',
           body: `It ranged from ${money(low)} to ${money(high)} recently. Plan around the lower amount and save anything extra.`,
           action: { label: 'Update your income', screen: 'IncomeBills' }
+        });
+      }
+    }
+  }
+
+  // 10. Steady pay: uneven income goes into a buffer and comes out as the same amount each month.
+  if (space === 'personal') {
+    const [buffer] = await sql`
+      select id, name, current_amount, monthly_draw from public.goals
+      where user_id = ${userId} and space_id = 'personal' and kind = 'buffer' and monthly_draw is not null
+      order by created_at limit 1
+    `;
+    if (buffer) {
+      const draw = Number(buffer.monthlyDraw);
+      const monthStart = new Date(`${month}-01T00:00:00Z`).getTime();
+      const thisMonth = txs.filter((t) => new Date(t.occurredAt).getTime() >= monthStart);
+      const earned = thisMonth.filter((t) => t.type === 'income' && t.category !== 'Steady pay').reduce((s, t) => s + Number(t.amount), 0);
+      const paid = thisMonth.some((t) => t.type === 'income' && t.category === 'Steady pay');
+      const day = Number(today.slice(8, 10));
+      if (earned > draw * 1.2) {
+        out.push({
+          key: `steady_in:${month}`,
+          kind: 'steady_pay',
+          tone: 'positive',
+          title: `A good month: ${money(earned - draw)} above your steady pay`,
+          body: `Move the extra into ${buffer.name} so a quiet month later is covered too.`,
+          action: { label: 'Move it', screen: 'GoalDetail', params: { goalId: buffer.id } }
+        });
+      } else if (!paid && day >= 3 && earned < draw && Number(buffer.currentAmount) > 0) {
+        const top = Math.min(draw - earned, Number(buffer.currentAmount));
+        out.push({
+          key: `steady_out:${month}`,
+          kind: 'steady_pay',
+          tone: 'neutral',
+          title: `Pay yourself ${money(top)} from your buffer`,
+          body: `This month has brought in ${money(earned)} so far. Your buffer can make up the rest of your ${money(draw)}.`,
+          action: { label: 'Pay yourself', screen: 'GoalDetail', params: { goalId: buffer.id } }
+        });
+      }
+    }
+  }
+
+  // 11. Family support, once a month, in plain numbers. No judgement: it's a choice, and seeing it helps plan it.
+  if (space === 'personal' && Number(today.slice(8, 10)) <= 7) {
+    const last = new Date(`${month}-01T00:00:00Z`);
+    last.setUTCMonth(last.getUTCMonth() - 1);
+    const lastKey = last.toISOString().slice(0, 7);
+    const gave = expenses.filter((t) => t.category === 'Family support' && new Date(t.occurredAt).toISOString().slice(0, 7) === lastKey);
+    if (gave.length) {
+      const total = gave.reduce((s, t) => s + Number(t.amount), 0);
+      const people = new Set(gave.map((t) => String(t.description).trim().toLowerCase()).filter(Boolean)).size;
+      out.push({
+        key: `family:${lastKey}`,
+        kind: 'family',
+        tone: 'neutral',
+        title: `You supported family with ${money(total)} last month`,
+        body: `${plural(gave.length, 'time')}${people > 1 ? `, to ${people} people` : ''}. Setting a monthly amount for it makes it easier to say yes, and easier to plan.`,
+        action: { label: 'Set a monthly amount', screen: 'Budget' }
+      });
+    }
+  }
+
+  // 9. Rising prices, on this person's own needs and bills, and price news from us that touches what they buy.
+  const prices = await computePriceWatch(userId, space, today).catch(() => null);
+  if (prices?.billsUp[0]) {
+    const b = prices.billsUp[0];
+    out.push({
+      key: `bill_up:${b.recurringId}:${Math.round(b.to)}`,
+      kind: 'bill_up',
+      tone: 'neutral',
+      title: `${b.name.slice(0, 40)} went up to ${money(b.to)}`,
+      body: `Your bill says ${money(b.from)}. Update it so your plan and reminders match what you really pay.`,
+      action: { label: 'Update the bill', screen: 'Recurring' }
+    });
+  }
+  if (prices?.livingCost && prices.livingCost.change >= 0.1) {
+    const lc = prices.livingCost;
+    const top = lc.categories[0];
+    const income = prices.incomeChange;
+    out.push({
+      key: `price_rise:${month}`,
+      kind: 'price_rise',
+      tone: 'warning',
+      title: `Your needs cost ${Math.round(lc.change * 100)}% more than 3 months ago`,
+      body: `About ${money(lc.recentMonthly)} a month now, up from ${money(lc.beforeMonthly)}.${top && top.change > 0.05 ? ` ${top.category} rose the most.` : ''}${
+        income != null ? (income < lc.change ? ` Your income ${income >= 0.01 ? `rose ${Math.round(income * 100)}%` : 'hasn’t kept up'}, so give your budget more room for needs.` : ' Your income kept pace. 👏') : ''
+      }`,
+      action: { label: 'See what’s rising', screen: 'Prices' }
+    });
+  }
+  for (const a of prices?.alerts ?? []) {
+    out.push({ key: `price_alert:${a.key}`, kind: 'price_alert', tone: 'neutral', title: a.title, body: a.body, action: null });
+  }
+
+  // 12. A business whose costs are rising faster than its sales: prices went up for them, not for their customers.
+  if (space === 'business' && oldest >= 110) {
+    const sum = (type: string, from: number, to: number) =>
+      txs.filter((t) => t.type === type && ageDays(t.occurredAt) >= from && ageDays(t.occurredAt) < to).reduce((s, t) => s + Number(t.amount), 0);
+    const costsNow = sum('expense', 0, 60);
+    const costsBefore = sum('expense', 60, 120);
+    const salesNow = sum('income', 0, 60);
+    const salesBefore = sum('income', 60, 120);
+    if (costsBefore > 0 && salesBefore > 0) {
+      const costUp = costsNow / costsBefore - 1;
+      const salesUp = salesNow / salesBefore - 1;
+      if (costUp >= 0.15 && salesUp < costUp - 0.1) {
+        out.push({
+          key: `margin:${month}`,
+          kind: 'price_rise',
+          tone: 'warning',
+          title: `Your costs rose ${Math.round(costUp * 100)}%, your sales ${salesUp > 0 ? `only ${Math.round(salesUp * 100)}%` : 'didn’t'}`,
+          body: 'When what you buy gets dearer, your prices may need to follow, or each sale earns you less. Check what rose in Reports.',
+          action: { label: 'See your costs', screen: 'BusinessReports' }
         });
       }
     }

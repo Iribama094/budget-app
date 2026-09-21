@@ -530,15 +530,16 @@ export default function SetupPlanScreen() {
             </View>
             <SegmentedControl
               options={[
+                { key: 'weekly', label: 'Weekly' },
                 { key: 'monthly', label: 'Monthly' },
-                { key: 'yearly', label: 'Yearly' },
-                { key: 'weekly', label: 'Weekly' }
+                { key: 'termly', label: 'Termly' },
+                { key: 'yearly', label: 'Yearly' }
               ]}
               value={bill.frequency}
               onChange={(k) => update({ frequency: k })}
               style={{ marginTop: 10 }}
             />
-            {bill.frequency === 'yearly' ? (
+            {bill.frequency === 'yearly' || bill.frequency === 'termly' ? (
               <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 6 }]}>We’ll set aside a little each month so it’s ready when it’s due.</Text>
             ) : null}
           </Card>

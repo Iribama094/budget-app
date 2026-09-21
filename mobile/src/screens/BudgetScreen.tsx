@@ -44,6 +44,11 @@ import { useTour, useTourAnchor } from '../contexts/TourContext';
 import { useNudges } from '../contexts/NudgesContext';
 import { NudgeTooltip } from '../components/Common/NudgeTooltip';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { MoveMoneySheet } from '../components/Budget/MoveMoneySheet';
+import { TightMonthSheet } from '../components/Budget/TightMonthSheet';
+import { BUDGET_TEMPLATES, type BudgetTemplate } from '../lib/budgetTemplates';
+import { ChoiceChip } from '../components/Plan/ChoiceChip';
+import { createMiniBudgetInSpace } from '../api/endpoints';
 
 /** One model for every use case: your own plan, a household budget you share every month, or a one-off event or trip. */
 const PURPOSE_OPTIONS: Array<{ value: BudgetPurpose; label: string; subtitle: string }> = [
@@ -51,6 +56,9 @@ const PURPOSE_OPTIONS: Array<{ value: BudgetPurpose; label: string; subtitle: st
   { value: 'household', label: 'Shared household', subtitle: 'With a partner, family or housemates; repeats every month' },
   { value: 'event', label: 'Event or trip', subtitle: 'A one-off like a wedding, trip or burial; runs alongside your plan' }
 ];
+
+/** Whole percents as they are; a share set in naira shows one decimal, e.g. 53.8. */
+const pctLabel = (pct: number) => (Number.isInteger(pct) ? String(pct) : pct.toFixed(1).replace(/\.0$/, ''));
 
 export function BudgetScreen() {
   const { user } = useAuth();
@@ -172,6 +180,9 @@ export function BudgetScreen() {
 
   const [budget, setBudget] = useState<ApiBudget | null>(null);
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
+  /** Moving money between the running budget's buckets, e.g. covering a need that cost more than planned. */
+  const [moveFor, setMoveFor] = useState<{ to?: string } | null>(null);
+  const [tightOpen, setTightOpen] = useState(false);
   const [showSetup, setShowSetup] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -205,6 +216,8 @@ export function BudgetScreen() {
   const [period, setPeriod] = useState<'monthly' | 'weekly'>('monthly');
   const [purpose, setPurpose] = useState<BudgetPurpose>('personal');
   const [budgetTitle, setBudgetTitle] = useState('');
+  /** A project or pocket money starting point: fills the name and splits the total into stages. */
+  const [template, setTemplate] = useState<BudgetTemplate | null>(null);
 
   // Category selection & percentages (including Debt Financing)
   // Only preselect core categories, not all
@@ -572,7 +585,8 @@ export function BudgetScreen() {
       const getPct = (key: string) => {
         const c = (cats as any)[key] as { budgeted?: number } | undefined;
         if (!c || typeof c.budgeted !== 'number') return 0;
-        return Math.round((c.budgeted / total) * 100);
+        // Kept exact: rounding to whole percents would quietly undo money moved between buckets in naira.
+        return (c.budgeted / total) * 100;
       };
 
       const pctFor = (bucket: Bucket) => Object.keys(cats).filter((k) => normalizeBucket(k) === bucket).reduce((sum, k) => sum + getPct(k), 0);
@@ -684,6 +698,15 @@ export function BudgetScreen() {
             ...(spacesEnabled ? { spaceId: activeSpaceId } : {})
           });
       setBudget(created);
+      // A project template splits the total into stages people can change later.
+      if (!editingBudgetId && created && template?.stages.length && template.purpose === purpose) {
+        await Promise.all(
+          template.stages.map(([name, share]) =>
+            createMiniBudgetInSpace(String(created.id), { name, amount: Math.round((parsedTotal * share) / 100), category: 'Needs' }, spacesEnabled ? activeSpaceId : undefined).catch(() => undefined)
+          )
+        );
+      }
+      setTemplate(null);
       // A new shared budget is only useful once people are in it.
       if (!editingBudgetId && purpose === 'household' && created && !created.isShared) {
         toast.show('Shared budget created. Now invite your people 👇', 'success', 3500);
@@ -758,6 +781,8 @@ export function BudgetScreen() {
   const hide = !showAmounts;
   const [preset, setPreset] = useState<'smart' | 'history' | 'custom'>('custom');
   const [expandedBucket, setExpandedBucket] = useState<string | null>('Needs');
+  /** A bucket amount being typed in naira; applied as a share of the total when the field is left. */
+  const [amountDraft, setAmountDraft] = useState<{ key: string; text: string } | null>(null);
   const [monthSheet, setMonthSheet] = useState<null | 'start' | 'end'>(null);
   const [sheetYear, setSheetYear] = useState(now.getFullYear());
   const [rolloverFor, setRolloverFor] = useState<{ budget: ApiBudget; preview: RolloverPreview } | null>(null);
@@ -806,6 +831,7 @@ export function BudgetScreen() {
   const openNewBudget = (nextPurpose: BudgetPurpose = 'personal') => {
     setPurpose(nextPurpose);
     setBudgetTitle('');
+    setTemplate(null);
     setShowSetup(true);
     setSetupStep(1);
     setBudget(null);
@@ -928,7 +954,41 @@ export function BudgetScreen() {
             <>
               {!isBusiness ? (
                 <>
-                  <SelectField label="What’s this budget for?" value={purpose} options={PURPOSE_OPTIONS} onChange={setPurpose} />
+                  <SelectField
+                    label="What’s this budget for?"
+                    value={purpose}
+                    options={PURPOSE_OPTIONS}
+                    onChange={(p) => {
+                      setPurpose(p);
+                      setTemplate(null);
+                    }}
+                  />
+                  {!editingBudgetId && purpose !== 'personal' ? (
+                    <View style={[styles.wrap, { marginTop: -4, marginBottom: 14 }]}>
+                      {BUDGET_TEMPLATES.filter((t) => t.purpose === purpose).map((t) => (
+                        <ChoiceChip
+                          key={t.key}
+                          label={t.label}
+                          active={template?.key === t.key}
+                          onPress={() => {
+                            const on = template?.key !== t.key;
+                            setTemplate(on ? t : null);
+                            if (on && (!budgetTitle.trim() || BUDGET_TEMPLATES.some((x) => x.title === budgetTitle))) setBudgetTitle(t.title);
+                            if (on && t.period) setPeriod(t.period);
+                          }}
+                        />
+                      ))}
+                    </View>
+                  ) : null}
+                  {template?.stages.length ? (
+                    <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: -6, marginBottom: 14 }]}>
+                      We’ll split it into {template.stages.map(([n]) => n.toLowerCase()).join(', ')}. Change any of them later.
+                    </Text>
+                  ) : template?.key === 'pocket' ? (
+                    <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: -6, marginBottom: 14 }]}>
+                      A weekly budget you set, shared with your child’s own account so they can log what they spend.
+                    </Text>
+                  ) : null}
                   {purpose !== 'personal' ? (
                     <TextField
                       label={purpose === 'event' ? 'Name it' : 'Name (optional)'}
@@ -1123,7 +1183,7 @@ export function BudgetScreen() {
                         {b.include ? (
                           <View style={{ alignItems: 'flex-end' }}>
                             <Amount value={amountFor} currency={glyph} size="sm" />
-                            <Text style={[type.caption, { color: theme.colors.textMuted }]}>{b.pct}%</Text>
+                            <Text style={[type.caption, { color: theme.colors.textMuted }]}>{pctLabel(b.pct)}%</Text>
                           </View>
                         ) : (
                           <Text style={[type.caption, { color: theme.colors.textMuted }]}>Off</Text>
@@ -1167,6 +1227,31 @@ export function BudgetScreen() {
                           </Pressable>
                         </View>
                       ) : null}
+                      {expanded && Number.isFinite(parsedTotal) && parsedTotal > 0 ? (
+                        <View style={[styles.row, { marginTop: 8, gap: 8 }]}>
+                          <Text style={[type.caption, { color: theme.colors.textMuted, flex: 1 }]}>Or set an amount</Text>
+                          <View style={[styles.row, styles.amountBox, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}>
+                            <Text style={[type.small, { color: theme.colors.textMuted }]}>{glyph}</Text>
+                            <TextInput
+                              value={amountDraft?.key === b.key ? amountDraft.text : amountFor.toLocaleString('en-NG')}
+                              onFocus={() => setAmountDraft({ key: b.key, text: amountFor ? String(amountFor) : '' })}
+                              onChangeText={(t) => setAmountDraft({ key: b.key, text: t.replace(/[^\d]/g, '') })}
+                              onEndEditing={() => {
+                                if (amountDraft?.key === b.key) {
+                                  const typed = Number(amountDraft.text) || 0;
+                                  b.setPct(Math.min(100, Math.max(0, (typed / parsedTotal) * 100)));
+                                  markCustom();
+                                }
+                                setAmountDraft(null);
+                              }}
+                              keyboardType="number-pad"
+                              returnKeyType="done"
+                              accessibilityLabel={`${bucketLabel(b.key)} amount`}
+                              style={[type.bodyStrong, styles.amountInput, { color: theme.colors.text }]}
+                            />
+                          </View>
+                        </View>
+                      ) : null}
                     </View>
                   );
                 })}
@@ -1196,7 +1281,7 @@ export function BudgetScreen() {
                         key={b.key}
                         icon={<View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: bucketColor(theme, b.key) }} />}
                         title={bucketLabel(b.key)}
-                        subtitle={durationMonths > 1 ? `${b.pct}% · about ${formatAmount(Math.round(amt / durationMonths), glyph)} a month` : `${b.pct}% · ${b.desc}`}
+                        subtitle={durationMonths > 1 ? `${pctLabel(b.pct)}% · about ${formatAmount(Math.round(amt / durationMonths), glyph)} a month` : `${pctLabel(b.pct)}% · ${b.desc}`}
                         right={<Amount value={amt} currency={glyph} size="sm" />}
                       />
                     );
@@ -1380,11 +1465,25 @@ export function BudgetScreen() {
                       Day {currentPace.elapsed} of {currentPace.days}
                     </Text>
                   </View>
+                  {/* Only when it's needed: over, or spending well ahead of the calendar. */}
+                  {current.role !== 'member' && (currentPace.left < 0 || currentPace.spentRatio > currentPace.timeRatio + 0.1) ? (
+                    <Pressable onPress={() => setTightOpen(true)} hitSlop={8} accessibilityRole="button" style={{ marginTop: 8 }}>
+                      <Text style={[type.smallStrong, { color: theme.colors.primary }]}>Money tight? See what to do →</Text>
+                    </Pressable>
+                  ) : null}
 
                   {Object.keys(current.categories || {}).length ? (
                     <GuideAnchor id="budget.buckets">
                       <View style={[styles.hr, { backgroundColor: theme.colors.border }]} />
-                      <Text style={[type.eyebrow, { color: theme.colors.textMuted, marginBottom: 2 }]}>Buckets</Text>
+                      <View style={styles.rowBetween}>
+                        <Text style={[type.eyebrow, { color: theme.colors.textMuted, marginBottom: 2 }]}>Buckets</Text>
+                        {current.role !== 'member' && Object.keys(current.categories || {}).length > 1 ? (
+                          <Pressable onPress={() => setMoveFor({})} hitSlop={10} accessibilityRole="button" style={[styles.row, { gap: 5 }]}>
+                            <ArrowRightLeft color={theme.colors.primary} size={14} />
+                            <Text style={[type.smallStrong, { color: theme.colors.primary }]}>Move money</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
                       {Object.entries(current.categories || {}).map(([key, c]) => {
                         const spent = currentTx?.spentByCategory?.[key] ?? 0;
                         const budgeted = Number(c?.budgeted) || 0;
@@ -1408,9 +1507,16 @@ export function BudgetScreen() {
                               <ProgressBar value={ratio} color={over ? theme.colors.error : color} />
                             </View>
                             {over ? (
-                              <Text style={[type.caption, { color: theme.colors.error, marginTop: 5, fontFamily: fonts.semibold }]}>
-                                Over by {hide ? '••••' : formatAmount(spent - budgeted, glyph)}
-                              </Text>
+                              <View style={[styles.rowBetween, { marginTop: 5 }]}>
+                                <Text style={[type.caption, { color: theme.colors.error, fontFamily: fonts.semibold }]}>
+                                  Over by {hide ? '••••' : formatAmount(spent - budgeted, glyph)}
+                                </Text>
+                                {current.role !== 'member' && Object.keys(current.categories || {}).length > 1 ? (
+                                  <Pressable onPress={() => setMoveFor({ to: key })} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Cover ${bucketLabel(key)} from another bucket`}>
+                                    <Text style={[type.smallStrong, { color: theme.colors.primary }]}>Cover it</Text>
+                                  </Pressable>
+                                ) : null}
+                              </View>
                             ) : hot ? (
                               <Text style={[type.caption, { color: theme.colors.warn, marginTop: 5, fontFamily: fonts.semibold }]}>
                                 Running hot · {Math.round(ratio * 100)}% used, {Math.round(currentPace.timeRatio * 100)}% of the time gone
@@ -1610,6 +1716,30 @@ export function BudgetScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {current && currentTx ? (
+        <MoveMoneySheet
+          visible={!!moveFor}
+          onClose={() => setMoveFor(null)}
+          budget={current}
+          spent={currentTx.spentByCategory}
+          to={moveFor?.to}
+          glyph={glyph}
+          isBusiness={isBusiness}
+          onMoved={() => void load()}
+        />
+      ) : null}
+      {current && currentPace ? (
+        <TightMonthSheet
+          visible={tightOpen}
+          onClose={() => setTightOpen(false)}
+          budget={current}
+          spent={currentPace.spent}
+          elapsed={currentPace.elapsed}
+          glyph={glyph}
+          onChanged={() => void load()}
+        />
+      ) : null}
     </Screen>
   );
 }
@@ -1631,6 +1761,8 @@ const styles = StyleSheet.create({
   bucket: { paddingVertical: 12 },
   check: { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   stepper: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  amountBox: { gap: 4, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, height: 40, minWidth: 140 },
+  amountInput: { flex: 1, paddingVertical: 0, textAlign: 'right' },
   footer: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
   backdrop: { flex: 1, justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20 },

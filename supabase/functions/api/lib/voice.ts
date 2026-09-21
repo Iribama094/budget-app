@@ -88,6 +88,11 @@ export const voice = {
     body: `${amount} ${isIncome ? 'income' : 'expense'} added automatically from your schedule.`
   }),
 
+  payoutDay: (name: string, amount: string | null): Note => ({
+    title: `It's your turn: ${name} 🎉`,
+    body: amount ? `You collect ${amount} around now. Decide where it goes before it disappears.` : 'Your payout is around now. Decide where it goes before it disappears.'
+  }),
+
   billDue: (name: string, when: string, amount: string, autoCreate: boolean): Note => ({
     title: `Heads up: ${name} is due ${when}`,
     body: autoCreate ? `${amount}. We’ll record it for you on the day.` : `${amount}. Make sure the money is ready.`

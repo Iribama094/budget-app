@@ -17,6 +17,7 @@ import {
   reconcileImportedTransactionInSpace,
   ignoreImportedTransaction,
   ignoreImportedTransactionInSpace,
+  settleImportedTransaction,
   listBudgets,
   listGoals,
   listMiniBudgets,
@@ -103,6 +104,8 @@ export default function PendingTransactionsScreen() {
   const [actingId, setActingId] = useState<string | null>(null);
   const [reconciledThisWeek, setReconciledThisWeek] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  /** Rows where the person said "no, record it": we stop suggesting a transfer or refund for them. */
+  const [notMatched, setNotMatched] = useState<Set<string>>(new Set());
 
   const [budgets, setBudgets] = useState<ApiBudget[]>([]);
   const [currentBudget, setCurrentBudget] = useState<ApiBudget | null>(null);
@@ -131,7 +134,7 @@ export default function PendingTransactionsScreen() {
     if (!ids.length || bulkBusy) return;
     setBulkBusy(true);
     try {
-      const res = await bulkImportedTransactions(action, ids, spacesEnabled ? { spaceId: activeSpaceId } : undefined);
+      const res = await bulkImportedTransactions(action, ids, { spaceId: spacesEnabled ? activeSpaceId : undefined, record: [...notMatched] });
       const verb = action === 'reconcile' ? 'added to your budget' : 'ignored';
       toast.show(
         res.failed ? `${res.done} ${verb}, ${res.failed} couldn’t be done. Try those one by one.` : `${res.done} transaction${res.done === 1 ? '' : 's'} ${verb}.`,
@@ -152,11 +155,13 @@ export default function PendingTransactionsScreen() {
     const ids = items.map((t) => t.id);
     if (!ids.length) return;
     const dupes = duplicateIds.length;
+    const moved = items.filter((t) => t.match && !notMatched.has(t.id)).length;
+    const settledNote = moved ? ` ${moved} look like transfers between your accounts or money given back, so they won’t count as spending or income.` : '';
     Alert.alert(
       `Add all ${ids.length} to your budget?`,
       dupes
-        ? `Each one uses the category we suggested. ${dupes} of them look like transactions you already logged by hand — you may want to ignore those first.`
-        : 'Each one uses the category we suggested. You can still change any of them afterwards in Transactions.',
+        ? `Each one uses the category we suggested. ${dupes} of them look like transactions you already logged by hand, so you may want to ignore those first.${settledNote}`
+        : `Each one uses the category we suggested. You can still change any of them afterwards in Transactions.${settledNote}`,
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Add all', onPress: () => void runBulk('reconcile', ids) }
@@ -425,6 +430,34 @@ export default function PendingTransactionsScreen() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to reconcile transaction';
       toast.show(msg, 'error');
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const settle = async (item: ApiImportedTransaction, action: 'transfer' | 'refund') => {
+    if (actingId) return;
+    setActingId(item.id);
+    const space = spacesEnabled ? activeSpaceId : undefined;
+    try {
+      await settleImportedTransaction(item.id, action, space);
+      const gone = new Set([item.id, ...(item.match?.pairId ? [item.match.pairId] : [])]);
+      setItems((prev) => prev.filter((t) => !gone.has(t.id)));
+      toast.show(
+        action === 'transfer' ? 'Marked as moved between your accounts. It won’t count as spending or income.' : 'Marked as money given back. The payment it came from now costs less.',
+        'success',
+        5000,
+        {
+          label: 'Undo',
+          onPress: () => {
+            void settleImportedTransaction(item.id, 'undo', space)
+              .then(() => load())
+              .catch(() => toast.show('Could not undo that. Pull down to refresh and try again.', 'error'));
+          }
+        }
+      );
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not update that transaction', 'error');
     } finally {
       setActingId(null);
     }
@@ -734,6 +767,20 @@ export default function PendingTransactionsScreen() {
                     <View style={{ backgroundColor: theme.colors.surfaceAlt, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
                       <Text style={{ color: theme.colors.textMuted, fontSize: 11, fontFamily: 'Figtree_600SemiBold' }}>{suggestedCategory(item)}</Text>
                     </View>
+                    {item.match && !notMatched.has(item.id) ? (
+                      <View style={{ backgroundColor: theme.colors.primarySoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
+                        <Text style={{ color: theme.colors.primary, fontSize: 11, fontFamily: 'Figtree_600SemiBold' }}>
+                          {item.match.kind === 'transfer' ? 'Moved between your accounts' : 'Money given back'}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {item.refunded ? (
+                      <View style={{ backgroundColor: theme.colors.surfaceAlt, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
+                        <Text style={{ color: theme.colors.textMuted, fontSize: 11, fontFamily: 'Figtree_600SemiBold' }}>
+                          {formatMoney(item.refunded, item.currency === 'NGN' ? '₦' : item.currency)} given back
+                        </Text>
+                      </View>
+                    ) : null}
                     {item.duplicateOf ? (
                       <View style={{ backgroundColor: theme.colors.brassSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
                         <Text style={{ color: theme.colors.brass, fontSize: 11, fontFamily: 'Figtree_600SemiBold' }}>Looks already logged</Text>
@@ -750,7 +797,24 @@ export default function PendingTransactionsScreen() {
                 </View>
               </Pressable>
 
-              {expandedId === item.id ? (
+              {expandedId === item.id && item.match && !notMatched.has(item.id) ? (
+                <View style={{ marginTop: 10 }}>
+                  <Text style={{ color: theme.colors.text, lineHeight: 20 }}>
+                    {item.match.kind === 'transfer'
+                      ? 'This looks like money moved between your own accounts. It isn’t spending or income, so we won’t count it.'
+                      : 'This looks like money given back on an earlier payment. We’ll take it off that payment instead of counting it as income.'}
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                    <PrimaryButton title={acting ? 'Please wait…' : 'Yes, that’s right'} onPress={() => settle(item, item.match!.kind)} disabled={acting} style={{ flex: 1 }} />
+                    <SecondaryButton
+                      title="No, record it"
+                      onPress={() => setNotMatched((prev) => new Set(prev).add(item.id))}
+                      disabled={acting}
+                      style={{ flex: 1 }}
+                    />
+                  </View>
+                </View>
+              ) : expandedId === item.id ? (
                 <View style={{ marginTop: 10 }}>
                   {/* Wizard header with < / > */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>

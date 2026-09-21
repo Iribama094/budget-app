@@ -56,6 +56,9 @@ import { adminContent, adminSeedQuotes } from './routes/adminContent.ts';
 import { adminTaxRules, adminTaxVersion } from './routes/adminTax.ts';
 import { adminWrappedPreview } from './routes/admin.ts';
 import { ensureTaxRules } from './lib/tax.ts';
+import { debtById, debtsIndex, fxRatesRoute, holdingById, holdingsIndex, moneyRoute, pricesRoute } from './routes/money.ts';
+import { delegatesRoute, propertiesRoute } from './routes/people.ts';
+import { sendMoneyReminders } from './lib/reminders.ts';
 import { waitlistJoin } from './routes/waitlist.ts';
 
 export type Ctx = {
@@ -81,6 +84,7 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
   const summary: Record<string, unknown> = { today };
   summary.recurring = await runAllDueRecurring(today);
   summary.billReminders = await sendBillReminders(today);
+  summary.money = await sendMoneyReminders(today);
   summary.business = await sendBusinessReminders(today);
   summary.shared = { ...(await sendSharedDigests(today)), periodEnding: await sendPeriodEndingReminders(today) };
 
@@ -293,6 +297,17 @@ function route(parts: string[]): Handler | null {
   if (a === 'payroll' && b === 'runs' && n === 2) return payrollRun;
   if (a === 'imports' && b === 'statement' && n === 2) return statementImport;
   if (a === 'wrapped' && n === 1) return wrappedRoute;
+
+  // Your money (docs/money-for-everyone.md): what you have, own, owe and are owed, rising prices, and helpers.
+  if (a === 'money' && n === 1) return moneyRoute;
+  if (a === 'prices' && n === 1) return pricesRoute;
+  if (a === 'fx-rates' && n === 1) return fxRatesRoute;
+  if (a === 'holdings' && n === 1) return holdingsIndex;
+  if (a === 'holdings' && n === 2) return holdingById;
+  if (a === 'debts' && n === 1) return debtsIndex;
+  if (a === 'debts' && (n === 2 || (n === 3 && c === 'payments'))) return debtById;
+  if (a === 'delegates' && n <= 2) return delegatesRoute;
+  if (a === 'properties' && n <= 3) return propertiesRoute;
 
   return null;
 }

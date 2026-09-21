@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type Admin, type ContentBlock, type QuoteValue } from '../api';
+import { PricesAndRates } from './PricesAndRates';
 
 const CAN_CHANGE: Admin['role'][] = ['owner', 'engineer'];
 const THEMES = ['saving', 'spending', 'planning', 'patience', 'change'] as const;
@@ -136,6 +137,8 @@ export function Content({ admin }: { admin: Admin }) {
           </div>
         </div>
       ) : null}
+
+      {items ? <PricesAndRates items={items} mayChange={mayChange} onChanged={load} /> : null}
 
       {mayChange ? (
         <form className="card" onSubmit={add}>

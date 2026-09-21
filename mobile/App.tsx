@@ -77,6 +77,12 @@ import PayYourselfScreen from './src/screens/PayYourselfScreen';
 import BusinessReportsScreen from './src/screens/BusinessReportsScreen';
 import StatementImportScreen from './src/screens/StatementImportScreen';
 import WrappedScreen from './src/screens/WrappedScreen';
+import MoneyScreen from './src/screens/MoneyScreen';
+import HelpersScreen from './src/screens/HelpersScreen';
+import PropertiesScreen from './src/screens/PropertiesScreen';
+import PricesScreen from './src/screens/PricesScreen';
+import { ActingProvider, useActing } from './src/contexts/ActingContext';
+import { ActingBanner } from './src/components/Common/ActingBanner';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -171,6 +177,10 @@ function AuthedStack() {
       <Stack.Screen name="BusinessReports" component={BusinessReportsScreen} />
       <Stack.Screen name="StatementImport" component={StatementImportScreen} />
       <Stack.Screen name="Wrapped" component={WrappedScreen} />
+      <Stack.Screen name="Money" component={MoneyScreen} />
+      <Stack.Screen name="Helpers" component={HelpersScreen} />
+      <Stack.Screen name="Properties" component={PropertiesScreen} />
+      <Stack.Screen name="Prices" component={PricesScreen} />
     </Stack.Navigator>
   );
 }
@@ -178,6 +188,7 @@ function AuthedStack() {
 function Root() {
   const { user, isLoading, isLocked, lastUser } = useAuth();
   const { theme } = useTheme();
+  const { acting, stop } = useActing();
 
   const [onboardingDone, setOnboardingDone] = React.useState<boolean | null>(null);
   const [sessionOnboardingComplete, setSessionOnboardingComplete] = React.useState(false);
@@ -260,7 +271,9 @@ function Root() {
 
   return (
     <View style={{ flex: 1 }}>
-      <AuthedStack />
+      <ActingBanner onLeave={stop} />
+      {/* A fresh stack for each person's money, so nothing from one shows in the other. */}
+      <AuthedStack key={acting?.ownerId ?? 'me'} />
       {statusBar}
     </View>
   );
@@ -293,6 +306,7 @@ export default function App() {
                   <HintsProvider>
                     <AuthProvider>
                       <ToastProvider>
+                        <ActingProvider>
                         <ConfigProvider>
                         <CategoriesProvider>
                         <SyncProvider>
@@ -316,6 +330,7 @@ export default function App() {
                         </SyncProvider>
                         </CategoriesProvider>
                         </ConfigProvider>
+                        </ActingProvider>
                       </ToastProvider>
                     </AuthProvider>
                   </HintsProvider>

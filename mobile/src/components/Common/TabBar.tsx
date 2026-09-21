@@ -3,6 +3,7 @@ import { View, Pressable, Text, StyleSheet } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Wallet, BarChart3, Target, Plus } from '../../icons';
+import { useT } from '../../lib/i18n';
 import { useTheme } from '../../contexts/ThemeContext';
 import { fonts } from '../../theme/typography';
 
@@ -16,6 +17,7 @@ const META: Record<string, { label: string; Icon: typeof Home }> = {
 /** Four tabs with a raised Add transaction action in the middle, reachable from every tab. */
 export function AppTabBar({ state, navigation, descriptors }: BottomTabBarProps) {
   const { theme } = useTheme();
+  const t = useT();
   const insets = useSafeAreaInsets();
   const mid = Math.ceil(state.routes.length / 2);
 
@@ -25,7 +27,8 @@ export function AppTabBar({ state, navigation, descriptors }: BottomTabBarProps)
 
   const renderTab = (route: (typeof state.routes)[number], index: number) => {
     const focused = state.index === index;
-    const meta = META[route.name] ?? { label: route.name, Icon: Home };
+    const found = META[route.name] ?? { label: route.name, Icon: Home };
+    const meta = { ...found, label: t(found.label) };
     const color = focused ? theme.colors.primary : theme.colors.textMuted;
     const onPress = () => {
       const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });

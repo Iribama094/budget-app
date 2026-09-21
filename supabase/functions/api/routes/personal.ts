@@ -1,7 +1,7 @@
 import { isUniqueViolation, isUuid, sql } from '../lib/db.ts';
 import { requireAuth } from '../lib/auth.ts';
 import { badRequest, body, HttpError, json, methodNotAllowed, noContent, notFound, spaceParam, z } from '../lib/http.ts';
-import { addDaysIso, ISO_DATE, parseIsoDateUtcNoon, todayIso } from '../lib/dates.ts';
+import { addDaysIso, effectiveEndIso, ISO_DATE, parseIsoDateUtcNoon, parseQueryDate, todayIso } from '../lib/dates.ts';
 import {
   clampedIso,
   computePlan,
@@ -26,7 +26,7 @@ const IncomeSchema = z.object({
   name: z.string().trim().min(1).max(60),
   kind: z.enum(['salary', 'business', 'side_hustle', 'allowance', 'other']).default('other'),
   amount: z.number().finite().nonnegative().max(1e12),
-  frequency: z.enum(['monthly', 'biweekly', 'weekly', 'irregular']),
+  frequency: z.enum(['daily', 'monthly', 'biweekly', 'weekly', 'irregular']),
   payDay: z.number().int().min(1).max(31).nullable().optional(),
   nextPayDate: z.string().regex(ISO_DATE).nullable().optional(),
   isEstimate: z.boolean().optional()
@@ -37,7 +37,7 @@ const BillSchema = z.object({
   category: z.string().trim().min(1).max(60),
   bucket: BucketSchema.nullable().optional(),
   amount: z.number().finite().positive().max(1e12),
-  frequency: z.enum(['monthly', 'yearly', 'weekly']),
+  frequency: z.enum(['monthly', 'termly', 'yearly', 'weekly']),
   dueDay: z.number().int().min(1).max(31).nullable().optional()
 });
 
@@ -129,7 +129,7 @@ export async function planPreview(ctx: Ctx) {
 
 /* ------------------------------------------------------------ onboarding */
 
-function firstDueDate(dueDay: number | null | undefined, frequency: 'monthly' | 'yearly' | 'weekly', today: string): string {
+function firstDueDate(dueDay: number | null | undefined, frequency: 'monthly' | 'termly' | 'yearly' | 'weekly', today: string): string {
   if (frequency === 'weekly') return addDaysIso(today, 7);
   const t = parseIsoDateUtcNoon(today);
   const y = t.getUTCFullYear();
@@ -139,7 +139,7 @@ function firstDueDate(dueDay: number | null | undefined, frequency: 'monthly' | 
     return thisMonth >= today ? thisMonth : clampedIso(y, m + 1, dueDay);
   }
   // Without a due day: monthly bills start next month; a yearly bill (like rent) a year from now.
-  return frequency === 'yearly' ? clampedIso(y + 1, m, 1) : clampedIso(y, m + 1, 1);
+  return frequency === 'yearly' ? clampedIso(y + 1, m, 1) : frequency === 'termly' ? clampedIso(y, m + 4, 1) : clampedIso(y, m + 1, 1);
 }
 
 const CompleteSchema = z.object({
@@ -262,7 +262,9 @@ const CategoryPatchSchema = z
     name: z.string().trim().min(1).max(40).optional(),
     bucket: BucketSchema.nullable().optional(),
     icon: z.string().trim().min(1).max(24).optional(),
-    hidden: z.boolean().optional()
+    hidden: z.boolean().optional(),
+    /** With a bucket change: also move this period's spending in the category, so the buckets add up. */
+    moveThisPeriod: z.boolean().optional()
   })
   .strict();
 
@@ -341,7 +343,34 @@ export async function categoryById(ctx: Ctx) {
     `;
     await sql`update public.category_rules set category = ${name} where user_id = ${userId} and type = ${existing.type} and category = ${existing.name}`;
   }
-  return json(200, { category: toApiCategory(row) });
+
+  // Spending already counted against the old bucket moves only when asked; past periods are left as they were.
+  let moved = 0;
+  if (patch.moveThisPeriod && existing.type === 'expense' && row.bucket && row.bucket !== existing.bucket) {
+    const since = await currentPeriodStart(userId, existing.spaceId);
+    const rows = await sql`
+      update public.transactions set budget_category = ${row.bucket}
+      where user_id = ${userId} and space_id = ${existing.spaceId} and type = 'expense' and category = ${name}
+        and occurred_at >= ${since}
+        and ${existing.bucket ? sql`budget_category = ${existing.bucket}` : sql`budget_category is null`}
+      returning id
+    `;
+    moved = rows.length;
+  }
+  return json(200, { category: toApiCategory(row), moved });
+}
+
+/** Start of the person's running budget in this space, or the 1st of the month when none is running. */
+async function currentPeriodStart(userId: string, space: string): Promise<Date> {
+  const today = todayIso();
+  const rows = await sql<{ startDate: string; endDate: string | null; period: string }[]>`
+    select start_date, end_date, period from public.budgets
+    where user_id = ${userId} and space_id = ${space} and purpose <> 'event' and start_date <= ${today}::date
+    order by start_date desc
+    limit 5
+  `;
+  const running = rows.find((b) => effectiveEndIso(b) >= today);
+  return parseQueryDate(running?.startDate ?? `${today.slice(0, 8)}01`, 'start');
 }
 
 /** GET /v1/categories/suggest?text=&type=&spaceId= */

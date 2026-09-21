@@ -4,8 +4,8 @@ import { formatMoney } from './notify.ts';
 import { defaultBucketFor, normalizeBucket, type Bucket } from './categories.ts';
 
 export type IncomeKind = 'salary' | 'business' | 'side_hustle' | 'allowance' | 'other';
-export type IncomeFrequency = 'monthly' | 'biweekly' | 'weekly' | 'irregular';
-export type BillFrequency = 'monthly' | 'yearly' | 'weekly';
+export type IncomeFrequency = 'daily' | 'monthly' | 'biweekly' | 'weekly' | 'irregular';
+export type BillFrequency = 'monthly' | 'termly' | 'yearly' | 'weekly';
 export type BudgetPeriodBasis = 'payday' | 'monthly';
 
 export type IncomeInput = {
@@ -26,7 +26,11 @@ const MONTH_DAYS = 365 / 12;
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
+/** Someone paid by the day works about six days a week. */
+export const WORK_DAYS_A_MONTH = 26;
+
 export function monthlyIncome(amount: number, frequency: IncomeFrequency): number {
+  if (frequency === 'daily') return amount * WORK_DAYS_A_MONTH;
   if (frequency === 'weekly') return (amount * 52) / 12;
   if (frequency === 'biweekly') return (amount * 26) / 12;
   return amount;
@@ -35,6 +39,8 @@ export function monthlyIncome(amount: number, frequency: IncomeFrequency): numbe
 export function monthlyBill(amount: number, frequency: BillFrequency): number {
   if (frequency === 'weekly') return (amount * 52) / 12;
   if (frequency === 'yearly') return amount / 12;
+  // School terms: three a year.
+  if (frequency === 'termly') return amount / 4;
   return amount;
 }
 

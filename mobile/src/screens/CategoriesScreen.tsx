@@ -47,18 +47,38 @@ export default function CategoriesScreen() {
   const openNew = () => setDraft({ id: null, name: '', type: kind, bucket: 'Needs', icon: 'tag', hidden: false, iconTouched: false });
   const openEdit = (c: ApiCategory) => setDraft({ id: c.id, name: c.name, type: c.type, bucket: c.bucket ?? 'Needs', icon: c.icon, hidden: c.hidden, iconTouched: true });
 
-  const save = async () => {
+  const save = () => {
     if (!draft || !draft.name.trim()) return;
     if (offline) {
       toast.show('Connect to the internet to change categories.', 'error');
       return;
     }
+    const before = draft.id ? all.find((c) => c.id === draft.id) : undefined;
+    if (before && draft.type === 'expense' && before.bucket !== draft.bucket) {
+      // Spending already logged in this category still counts against the old bucket unless it moves too.
+      const to = bucketDisplayName(draft.bucket, isBusiness);
+      Alert.alert(`Move ${draft.name.trim()} to ${to}`, `Should what you have already spent on it in this budget move to ${to} as well?`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'From now on', onPress: () => void commit(false) },
+        { text: 'Move it too', onPress: () => void commit(true) }
+      ]);
+      return;
+    }
+    void commit(false);
+  };
+
+  const commit = async (moveThisPeriod: boolean) => {
+    if (!draft) return;
     setSaving(true);
     try {
       const icon = draft.iconTouched ? draft.icon : guessIconKey(draft.name, draft.type === 'income');
       if (draft.id) {
-        await update(draft.id, { name: draft.name.trim(), bucket: draft.type === 'expense' ? draft.bucket : null, icon, hidden: draft.hidden });
-        toast.show('Category saved', 'success');
+        const bucket = draft.type === 'expense' ? draft.bucket : null;
+        const { moved } = await update(draft.id, { name: draft.name.trim(), bucket, icon, hidden: draft.hidden, ...(moveThisPeriod ? { moveThisPeriod } : {}) });
+        toast.show(
+          moved > 0 && bucket ? `Category saved. ${moved} transaction${moved === 1 ? '' : 's'} moved to ${bucketDisplayName(bucket, isBusiness)}.` : 'Category saved',
+          'success'
+        );
       } else {
         await create({ name: draft.name.trim(), type: draft.type, bucket: draft.type === 'expense' ? draft.bucket : null, icon });
         toast.show(`${draft.name.trim()} added`, 'success');

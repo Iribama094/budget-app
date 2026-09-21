@@ -16,6 +16,8 @@ export type TransactionPayload = {
   spaceId?: 'personal' | 'business';
   /** VAT inside a business cost, claimed back against VAT charged on sales. */
   vatAmount?: number;
+  /** Money that arrived in another currency; amount is what it came to at this rate. */
+  fx?: { currency: string; amount: number; rate: number };
 };
 
 export type QueuedTransaction = {

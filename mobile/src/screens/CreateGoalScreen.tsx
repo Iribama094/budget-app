@@ -14,6 +14,7 @@ import { currencySymbol, formatNumberInput, formatShortDate, toIsoDate } from '.
 import { fonts, type } from '../theme/typography';
 import { tokens } from '../theme/tokens';
 import { goBackOrHome } from '../navigation/goBack';
+import { ChoiceChip } from '../components/Plan/ChoiceChip';
 
 type Preset = { key: string; emoji: string; label: string; months: number };
 
@@ -81,6 +82,9 @@ export default function CreateGoalScreen() {
   const [preset, setPreset] = useState<Preset | null>(initialPreset);
   const [name, setName] = useState(initialPreset && initialPreset.key !== 'other' ? initialPreset.label : '');
   const [targetAmount, setTargetAmount] = useState('');
+  /** Saving in dollars or pounds (a relocation fund, school abroad). Null is the person's own currency. */
+  const [goalCurrency, setGoalCurrency] = useState<string | null>(null);
+  const goalGlyph = goalCurrency ? currencySymbol(goalCurrency) : glyph;
   const [currentAmount, setCurrentAmount] = useState('');
   const [showSaved, setShowSaved] = useState(false);
   const [whenMonths, setWhenMonths] = useState<number | null>(initialPreset?.months ?? 6);
@@ -147,6 +151,7 @@ export default function CreateGoalScreen() {
         targetDate,
         emoji: preset?.emoji ?? '🎯',
         category: 'savings',
+        ...(goalCurrency ? { currency: goalCurrency } : {}),
         ...(spacesEnabled ? { spaceId: activeSpaceId } : {})
       });
       toast.show(
@@ -203,10 +208,15 @@ export default function CreateGoalScreen() {
             label="How much do you need?"
             value={targetAmount}
             onChangeText={(v) => setTargetAmount(formatNumberInput(v))}
-            placeholder={`${glyph}0`}
+            placeholder={`${goalGlyph}0`}
             keyboardType="number-pad"
             hint={emergencySuggestion ? undefined : 'A rough number is fine. You can change it later.'}
           />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: -6, marginBottom: 12 }}>
+            {[null, 'USD', 'GBP', 'EUR', 'CAD'].map((c) => (
+              <ChoiceChip key={c ?? 'home'} label={c ? `In ${c}` : `In ${glyph}`} active={goalCurrency === c} onPress={() => setGoalCurrency(c)} />
+            ))}
+          </View>
           {emergencySuggestion ? (
             <Pressable
               onPress={() => setTargetAmount(formatNumberInput(String(emergencySuggestion)))}
@@ -260,15 +270,16 @@ export default function CreateGoalScreen() {
           {pace && pace.left > 0 ? (
             <Card style={{ marginTop: 16 }}>
               <Text style={[type.body, { color: theme.colors.text }]}>
-                That’s <Text style={{ fontFamily: fonts.semibold }}>{formatAmount(Math.round(pace.monthly), glyph)} a month</Text>, about {formatAmount(Math.round(pace.weekly), glyph)} a week.
+                That’s <Text style={{ fontFamily: fonts.semibold }}>{formatAmount(Math.round(pace.monthly), goalGlyph)} a month</Text>, about {formatAmount(Math.round(pace.weekly), goalGlyph)} a week.
               </Text>
-              {pace.fits === true && plan ? (
+              {/* The plan is in naira, so it only compares with a naira goal. */}
+              {pace.fits === true && plan && !goalCurrency ? (
                 <View style={[styles.fitRow, { marginTop: 8 }]}>
                   <Check color={theme.colors.success} size={16} strokeWidth={3} />
                   <Text style={[type.small, { color: theme.colors.textMuted, flex: 1 }]}>Fits in the {formatAmount(plan.savings, glyph)} your plan saves each month.</Text>
                 </View>
               ) : null}
-              {pace.fits === false && plan ? (
+              {pace.fits === false && plan && !goalCurrency ? (
                 <View style={{ marginTop: 8 }}>
                   <Text style={[type.small, { color: theme.colors.textMuted }]}>
                     That’s more than the {formatAmount(plan.savings, glyph)} your plan saves each month.

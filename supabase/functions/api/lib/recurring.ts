@@ -9,7 +9,7 @@ import type { Space } from './http.ts';
 // Catch up at most this many missed occurrences per run (e.g. after a long outage).
 const MAX_CATCH_UP = 24;
 
-export type Frequency = 'weekly' | 'monthly' | 'yearly';
+export type Frequency = 'weekly' | 'monthly' | 'termly' | 'yearly';
 
 export type RecurringRow = {
   id: string;
@@ -29,6 +29,9 @@ export type RecurringRow = {
   paused: boolean;
   lastCreatedFor: string | null;
   lastRemindedFor: string | null;
+  payoutDate: string | null;
+  payoutAmount: number | null;
+  payoutNotifiedFor: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -41,8 +44,11 @@ function daysInMonth(year: number, month0: number): number {
 export function nextOccurrence(iso: string, frequency: Frequency, anchorDay?: number | null): string {
   if (frequency === 'weekly') return addDaysIso(iso, 7);
   const d = parseIsoDateUtcNoon(iso);
-  const year = frequency === 'yearly' ? d.getUTCFullYear() + 1 : d.getUTCFullYear() + (d.getUTCMonth() === 11 ? 1 : 0);
-  const month = frequency === 'yearly' ? d.getUTCMonth() : (d.getUTCMonth() + 1) % 12;
+  // Monthly moves one month, a school term four, a year twelve.
+  const step = frequency === 'yearly' ? 12 : frequency === 'termly' ? 4 : 1;
+  const total = d.getUTCMonth() + step;
+  const year = d.getUTCFullYear() + Math.floor(total / 12);
+  const month = total % 12;
   const day = Math.min(anchorDay ?? d.getUTCDate(), daysInMonth(year, month));
   return formatIsoDateUtc(new Date(Date.UTC(year, month, day, 12)));
 }
@@ -98,6 +104,7 @@ export async function materializeDue(rec: RecurringRow, today = todayIso()): Pro
         created++;
         lastAmount = Number(current.amount);
         await afterTransactionCreated(tx as any);
+        if (current.type === 'expense') await spendPotOnBill(current, next);
       }
     }
     current = claimed;
@@ -114,6 +121,37 @@ export async function materializeDue(rec: RecurringRow, today = todayIso()): Pro
     });
   }
   return created;
+}
+
+/**
+ * A savings pot for a big bill (yearly rent, school fees) pays the bill when it's due, then starts filling
+ * again for the next time.
+ */
+async function spendPotOnBill(rec: RecurringRow, nextDue: string) {
+  await sql`
+    update public.goals set current_amount = greatest(0, current_amount - ${Number(rec.amount)}), target_date = ${nextDue}::date
+    where recurring_id = ${rec.id} and user_id = ${rec.userId} and kind = 'goal'
+  `;
+}
+
+/** The day it's your turn in an ajo or esusu: one nudge so the money goes where it was meant to. */
+export async function sendPayoutReminders(today = todayIso()): Promise<number> {
+  const due = await sql<RecurringRow[]>`
+    update public.recurring set payout_notified_for = payout_date
+    where payout_date is not null and payout_date <= ${today}::date and payout_date > ${addDaysIso(today, -3)}::date
+      and (payout_notified_for is null or payout_notified_for <> payout_date)
+    returning *
+  `;
+  for (const rec of due) {
+    const currency = await currencyFor(rec.userId);
+    await notifyUser(rec.userId, {
+      kind: 'recurring',
+      ...voice.payoutDay(rec.description || rec.category, rec.payoutAmount ? formatMoney(Number(rec.payoutAmount), currency) : null),
+      spaceId: rec.spaceId === 'business' ? 'business' : 'personal',
+      data: { screen: 'Recurring', recurringId: rec.id }
+    });
+  }
+  return due.length;
 }
 
 export async function runRecurringForUser(userId: string, today = todayIso()): Promise<number> {
@@ -188,6 +226,8 @@ export function toApiRecurring(r: RecurringRow) {
     budgetCategory: r.budgetCategory ?? null,
     paused: r.paused,
     lastCreatedFor: r.lastCreatedFor ?? null,
+    payoutDate: r.payoutDate ?? null,
+    payoutAmount: r.payoutAmount == null ? null : Number(r.payoutAmount),
     createdAt: new Date(r.createdAt).toISOString(),
     updatedAt: new Date(r.updatedAt).toISOString()
   };

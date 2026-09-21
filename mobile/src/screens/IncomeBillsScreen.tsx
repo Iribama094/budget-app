@@ -28,6 +28,7 @@ import {
   formatAmount
 } from '../components/Common/ui';
 import { IncomeEditor } from '../components/Plan/IncomeEditor';
+import { SteadyPay } from '../components/Plan/SteadyPay';
 import { PlanSplit } from '../components/Plan/PlanSplit';
 import { CategoryIcon } from '../components/Common/CategoryIcon';
 import { patchMe } from '../api/endpoints';
@@ -38,7 +39,7 @@ import { currencySymbol } from '../utils/format';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 
-const FREQ: Record<string, string> = { monthly: 'monthly', yearly: 'yearly', weekly: 'weekly', biweekly: 'every 2 weeks', irregular: 'varies' };
+const FREQ: Record<string, string> = { daily: 'a day', monthly: 'monthly', termly: 'a term', yearly: 'yearly', weekly: 'weekly', biweekly: 'every 2 weeks', irregular: 'varies' };
 const TIER_TONE: Record<BillTier, 'neutral' | 'brass' | 'primary'> = { must: 'neutral', reduce: 'brass', pause: 'primary' };
 
 /** Income sources, payday and bills: the inputs behind the plan, all editable. When bills beat income, it shows how to close the gap. */
@@ -230,6 +231,13 @@ export default function IncomeBillsScreen() {
         </ListCard>
       ) : !loading ? (
         <Text style={[type.small, { color: theme.colors.textMuted }]}>No income added yet.</Text>
+      ) : null}
+
+      {/* Only for income that changes: steady pay smooths it into the same amount each month. */}
+      {sources.some((s) => s.frequency === 'irregular' || s.frequency === 'daily') ? (
+        <ListCard style={{ marginTop: 12 }}>
+          <SteadyPay glyph={glyph} suggested={(plan?.monthlyIncome ?? 0) * 0.8} />
+        </ListCard>
       ) : null}
 
       <SectionHeader title="Budget period" />

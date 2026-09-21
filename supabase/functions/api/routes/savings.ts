@@ -13,7 +13,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  */
 async function addToGoal(userId: string, goal: any, amount: number, occurredOn: string, clientId: string, recordInBudget: boolean) {
   const remaining = Math.max(0, Number(goal.targetAmount) - Number(goal.currentAmount));
-  const move = round2(Math.min(amount, remaining > 0 ? remaining : amount));
+  // A buffer takes all of a windfall; a goal stops at its target.
+  const move = round2(goal.kind === 'buffer' ? amount : Math.min(amount, remaining > 0 ? remaining : amount));
   const [updated] = await sql`update public.goals set current_amount = current_amount + ${move} where id = ${goal.id} and user_id = ${userId} returning *`;
   const txId = recordInBudget
     ? await recordTransaction({
@@ -29,6 +30,31 @@ async function addToGoal(userId: string, goal: any, amount: number, occurredOn: 
       })
     : null;
   return { goal: updated, amount: move, transactionId: txId };
+}
+
+/**
+ * Money taken back out of a pot, usually steady pay from an income buffer: the pot goes down and the money
+ * arrives as income, so this month's budget can use it.
+ */
+async function takeFromGoal(userId: string, goal: any, amount: number, occurredOn: string, clientId?: string) {
+  const take = round2(Math.min(amount, Number(goal.currentAmount)));
+  if (take <= 0) badRequest('There’s nothing in this pot to take out yet.');
+  const [updated] = await sql`update public.goals set current_amount = greatest(0, current_amount - ${take}) where id = ${goal.id} and user_id = ${userId} returning *`;
+  const [c] = await sql`
+    insert into public.goal_contributions (user_id, goal_id, amount, source, status, confirmed_at)
+    values (${userId}, ${goal.id}, ${-take}, 'payout', 'confirmed', now()) returning id
+  `;
+  const transactionId = await recordTransaction({
+    userId,
+    space: goal.spaceId ?? 'personal',
+    type: 'income',
+    amount: take,
+    category: goal.kind === 'buffer' ? 'Steady pay' : 'From savings',
+    description: `From ${goal.name}`,
+    occurredOn,
+    clientId: clientId ?? `goal-payout:${c.id}`
+  });
+  return { goal: toApiGoalLite(updated), amount: -take, transactionId };
 }
 
 const toApiGoalLite = (g: any) => ({ id: g.id, name: g.name, emoji: g.emoji ?? null, targetAmount: Number(g.targetAmount), currentAmount: Number(g.currentAmount) });
@@ -87,6 +113,8 @@ export async function goalContributionAction(ctx: Ctx) {
 
 const AddMoneySchema = z.object({
   amount: z.number().positive().max(1e12),
+  /** 'out' takes money back out, e.g. this month's steady pay from an income buffer. */
+  direction: z.enum(['in', 'out']).default('in'),
   occurredOn: z.string().regex(ISO_DATE).optional(),
   recordInBudget: z.boolean().default(true),
   clientId: z.string().min(8).max(100).optional()
@@ -100,6 +128,7 @@ export async function goalAddMoney(ctx: Ctx) {
   const [goal] = isUuid(id) ? await sql`select * from public.goals where id = ${id} and user_id = ${userId}` : [];
   if (!goal) notFound('Goal not found');
   const input = await body(ctx.req, AddMoneySchema);
+  if (input.direction === 'out') return json(201, await takeFromGoal(userId, goal, input.amount, input.occurredOn ?? todayIso(), input.clientId));
   const [c] = await sql`
     insert into public.goal_contributions (user_id, goal_id, amount, source, status, confirmed_at)
     values (${userId}, ${id}, ${input.amount}, 'manual', 'confirmed', now()) returning id

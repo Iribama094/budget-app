@@ -19,9 +19,20 @@ const QuoteValue = z.object({
   local: z.boolean().optional()
 });
 
+/** Price news for people who buy what it's about, e.g. a fuel price change for anyone who spends on Transport. */
+const PriceAlertValue = z.object({
+  title: z.string().min(4).max(80),
+  body: z.string().min(4).max(240),
+  categories: z.array(z.string().min(1).max(60)).max(10),
+  until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+});
+
+/** The app's exchange rate for a currency, in naira. People can set their own over it. */
+const FxRateValue = z.object({ currency: z.string().regex(/^[A-Z]{3}$/), rate: z.number().positive().max(1e7) });
+
 const BlockInput = z.object({
   key: z.string().min(2).max(120),
-  kind: z.enum(['quote', 'notification', 'guide', 'tip']),
+  kind: z.enum(['quote', 'notification', 'guide', 'tip', 'price_alert', 'fx_rate']),
   value: z.unknown(),
   enabled: z.boolean().optional()
 });
@@ -47,6 +58,8 @@ export async function adminContent(ctx: Ctx) {
       const parsed = QuoteValue.safeParse(input.value);
       if (!parsed.success) badRequest('A quote needs text, an author and a source anyone can check.');
     }
+    if (input.kind === 'price_alert' && !PriceAlertValue.safeParse(input.value).success) badRequest('A price alert needs a title, a short message and the categories it is about.');
+    if (input.kind === 'fx_rate' && !FxRateValue.safeParse(input.value).success) badRequest('A rate needs a three-letter currency code and a rate in naira.');
     const [row] = await sql`
       insert into public.content_blocks (key, kind, value, enabled, updated_by)
       values (${input.key}, ${input.kind}, ${sql.json(input.value as any)}, ${input.enabled ?? true}, ${admin.id})

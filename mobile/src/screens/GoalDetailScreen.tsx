@@ -5,6 +5,7 @@ import { CalendarClock, Pencil, PiggyBank, Plus, Repeat, Trash2 } from '../icons
 
 import { deleteGoal, deleteGoalInSpace, getGoal, getGoalInSpace, patchGoal, patchGoalInSpace, type ApiGoal } from '../api/endpoints';
 import { addMoneyToGoal } from '../api/business';
+import { getPrices, takeFromGoal } from '../api/money';
 import {
   Amount,
   Card,
@@ -176,7 +177,8 @@ export default function GoalDetailScreen() {
 
   const openAddMoney = () => {
     setAddAmount('');
-    setRecordInBudget(true);
+    // Dollars saved in a dollar account don't come out of the naira budget.
+    setRecordInBudget(!foreign);
     setAddError(null);
     setIsAdding(true);
   };
@@ -262,7 +264,48 @@ export default function GoalDetailScreen() {
     return Math.ceil(remaining / months);
   }, [daysRemaining, remaining]);
 
-  const done = progress >= 1;
+  // A buffer is never "done": it fills in good months and pays out in quiet ones.
+  const isBuffer = goal?.kind === 'buffer';
+  const done = !isBuffer && progress >= 1;
+  // A goal in dollars or pounds shows in that currency; saving it doesn't come out of the naira budget.
+  const goalGlyph = goal?.currency ? currencySymbol(goal.currency) : glyph;
+  const foreign = !!goal?.currency && goalGlyph !== glyph;
+
+  // Prices rise while you save. For goals a long way off, say what it may cost by then at your own rate.
+  const [yearlyRate, setYearlyRate] = useState<number | null>(null);
+  const farOff = !isBuffer && !goal?.recurringId && daysRemaining != null && daysRemaining > 180;
+  useEffect(() => {
+    if (!farOff || foreign) return;
+    getPrices()
+      .then((p) => setYearlyRate(p.yearlyRate))
+      .catch(() => undefined);
+  }, [farOff, foreign]);
+  const laterCost = yearlyRate && goal && daysRemaining ? Math.round((goal.targetAmount * Math.pow(1 + yearlyRate, daysRemaining / 365)) / 1000) * 1000 : null;
+
+  const [paying, setPaying] = useState(false);
+  const payYourself = () => {
+    if (!goal?.monthlyDraw) return;
+    const amount = Math.min(goal.monthlyDraw, goal.currentAmount);
+    if (amount <= 0) return toast.show('Your buffer is empty for now. It fills up in good months.', 'info');
+    Alert.alert(`Pay yourself ${formatAmount(amount, goalGlyph)}?`, 'It comes out of your buffer and shows as income this month, so your budget can use it.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Pay me',
+        onPress: async () => {
+          setPaying(true);
+          try {
+            await takeFromGoal(goal.id, amount);
+            toast.show(`${formatAmount(amount, goalGlyph)} paid to you. Steady as you go 👌`, 'success');
+            await load();
+          } catch (e) {
+            toast.show(e instanceof Error ? e.message : 'Could not do that', 'error');
+          } finally {
+            setPaying(false);
+          }
+        }
+      }
+    ]);
+  };
   const title = goal ? `${goal.emoji ? `${goal.emoji} ` : ''}${goal.name}` : 'Goal';
 
   const headerActions = goal ? (
@@ -293,8 +336,10 @@ export default function GoalDetailScreen() {
               </View>
               <Chip tone="onInk" label={`${Math.round(progress * 100)}%`} />
             </View>
-            <Amount value={goal.currentAmount} currency={glyph} size="hero" color={inkText} style={{ marginTop: 8 }} />
-            <Text style={[typo.small, { color: inkText, opacity: 0.78 }]}>of {formatAmount(goal.targetAmount, glyph)} target</Text>
+            <Amount value={goal.currentAmount} currency={goalGlyph} size="hero" color={inkText} style={{ marginTop: 8 }} />
+            <Text style={[typo.small, { color: inkText, opacity: 0.78 }]}>
+              {isBuffer ? `Pays you ${formatAmount(goal.monthlyDraw ?? 0, goalGlyph)} a month` : `of ${formatAmount(goal.targetAmount, goalGlyph)} target`}
+            </Text>
 
             <View style={{ marginTop: 14 }}>
               <ProgressBar value={progress} height={8} color="#E2B65C" trackColor="rgba(255,255,255,0.14)" />
@@ -324,12 +369,21 @@ export default function GoalDetailScreen() {
             </Text>
           </HeroCard>
 
+          {laterCost && laterCost > goal.targetAmount * 1.02 ? (
+            <Text style={[typo.caption, { color: theme.colors.textMuted, marginTop: 10 }]}>
+              The things you buy are getting dearer, about {Math.round((yearlyRate ?? 0) * 100)}% a year. By {formatShortDate(goal.targetDate)} this may cost nearer {formatAmount(laterCost, goalGlyph)}.
+            </Text>
+          ) : null}
+
           {done ? <QuoteLine quote={pickQuote(['saving', 'patience'], goal.id)} style={{ marginTop: 16 }} /> : null}
 
           {!done ? (
             <GuideAnchor id="goaldetail.add">
               <PrimaryButton title="Add money" onPress={openAddMoney} iconLeft={<Plus color={theme.colors.onPrimary} size={18} />} style={{ marginTop: 14 }} />
             </GuideAnchor>
+          ) : null}
+          {isBuffer && goal.monthlyDraw ? (
+            <SecondaryButton title={`Pay yourself ${formatAmount(Math.min(goal.monthlyDraw, goal.currentAmount), goalGlyph)}`} onPress={payYourself} disabled={paying} style={{ marginTop: 10 }} />
           ) : null}
 
           <PendingSavingsCard goalId={goal.id} onAnswered={load} />
@@ -382,7 +436,7 @@ export default function GoalDetailScreen() {
 
       <Sheet visible={isAdding} onClose={() => setIsAdding(false)} title="Add money" subtitle={goal ? `Toward ${goal.name}` : undefined}>
         {addError ? <InlineError message={addError} /> : null}
-        <MoneyField label="How much did you move?" value={addAmount} onChange={setAddAmount} glyph={glyph} autoFocus hint="Move it to your savings account first. We only record it." />
+        <MoneyField label="How much did you move?" value={addAmount} onChange={setAddAmount} glyph={goalGlyph} autoFocus hint="Move it to your savings account first. We only record it." />
         <View style={[styles.row, { marginBottom: 16 }]}>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={[typo.bodyStrong, { color: theme.colors.text }]}>Record in my Savings budget</Text>

@@ -14,13 +14,14 @@ export const INCOME_KINDS: Array<{ key: IncomeKind; label: string }> = [
 ];
 
 export const INCOME_FREQUENCIES: ReadonlyArray<{ key: IncomeFrequency; label: string }> = [
-  { key: 'monthly', label: 'Monthly' },
-  { key: 'biweekly', label: '2 weeks' },
+  { key: 'daily', label: 'Daily' },
   { key: 'weekly', label: 'Weekly' },
+  { key: 'biweekly', label: '2 weeks' },
+  { key: 'monthly', label: 'Monthly' },
   { key: 'irregular', label: 'Varies' }
 ];
 
-export const FREQUENCY_WORD: Record<IncomeFrequency, string> = { monthly: 'a month', biweekly: 'every 2 weeks', weekly: 'a week', irregular: 'in a normal month' };
+export const FREQUENCY_WORD: Record<IncomeFrequency, string> = { daily: 'a day', monthly: 'a month', biweekly: 'every 2 weeks', weekly: 'a week', irregular: 'in a normal month' };
 
 export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -82,6 +83,7 @@ export function fromApiIncome(s: ApiIncomeSource): DraftIncome {
 /** "paid on the 25th", "paid on Fridays", "amount varies". */
 export function describePay(s: { frequency: IncomeFrequency; payDay: number | null; nextPayDate: string | null }): string {
   if (s.frequency === 'irregular') return 'amount varies';
+  if (s.frequency === 'daily') return 'paid daily, about 26 working days a month';
   if (s.frequency === 'monthly') return s.payDay ? `paid on the ${ordinal(s.payDay)}` : 'monthly';
   const day = s.nextPayDate ? WEEKDAYS[new Date(`${s.nextPayDate}T12:00:00`).getDay()] : null;
   return `${s.frequency === 'weekly' ? 'weekly' : 'every 2 weeks'}${day ? ` on ${day}` : ''}`;
@@ -102,7 +104,7 @@ export const BILL_PRESETS: Array<Omit<DraftBill, 'key' | 'amount' | 'dueDay'>> =
   { name: 'Rent', category: 'Rent & housing', bucket: 'Needs', frequency: 'yearly' },
   { name: 'Electricity', category: 'Bills & utilities', bucket: 'Needs', frequency: 'monthly' },
   { name: 'Data & airtime', category: 'Data & airtime', bucket: 'Needs', frequency: 'monthly' },
-  { name: 'School fees', category: 'School fees', bucket: 'Needs', frequency: 'yearly' },
+  { name: 'School fees', category: 'School fees', bucket: 'Needs', frequency: 'termly' },
   { name: 'Family support', category: 'Family support', bucket: 'Needs', frequency: 'monthly' },
   { name: 'Tithe & offering', category: 'Tithe & offering', bucket: 'Needs', frequency: 'monthly' },
   { name: 'Loan repayment', category: 'Debt repayment', bucket: 'Needs', frequency: 'monthly' },
@@ -115,7 +117,8 @@ export function blankBill(preset?: Omit<DraftBill, 'key' | 'amount' | 'dueDay'>)
 }
 
 const MONTH_DAYS = 365 / 12;
-const monthlyBill = (b: BillInput) => (b.frequency === 'weekly' ? (b.amount * 52) / 12 : b.frequency === 'yearly' ? b.amount / 12 : b.amount);
+const monthlyBill = (b: BillInput) =>
+  b.frequency === 'weekly' ? (b.amount * 52) / 12 : b.frequency === 'yearly' ? b.amount / 12 : b.frequency === 'termly' ? b.amount / 4 : b.amount;
 
 /**
  * Everyday spending money per day: income minus bills minus savings, spread over an average month. Bills sit

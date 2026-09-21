@@ -69,7 +69,7 @@ export function IncomeEditor({
       </View>
 
       <Text style={[type.smallStrong, styles.label, { color: theme.colors.text }]}>
-        {value.frequency === 'irregular' ? 'Roughly how much in a normal month?' : 'How much do you get each time?'}
+        {value.frequency === 'irregular' ? 'Roughly how much in a normal month?' : value.frequency === 'daily' ? 'Roughly how much on a normal day?' : 'How much do you get each time?'}
       </Text>
       <View style={[styles.input, { borderColor: theme.colors.primary, backgroundColor: theme.colors.surface }]}>
         <Text style={{ fontFamily: fonts.medium, fontSize: 18, color: theme.colors.textMuted }}>{glyph}</Text>
@@ -107,6 +107,8 @@ export function IncomeEditor({
             ))}
           </View>
         </>
+      ) : value.frequency === 'daily' ? (
+        <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 10 }]}>We count about 26 working days a month. Log what you make each day and we’ll show how to split it.</Text>
       ) : (
         <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 10 }]}>We’ll plan by calendar month and treat this as a safe estimate.</Text>
       )}

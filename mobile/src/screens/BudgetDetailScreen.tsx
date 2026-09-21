@@ -19,6 +19,7 @@ import { formatMoney, toIsoDate, toIsoDateTime } from '../utils/format';
 import { tokens } from '../theme/tokens';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { MoveMoneySheet } from '../components/Budget/MoveMoneySheet';
 
 function parseIsoDateLocal(value?: string | null) {
   if (!value) return null;
@@ -86,6 +87,7 @@ export default function BudgetDetailScreen() {
   const [lastTaxLabel, setLastTaxLabel] = useState<string | null>(null);
 
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
+  const [moveFor, setMoveFor] = useState<{ to?: string } | null>(null);
   const bucketLabel = useCallback(
     (key: string) => {
       return bucketDisplayName(key, isBusiness);
@@ -222,6 +224,7 @@ export default function BudgetDetailScreen() {
 
   const isSharedBudget = !!budget && (!!budget.isShared || budget.purpose === 'household');
   const isOwnPlan = !!budget && budget.role !== 'member' && (budget.purpose ?? 'personal') === 'personal';
+  const canMoveMoney = !!budget && budget.role !== 'member' && Object.keys(budget.categories || {}).length > 1;
   const isCurrent = !!budgetRange && Date.now() >= budgetRange.start.getTime() && Date.now() <= budgetRange.end.getTime() + 86400000;
   const homeBudget = user?.homeBudget ?? 'own';
   // Offer to put this budget on Home when it's running and Home shows the other kind.
@@ -244,7 +247,18 @@ export default function BudgetDetailScreen() {
     setStartingNext(true);
     try {
       const r = await startNextBudget(budget.id);
-      toast.show(r.existed ? 'The next one is already set up' : isSharedBudget ? 'Next period started. Everyone’s in 🎉' : 'Next period started 🎉', 'success');
+      const glyph = currencySymbol(currency);
+      toast.show(
+        r.existed
+          ? 'The next one is already set up'
+          : r.keptUp
+            ? `Next period started. Needs went up to ${formatMoney(r.keptUp.to, glyph)} to match what things cost now, and wants gave way.`
+            : isSharedBudget
+              ? 'Next period started. Everyone’s in 🎉'
+              : 'Next period started 🎉',
+        'success',
+        r.keptUp ? 6000 : undefined
+      );
       nav.replace('BudgetDetail', { budgetId: r.budget.id });
     } catch (e) {
       toast.show(e instanceof Error ? e.message : 'Could not start the next budget', 'error');
@@ -538,6 +552,17 @@ export default function BudgetDetailScreen() {
                       <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>{formatMoney(spent, currency)}</Text>
                     </View>
 
+                    {spent > c.budgeted && c.budgeted > 0 ? (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                        <Text style={{ color: theme.colors.error, fontFamily: 'Figtree_700Bold' }}>Over by {formatMoney(spent - c.budgeted, currency)}</Text>
+                        {canMoveMoney ? (
+                          <Pressable onPress={() => setMoveFor({ to: cat })} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Cover ${bucketLabel(cat)} from another bucket`}>
+                            <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_700Bold' }}>Cover it</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
+                    ) : null}
+
                     <View style={{ height: 10, backgroundColor: theme.colors.surfaceAlt, borderRadius: 999, overflow: 'hidden', marginTop: 10 }}>
                       <Animated.View
                         style={{
@@ -551,6 +576,7 @@ export default function BudgetDetailScreen() {
                 );
               })}
             </View>
+            {canMoveMoney ? <TextButton title="Move money between buckets" onPress={() => setMoveFor({})} style={{ alignItems: 'flex-start', marginTop: 8 }} /> : null}
           </View>
 
           {/* Burn rate insight */}
@@ -627,6 +653,18 @@ export default function BudgetDetailScreen() {
             </View>
           ) : null}
         </View>
+      ) : null}
+      {budget ? (
+        <MoveMoneySheet
+          visible={!!moveFor}
+          onClose={() => setMoveFor(null)}
+          budget={budget}
+          spent={txSummary.spentByCategory}
+          to={moveFor?.to}
+          glyph={currencySymbol(currency)}
+          isBusiness={isBusiness}
+          onMoved={() => void load()}
+        />
       ) : null}
     </Screen>
   );

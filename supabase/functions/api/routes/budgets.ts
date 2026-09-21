@@ -230,6 +230,19 @@ export async function nextPeriod(ctx: Ctx) {
       total = Object.values(categories).reduce((s, c) => s + c.budgeted, 0);
     }
   }
+  // Keep up with prices: needs that cost more than planned last time get what they really cost, and wants give way.
+  // The total stays the same, so the plan never pretends there's more money than there is.
+  let keptUp: { from: number; to: number } | null = null;
+  if (!b.trackingStart && categories.Needs && categories.Wants) {
+    const { buckets } = await unspentByBucket(b);
+    const needs = buckets.find((x) => x.bucket === 'Needs');
+    const room = categories.Wants.budgeted;
+    if (needs && needs.spent > needs.budgeted && room > 0) {
+      const raise = Math.min(room, Math.ceil((needs.spent - needs.budgeted) / 500) * 500);
+      keptUp = { from: categories.Needs.budgeted, to: categories.Needs.budgeted + raise };
+      categories = { ...categories, Needs: { budgeted: keptUp.to }, Wants: { budgeted: room - raise } };
+    }
+  }
   const name = /^My Budget \(.*\)$/.test(b.name) ? `My Budget (${periodLabel(dates.start, dates.end)})` : b.name;
   const [row] = await sql`
     insert into public.budgets (user_id, space_id, name, total_budget, period, start_date, end_date, categories, purpose)
@@ -238,7 +251,7 @@ export async function nextPeriod(ctx: Ctx) {
   `;
   if (purpose === 'household') await announceNextPeriod(await carryMembers(userId, row.id, b.id), { id: row.id, name });
   const created = await findOwnBudget(userId, row.id);
-  return json(201, { budget: toApiBudget(created!, userId), existed: false });
+  return json(201, { budget: toApiBudget(created!, userId), existed: false, keptUp });
 }
 
 /* ------------------------------------------------------------ mini budgets */

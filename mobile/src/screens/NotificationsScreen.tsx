@@ -69,7 +69,8 @@ const PERSONAL_PREFS: PrefRow[] = [
   { key: 'billReminders', title: 'Bills and recurring', body: 'Before bills are due and when payments are recorded' },
   { key: 'autoSave', title: 'Goal savings reminders', body: 'A nudge to move money to your goals when income lands' },
   { key: 'sharedActivity', title: 'Shared budget activity', body: 'A morning summary of what others spent in budgets you share' },
-  { key: 'weeklyCheckIn', title: 'Weekly check-in and tips', body: 'Sunday evening, plus the occasional money tip' }
+  { key: 'weeklyCheckIn', title: 'Weekly check-in and tips', body: 'Sunday evening, plus the occasional money tip' },
+  { key: 'privateNotifications', title: 'Keep notifications private', body: 'The lock screen shows only “You have an update”: no amounts, names or payees' }
 ];
 
 const BUSINESS_PREFS: PrefRow[] = [
@@ -77,7 +78,8 @@ const BUSINESS_PREFS: PrefRow[] = [
   { key: 'billReminders', title: 'Supplier bills and regular costs', body: 'Before a bill is due and when a recurring cost is recorded' },
   { key: 'filingReminders', title: 'VAT and PAYE dates', body: 'A nudge before filing deadlines' },
   { key: 'paceAlerts', title: 'Cost alerts', body: 'When business spending runs ahead of plan or goes over' },
-  { key: 'weeklyCheckIn', title: 'Business tips', body: 'Cash, runway and profit insights, at most once a week' }
+  { key: 'weeklyCheckIn', title: 'Business tips', body: 'Cash, runway and profit insights, at most once a week' },
+  { key: 'privateNotifications', title: 'Keep notifications private', body: 'The lock screen shows only “You have an update”: no amounts, names or payees' }
 ];
 
 function sameDay(iso: string) {
