@@ -133,3 +133,49 @@ input, select { font-family: inherit; font-size: 14px; }
 table { width: 100%; border-collapse: collapse; }
 th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; color: #3c4e4a; padding: 10px 12px; background: var(--line-soft); }
 td { padding: 12px; border-bottom: 1px solid var(--line-soft); font-size: 13px; vertical-align: top; }
+
+/* ---------------------------------------------------------- Wrapped player */
+/* Plays a story the way the app does, in a phone-sized frame, so certifying means looking at what people get. */
+.wv-backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(8, 17, 15, 0.72); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.wv-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; max-height: 100%; }
+.wv-top { width: min(390px, 92vw); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; color: #eaf4f1; }
+.wv-who { font-family: Sora, sans-serif; font-weight: 600; font-size: 14px; }
+.wv-note { font-size: 11.5px; line-height: 16px; opacity: 0.75; margin-top: 3px; }
+.wv-phone { width: min(390px, 92vw); aspect-ratio: 390 / 760; max-height: calc(100vh - 150px); border-radius: 34px; overflow: hidden; box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.7); border: 8px solid #08110f; }
+.wv-slide { position: relative; height: 100%; color: #fff; padding: 58px 24px 24px; font-family: Figtree, system-ui, sans-serif; overflow: hidden; }
+.wv-empty { display: flex; flex-direction: column; justify-content: center; padding: 24px; }
+.wv-body { position: relative; z-index: 1; }
+.wv-progress { position: absolute; top: 18px; left: 16px; right: 16px; display: flex; gap: 4px; z-index: 2; }
+.wv-seg { flex: 1; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, 0.28); overflow: hidden; }
+.wv-fill { height: 100%; width: 0; background: #fff; }
+.wv-fill.done { width: 100%; }
+.wv-fill.now { animation-name: wv-grow; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes wv-grow { from { width: 0; } to { width: 100%; } }
+.wv-tap { position: absolute; top: 0; bottom: 0; z-index: 3; background: transparent; border: 0; cursor: pointer; }
+.wv-tap.left { left: 0; width: 34%; }
+.wv-tap.right { right: 0; width: 66%; }
+.wv-tap:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: -4px; }
+.wv-label { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: rgba(255, 255, 255, 0.72); }
+.wv-big { font-family: Sora, sans-serif; font-weight: 700; font-size: 34px; line-height: 40px; color: #fff; word-break: break-word; }
+.wv-line { font-size: 15px; line-height: 22px; color: #fff; margin-top: 6px; }
+.wv-soft { color: rgba(255, 255, 255, 0.72); }
+.wv-caption { font-size: 12px; line-height: 16px; }
+.wv-small { font-size: 12px; font-weight: 700; }
+.wv-strong { font-size: 14px; font-weight: 700; }
+.wv-metric { font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, 0.72); }
+.wv-count { font-family: Sora, sans-serif; font-weight: 700; font-size: 30px; line-height: 36px; font-variant-numeric: tabular-nums; }
+.wv-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.wv-track { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.15); margin-top: 6px; overflow: hidden; }
+.wv-bar { border-radius: 4px; transition: width 900ms cubic-bezier(0.2, 0.8, 0.2, 1), height 900ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.wv-chart { display: flex; align-items: flex-end; gap: 6px; height: 150px; margin-top: 22px; }
+.wv-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
+.wv-colbar { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+.wv-reveal { opacity: 0; transform: translateY(12px); animation: wv-reveal 520ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+.wv-pop { opacity: 0; transform: scale(0.8); animation: wv-pop 560ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+@keyframes wv-reveal { to { opacity: 1; transform: none; } }
+@keyframes wv-pop { to { opacity: 1; transform: none; } }
+.wv-count-note { color: rgba(234, 244, 241, 0.7); font-size: 12px; }
+@media (prefers-reduced-motion: reduce) {
+  .wv-reveal, .wv-pop { animation: none; opacity: 1; transform: none; }
+  .wv-bar { transition: none; }
+}

@@ -1,5 +1,75 @@
 import { useEffect, useState } from 'react';
 import { api, type Admin, type PreviewMatch, type WrappedPeriod, type WrappedStory } from '../api';
+import { WrappedViewer } from './WrappedViewer';
+
+type Found = { of: string; name: string | null; hasBusiness: boolean; story: WrappedStory };
+type PreviewResult = { matches?: PreviewMatch[]; preview?: Found };
+
+/**
+ * The person staff picked, and what their story holds. Business periods say plainly when there is no business,
+ * rather than showing an empty story that looks like a fault.
+ */
+function FoundStory({
+  found,
+  period,
+  onPlay,
+  onClose
+}: {
+  found: Found;
+  period: WrappedPeriod;
+  onPlay: (story: WrappedStory, who: string) => void;
+  onClose: () => void;
+}) {
+  const who = found.name ?? found.of;
+  const noBusiness = period.space === 'business' && !found.hasBusiness;
+  const s = found.story;
+  return (
+    <div style={{ marginTop: 14, padding: 14, borderRadius: 12, background: '#f3f6f5' }}>
+      <div className="spread">
+        <div>
+          <p className="name">{who}</p>
+          {found.name ? <p className="meta">{found.of}</p> : null}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {!noBusiness ? (
+            <button type="button" className="btn small primary" onClick={() => onPlay(s, who)}>
+              Play it as they see it
+            </button>
+          ) : null}
+          <button type="button" className="btn small" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+      {noBusiness ? (
+        <p className="muted" style={{ marginTop: 8 }}>
+          {who} has not set up a business, so there is no business story for {periodName(period)}. Check their personal story instead.
+        </p>
+      ) : !s.hasData ? (
+        <p className="muted" style={{ marginTop: 8 }}>
+          No {period.space} transactions in {periodName(period)}, so there is no story for this period. This account is left out rather than shown an empty
+          one, which is the intended behaviour.
+        </p>
+      ) : (
+        <div style={{ marginTop: 10 }}>
+          <p style={{ fontSize: 13.5 }}>
+            <strong>{s.persona.title}</strong>: {s.persona.line}
+          </p>
+          <p className="muted" style={{ marginTop: 8 }}>
+            In {s.totals.income.toLocaleString()}, out {s.totals.spending.toLocaleString()}, kept {s.totals.net.toLocaleString()}
+            {s.totals.savingsRate != null ? ` (${s.totals.savingsRate}%)` : ''}
+          </p>
+          <p className="muted" style={{ marginTop: 6 }}>
+            Top: {s.topCategories.map((c) => `${c.category} ${c.share}%`).join(', ') || 'nothing yet'}
+          </p>
+          <p className="muted" style={{ marginTop: 6 }}>
+            {s.habits.daysLogged} days logged, {s.habits.transactions} transactions
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const CAN_CHANGE: Admin['role'][] = ['owner', 'engineer'];
 
@@ -25,36 +95,43 @@ export function Wrapped({ admin }: { admin: Admin }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [previewEmail, setPreviewEmail] = useState('');
-  const [preview, setPreview] = useState<{ of: string; story: WrappedStory } | null>(null);
-  const [matches, setMatches] = useState<PreviewMatch[] | null>(null);
-  const [previewing, setPreviewing] = useState(false);
+  // Each period card keeps its own search and result. One shared set used to show a Full year search under every
+  // quarter too, including business quarters for people who have no business.
+  const [queries, setQueries] = useState<Record<string, string>>({});
+  const [results, setResults] = useState<Record<string, PreviewResult>>({});
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const [playing, setPlaying] = useState<{ story: WrappedStory; who: string } | null>(null);
   const mayChange = CAN_CHANGE.includes(admin.role);
 
   /** Certifying means saying the numbers are right, which needs looking at some. Every look is audited. */
   const runPreview = async (p: WrappedPeriod, e: React.FormEvent | null, pickedId?: string) => {
     e?.preventDefault();
-    setPreviewing(true);
+    setPreviewingId(p.id);
     setError(null);
-    setPreview(null);
-    if (!pickedId) setMatches(null);
     try {
-      const who = pickedId ? { id: pickedId } : { q: previewEmail.trim() };
+      const who = pickedId ? { id: pickedId } : { q: (queries[p.id] ?? '').trim() };
       // The story for exactly this period: a business quarter previews that quarter, not the whole year.
       const res = await api.wrappedPreview(who, { kind: p.kind, quarter: p.quarter, year: p.year, space: p.space });
       if (res.matches) {
         // Several people fit what was typed: let staff pick, rather than guessing whose figures to open.
-        setMatches(res.matches);
+        setResults((prev) => ({ ...prev, [p.id]: { matches: res.matches } }));
       } else if (res.wrapped && res.of) {
-        setMatches(null);
-        setPreview({ of: res.of, story: res.wrapped });
+        const found = { of: res.of, name: res.name ?? null, hasBusiness: !!res.hasBusiness, story: res.wrapped };
+        setResults((prev) => ({ ...prev, [p.id]: { matches: prev[p.id]?.matches, preview: found } }));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not build that preview');
     } finally {
-      setPreviewing(false);
+      setPreviewingId(null);
     }
   };
+
+  const clearResult = (id: string) =>
+    setResults((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
 
   const load = () =>
     api
@@ -180,36 +257,38 @@ export function Wrapped({ admin }: { admin: Admin }) {
                   <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
                     <input
                       type="text"
-                      value={previewEmail}
-                      onChange={(ev) => setPreviewEmail(ev.target.value)}
+                      value={queries[p.id] ?? ''}
+                      onChange={(ev) => setQueries((prev) => ({ ...prev, [p.id]: ev.target.value }))}
                       placeholder="Their name or email"
                       aria-label="Their name or email"
                       style={{ flexGrow: 1, height: 38, padding: '0 12px', borderRadius: 10, border: '1px solid var(--line)' }}
                       minLength={3}
                       required
                     />
-                    <button type="submit" className="btn" disabled={previewing}>
-                      {previewing ? 'Building...' : 'Show me'}
+                    <button type="submit" className="btn" disabled={previewingId === p.id}>
+                      {previewingId === p.id ? 'Searching...' : 'Find'}
                     </button>
                   </div>
-                  {matches ? (
+                  {results[p.id]?.matches ? (
                     <div style={{ marginTop: 12 }}>
                       <p className="muted" style={{ marginBottom: 6 }}>
-                        {matches.length} people match. Pick one to see their story.
+                        {results[p.id]!.matches!.length} people match. Pick one to see their story.
                       </p>
-                      {matches.map((m) => (
+                      {results[p.id]!.matches!.map((m) => (
                         <div className="row" key={m.id}>
                           <div className="grow">
                             <p className="name">{m.name ?? m.email}</p>
                             <p className="meta">
                               {m.name ? `${m.email} · ` : ''}
-                              {m.transactions
-                                ? `${m.transactions} ${p.space} transaction${m.transactions === 1 ? '' : 's'} in ${periodName(p)}`
-                                : `No ${p.space} transactions in ${periodName(p)}, so this story will be empty`}
+                              {p.space === 'business' && !m.hasBusiness
+                                ? 'Has not set up a business, so there is no business story'
+                                : m.transactions
+                                  ? `${m.transactions} ${p.space} transaction${m.transactions === 1 ? '' : 's'} in ${periodName(p)}`
+                                  : `No ${p.space} transactions in ${periodName(p)}, so this story will be empty`}
                             </p>
                           </div>
-                          <button type="button" className="btn small" disabled={previewing} onClick={() => void runPreview(p, null, m.id)}>
-                            Show
+                          <button type="button" className="btn small" disabled={previewingId === p.id} onClick={() => void runPreview(p, null, m.id)}>
+                            Choose
                           </button>
                         </div>
                       ))}
@@ -218,37 +297,13 @@ export function Wrapped({ admin }: { admin: Admin }) {
                 </form>
               ) : null}
 
-              {preview ? (
-                <div style={{ marginTop: 14, padding: 14, borderRadius: 12, background: '#f3f6f5' }}>
-                  <div className="spread">
-                    <p className="name">{preview.of}</p>
-                    <button type="button" className="btn small" onClick={() => setPreview(null)}>
-                      Close
-                    </button>
-                  </div>
-                  {!preview.story.hasData ? (
-                    <p className="muted" style={{ marginTop: 8 }}>
-                      Not enough logged for a story. That account would be left out rather than shown an empty one, which is the intended behaviour.
-                    </p>
-                  ) : (
-                    <div style={{ marginTop: 10 }}>
-                      <p style={{ fontSize: 13.5 }}>
-                        <strong>{preview.story.persona.title}</strong>: {preview.story.persona.line}
-                      </p>
-                      <p className="muted" style={{ marginTop: 8 }}>
-                        In {preview.story.totals.income.toLocaleString()}, out {preview.story.totals.spending.toLocaleString()}, kept{' '}
-                        {preview.story.totals.net.toLocaleString()}
-                        {preview.story.totals.savingsRate != null ? ` (${preview.story.totals.savingsRate}%)` : ''}
-                      </p>
-                      <p className="muted" style={{ marginTop: 6 }}>
-                        Top: {preview.story.topCategories.map((c) => `${c.category} ${c.share}%`).join(', ') || 'nothing yet'}
-                      </p>
-                      <p className="muted" style={{ marginTop: 6 }}>
-                        {preview.story.habits.daysLogged} days logged, {preview.story.habits.transactions} transactions
-                      </p>
-                    </div>
-                  )}
-                </div>
+              {results[p.id]?.preview ? (
+                <FoundStory
+                  found={results[p.id]!.preview!}
+                  period={p}
+                  onPlay={(story, who) => setPlaying({ story, who })}
+                  onClose={() => clearResult(p.id)}
+                />
               ) : null}
             </div>
           );
@@ -261,6 +316,8 @@ export function Wrapped({ admin }: { admin: Admin }) {
       <div className="banner good">
         Pulling a period back hides Wrapped again for everyone within a minute. Anyone reading it at that moment keeps the screen open until they leave it.
       </div>
+
+      {playing ? <WrappedViewer story={playing.story} who={playing.who} onClose={() => setPlaying(null)} /> : null}
     </>
   );
 }

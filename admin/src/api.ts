@@ -58,7 +58,7 @@ export type Overview = {
 
 export type StaffRow = Admin & { createdAt: string; lastSeenAt: string | null; disabledAt: string | null };
 
-export type PreviewMatch = { id: string; email: string; name: string | null; transactions: number };
+export type PreviewMatch = { id: string; email: string; name: string | null; transactions: number; hasBusiness: boolean };
 
 export type PersonMatch = {
   id: string;
@@ -105,13 +105,37 @@ export type TaxVersion = {
   you?: string;
 };
 
+/** Everything the app's Wrapped screen draws, so the console can play it back exactly as a person sees it. */
 export type WrappedStory = {
   hasData: boolean;
-  period: { label: string; complete: boolean };
-  persona: { title: string; line: string };
-  totals: { income: number; spending: number; net: number; savingsRate: number | null };
+  space: 'personal' | 'business';
+  currency: string;
+  period: { kind: 'h1' | 'year' | 'quarter'; year: number; quarter: number | null; start: string; end: string; label: string; complete: boolean };
+  persona: { key: string; title: string; line: string };
+  totals: { income: number; spending: number; net: number; savingsRate: number | null; ownerPay: number };
+  change: { spending: number | null; income: number | null };
+  months: Array<{ month: string; income: number; spending: number }>;
+  biggestMonth: { month: string; amount: number } | null;
+  calmestMonth: { month: string; amount: number } | null;
+  bestSavingMonth: { month: string; amount: number } | null;
   topCategories: Array<{ category: string; amount: number; share: number }>;
-  habits: { daysLogged: number; transactions: number };
+  topMerchant: { name: string; visits: number; amount: number } | null;
+  busiestDay: string | null;
+  habits: { transactions: number; daysLogged: number; trackedDays: number; totalDays: number; noSpendDays: number };
+  goals: { saved: number; goalsFunded: number };
+  budgets: { ended: number; onBudget: number };
+  business: {
+    revenue: number;
+    costs: number;
+    profit: number;
+    margin: number | null;
+    bestMonth: { month: string; profit: number } | null;
+    topCustomer: { name: string; amount: number } | null;
+    invoicesIssued: number;
+    invoicesPaid: number;
+    payroll: number;
+    ownerPay: number;
+  } | null;
 };
 
 export type TaxBand = { from: number; to: number | null; rate: number };
@@ -217,7 +241,7 @@ export const api = {
     who: { q?: string; id?: string },
     period: { kind: 'h1' | 'year' | 'quarter'; quarter?: number | null; year: number; space: 'personal' | 'business' }
   ) =>
-    call<{ wrapped?: WrappedStory; of?: string; matches?: PreviewMatch[] }>(
+    call<{ wrapped?: WrappedStory; of?: string; name?: string | null; hasBusiness?: boolean; matches?: PreviewMatch[] }>(
       `/admin/wrapped/preview?${who.id ? `id=${encodeURIComponent(who.id)}` : `q=${encodeURIComponent(who.q ?? '')}`}` +
         `&kind=${period.kind}${period.kind === 'quarter' ? `&quarter=${period.quarter ?? 1}` : ''}&year=${period.year}&space=${period.space}`
     )

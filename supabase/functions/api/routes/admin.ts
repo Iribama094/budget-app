@@ -181,7 +181,11 @@ export async function adminWrappedPreview(ctx: Ctx) {
   const matches = await sql`
     select p.id, p.email, p.name,
       (select count(*)::int from public.transactions t
-        where t.user_id = p.id and t.space_id = ${space} and t.occurred_at >= ${from}::date and t.occurred_at < (${to}::date + 1)) as transactions
+        where t.user_id = p.id and t.space_id = ${space} and t.occurred_at >= ${from}::date and t.occurred_at < (${to}::date + 1)) as transactions,
+      -- A business exists once it has a name or has recorded anything. Opening business settings alone creates an
+      -- empty settings row, so that row by itself does not count.
+      (exists (select 1 from public.business_settings bs where bs.user_id = p.id and coalesce(trim(bs.business_name), '') <> '')
+        or exists (select 1 from public.transactions t2 where t2.user_id = p.id and t2.space_id = 'business')) as has_business
     from public.profiles p
     where ${
       id
@@ -194,14 +198,14 @@ export async function adminWrappedPreview(ctx: Ctx) {
   if (!matches.length) notFound(`Nobody matches "${id || q}".`);
   if (matches.length > 1) {
     return json(200, {
-      matches: matches.map((m) => ({ id: m.id, email: m.email, name: m.name ?? null, transactions: Number(m.transactions) }))
+      matches: matches.map((m) => ({ id: m.id, email: m.email, name: m.name ?? null, transactions: Number(m.transactions), hasBusiness: !!m.hasBusiness }))
     });
   }
   const person = matches[0];
 
   const wrapped = await computeWrapped(person.id as string, space, kind, year, undefined, quarter);
   await audit(admin, 'wrapped.preview', person.email as string, { kind, quarter: quarter ?? null, year, space });
-  return json(200, { wrapped, of: person.email });
+  return json(200, { wrapped, of: person.email, name: person.name ?? null, hasBusiness: !!person.hasBusiness });
 }
 
 /* ------------------------------------------------------------------- audit */
