@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Save your spot · BudgetFriendly</title>
+    <link rel="icon" href="logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Sora:wght@500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="page">
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="index.html"><img src="logo.png" alt="" />BudgetFriendly</a>
+      </div>
+    </header>
+
+    <main>
+      <div class="card">
+        <div class="steps-indicator" aria-label="Step 1 of 2"><b></b><b class="off"></b><span>Step 1 of 2</span></div>
+        <h1>Save your spot</h1>
+        <p class="lede">Two quick questions so we can set BudgetFriendly up for you on day one.</p>
+
+        <form class="form" id="join" action="joined.html" method="get" novalidate>
+          <input type="hidden" name="ref" id="ref" />
+          <input type="hidden" name="source" id="source" />
+          <!-- Left empty by people; bots fill it in. -->
+          <div aria-hidden="true" style="position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden"><label for="company">Company</label><input id="company" name="company" type="text" tabindex="-1" autocomplete="off" /></div>
+          <div class="field">
+            <label for="name">First name</label>
+            <input class="input" id="name" name="name" type="text" autocomplete="given-name" placeholder="e.g. Ada" required />
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input class="input" id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
+          </div>
+          <div class="field">
+            <label for="phone">WhatsApp number <span style="font-weight: 500; color: var(--muted)">(optional)</span></label>
+            <div class="phone"><span aria-hidden="true">+234</span><input class="input" id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="803 000 0000" /></div>
+            <span class="hint">So we can tell you on WhatsApp the moment it’s your turn.</span>
+          </div>
+
+          <fieldset>
+            <legend class="legend">What will you use BudgetFriendly for?</legend>
+            <div class="choices">
+              <label class="choice"><input type="radio" name="use" value="personal" checked /><span><strong>My own money</strong><small>A plan from payday to payday, and what’s safe to spend each day.</small></span></label>
+              <label class="choice"><input type="radio" name="use" value="business" /><span><strong>My business</strong><small>Profit, invoices, sales uploads, payroll and tax.</small></span></label>
+              <label class="choice"><input type="radio" name="use" value="both" /><span><strong>Both</strong><small>Personal and business, kept separate in one app.</small></span></label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend class="legend">What’s hardest about money right now? <span style="font-weight: 500; color: var(--muted)">Pick any</span></legend>
+            <div class="chips">
+              <label class="chip"><input type="checkbox" name="pain" value="runs_out" /><span>My money runs out before payday</span></label>
+              <label class="chip"><input type="checkbox" name="pain" value="no_idea" /><span>I don’t know where my money goes</span></label>
+              <label class="chip"><input type="checkbox" name="pain" value="cant_save" /><span>I find it hard to save</span></label>
+              <label class="chip"><input type="checkbox" name="pain" value="debt" /><span>I’m paying off debt</span></label>
+              <label class="chip"><input type="checkbox" name="pain" value="irregular" /><span>My income isn’t steady</span></label>
+            </div>
+          </fieldset>
+
+          <label class="consent"><input type="checkbox" name="updates" value="yes" checked />Send me launch news and money tips. You can unsubscribe at any time.</label>
+
+          <p class="form-error" id="error" role="alert" hidden></p>
+          <button class="btn" type="submit" id="submit">Join the waitlist</button>
+          <p class="small-print">We’ll never share your details. No spam, ever.</p>
+        </form>
+      </div>
+    </main>
+
+    <script src="config.js"></script>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const $ = (id) => document.getElementById(id);
+      // Carry the email, invite code and campaign source from the landing page into this form.
+      if (params.get("email")) $("email").value = params.get("email");
+      $("ref").value = params.get("ref") || sessionStorage.getItem("bf-ref") || "";
+      $("source").value = params.get("source") || sessionStorage.getItem("bf-source") || "";
+
+      const form = $("join"), error = $("error"), submit = $("submit");
+      const fail = (message) => { error.textContent = message; error.hidden = false; };
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        error.hidden = true;
+        if (!form.checkValidity()) {
+          form.reportValidity();
+          return;
+        }
+        const data = new FormData(form);
+        const payload = {
+          firstName: data.get("name"),
+          email: data.get("email"),
+          phone: data.get("phone") || null,
+          use: data.get("use") || "personal",
+          pains: data.getAll("pain"),
+          updates: data.get("updates") === "yes",
+          ref: data.get("ref") || null,
+          source: data.get("source") || null,
+          company: data.get("company") || null
+        };
+        submit.disabled = true;
+        submit.textContent = "Saving your spot…";
+        try {
+          const res = await fetch(BF_WAITLIST_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+          const out = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(out?.error?.message || "Something went wrong. Please try again.");
+          sessionStorage.setItem("bf-joined", JSON.stringify(out));
+          location.href = "joined.html";
+        } catch (err) {
+          fail(err instanceof TypeError ? "We couldn’t reach the waitlist. Check your connection and try again." : err.message);
+          submit.disabled = false;
+          submit.textContent = "Join the waitlist";
+        }
+      });
+    </script>
+  </body>
+</html>
