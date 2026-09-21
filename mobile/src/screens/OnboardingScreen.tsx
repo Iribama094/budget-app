@@ -25,11 +25,29 @@ type Props = {
   onContinueToAuth?: (mode: 'login' | 'register') => void;
 };
 
+// Photos are bundled rather than fetched, so the first thing somebody sees never waits on their data.
+// The first three came with the original web intro; each slide has its own.
 const SLIDES = [
-  { title: 'Money that lasts until payday', body: 'See what’s safe to spend each day, so the end of the month isn’t a struggle.' },
-  { title: 'A simple plan: needs, wants, savings', body: 'Tell us what you earn and what you must pay. We’ll split the rest in plain numbers.' },
-  { title: 'Gets smarter as you go', body: 'BudgetFriendly learns how you spend, spots leaks and warns you before money runs out.' },
-  { title: 'Let’s get you started', body: 'Create a free account to build your plan, or sign in to pick up where you left off.' }
+  {
+    title: 'Money that lasts until payday',
+    body: 'See what’s safe to spend each day, so the end of the month isn’t a struggle.',
+    photo: require('../../assets/onboarding/payday.jpg')
+  },
+  {
+    title: 'A simple plan: needs, wants, savings',
+    body: 'Tell us what you earn and what you must pay. We’ll split the rest in plain numbers.',
+    photo: require('../../assets/onboarding/plan.jpg')
+  },
+  {
+    title: 'Gets smarter as you go',
+    body: 'BudgetFriendly learns how you spend, spots leaks and warns you before money runs out.',
+    photo: require('../../assets/onboarding/goals.jpg')
+  },
+  {
+    title: 'Let’s get you started',
+    body: 'Create a free account to build your plan, or sign in to pick up where you left off.',
+    photo: require('../../assets/onboarding/start.jpg')
+  }
 ] as const;
 
 const INK = '#0D2B26';
@@ -188,6 +206,16 @@ export function OnboardingScreen({ onDone, onContinueToAuth }: Props) {
           {SLIDES.map((slide, i) => (
             <View key={slide.title} style={{ width, paddingHorizontal: 20 }}>
               <View style={[styles.illo, { height: illoHeight }]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                {/* The photo sits behind the cards and dissolves upward out of the backdrop, so there is no hard
+                    bottom edge between picture and page. */}
+                <View style={styles.photoWrap} pointerEvents="none">
+                  <Image source={slide.photo} style={styles.photo} resizeMode="cover" />
+                  <LinearGradient
+                    colors={['rgba(13,43,38,0.18)', 'rgba(13,43,38,0.10)', 'rgba(13,43,38,0.55)', INK]}
+                    locations={[0, 0.35, 0.72, 1]}
+                    style={StyleSheet.absoluteFill}
+                  />
+                </View>
                 {illustrations[i]}
               </View>
             </View>
@@ -240,6 +268,8 @@ const styles = StyleSheet.create({
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 10 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   illo: { borderRadius: 28, overflow: 'visible' },
+  photoWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 28, overflow: 'hidden' },
+  photo: { width: '100%', height: '100%' },
   float: { position: 'absolute' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   alloc: { flexDirection: 'row', gap: 3, height: 14, marginTop: 10, marginBottom: 6 },
