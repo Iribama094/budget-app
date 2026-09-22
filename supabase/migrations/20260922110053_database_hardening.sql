@@ -5,8 +5,10 @@
 -- on and no grants to anon or authenticated, so today nothing is reachable that way. These changes make that
 -- hold even if somebody later adds a table in the dashboard and forgets, and close two smaller gaps.
 
--- 1. The public schema is closed to the Data API's roles altogether. Without USAGE on the schema, anon and
---    authenticated cannot touch any table, view or function in it, whatever grants a future change adds.
+-- 1. No grants to the Data API's roles, now or on tables created later. What keeps data unreachable is the
+--    absence of table grants (plus RLS); the schema USAGE revoke below is a no-op in practice, because USAGE
+--    also comes through the built-in PUBLIC role, which Supabase's own sign-up path relies on and which is
+--    left alone. The default privileges are the part that matters for tables added later.
 revoke usage on schema public from anon, authenticated;
 revoke all on all tables in schema public from anon, authenticated;
 revoke all on all sequences in schema public from anon, authenticated;
@@ -15,8 +17,10 @@ alter default privileges for role postgres in schema public revoke all on tables
 alter default privileges for role postgres in schema public revoke all on sequences from anon, authenticated;
 alter default privileges for role postgres in schema public revoke all on functions from anon, authenticated;
 
--- 2. pg_net makes HTTP requests from inside the database. The daily job needs it; nobody signed in from an app
---    ever should. Left open, anything that could run SQL as anon could make the server call out to anywhere.
+-- 2. pg_net makes HTTP requests from inside the database. These revokes remove any direct grant to anon and
+--    authenticated. Execute also reaches them through PUBLIC, granted by the platform's superuser: postgres
+--    cannot revoke that, and the daily job depends on it. It stays unreachable because the net schema is not
+--    exposed by the Data API and nothing lets an outside caller run SQL.
 do $$
 begin
   if exists (select 1 from pg_namespace where nspname = 'net') then
