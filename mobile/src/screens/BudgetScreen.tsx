@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlan, type ApiPlan } from '../api/personal';
 import { bucketDescription, bucketDisplayName, normalizeBucket, type Bucket } from '../theme/buckets';
-import { View, Text, Pressable, ActivityIndicator, Modal, ScrollView, Animated, useWindowDimensions, FlatList, TextInput, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, ScrollView, Animated, useWindowDimensions, FlatList, TextInput, StyleSheet } from 'react-native';
+import { Modal } from '../components/Common/AppModal';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,7 +31,7 @@ import {
   Skeleton,
   formatAmount
 } from '../components/Common/ui';
-import { TextField } from '../components/Common/ui';
+import { InfoTip, TextField } from '../components/Common/ui';
 import { SelectField } from '../components/Common/SelectField';
 import { KeyboardAwareScrollView, KeyboardStickyView } from 'react-native-keyboard-controller';
 import { currencySymbol, formatMoney, monthName, toIsoDate, toIsoDateTime } from '../utils/format';
@@ -1404,9 +1405,12 @@ export function BudgetScreen() {
               title="Budgets"
               right={
                 <View style={styles.row}>
-                  <IconButton accessibilityLabel="Join a shared budget" onPress={() => (nav as any).navigate('ShareBudget')}>
-                    <Users color={theme.colors.text} size={18} />
-                  </IconButton>
+                  {/* Shared budgets are for households; a business shares through its team instead. */}
+                  {isBusiness ? null : (
+                    <IconButton accessibilityLabel="Join a shared budget" onPress={() => (nav as any).navigate('ShareBudget')}>
+                      <Users color={theme.colors.text} size={18} />
+                    </IconButton>
+                  )}
                   <IconButton accessibilityLabel={showAmounts ? 'Hide amounts' : 'Show amounts'} onPress={toggleShowAmounts}>
                     {showAmounts ? <EyeOff color={theme.colors.text} size={18} /> : <Eye color={theme.colors.text} size={18} />}
                   </IconButton>
@@ -1476,7 +1480,12 @@ export function BudgetScreen() {
                     <GuideAnchor id="budget.buckets">
                       <View style={[styles.hr, { backgroundColor: theme.colors.border }]} />
                       <View style={styles.rowBetween}>
-                        <Text style={[type.eyebrow, { color: theme.colors.textMuted, marginBottom: 2 }]}>Buckets</Text>
+                        <InfoTip
+                          text="Needs are what you must pay, Wants can wait, Savings goes away first. If one runs over, Move money shifts some from another bucket; your total stays the same."
+                          label="What are buckets?"
+                        >
+                          Buckets
+                        </InfoTip>
                         {current.role !== 'member' && Object.keys(current.categories || {}).length > 1 ? (
                           <Pressable onPress={() => setMoveFor({})} hitSlop={10} accessibilityRole="button" style={[styles.row, { gap: 5 }]}>
                             <ArrowRightLeft color={theme.colors.primary} size={14} />
@@ -1559,7 +1568,7 @@ export function BudgetScreen() {
               </Card>
             ) : null}
 
-            {sharedRunning.length ? <SectionHeader title="Shared budgets" /> : null}
+            {sharedRunning.length ? <SectionHeader title="Shared budgets" info="Budgets you run with a partner, family or housemates. Everyone logs what they spend, and you all see the same numbers. Your own plan stays yours." /> : null}
             {sharedRunning.map((b) => {
               const tx = budgetTxByBudgetId[String(b.id)] ?? { income: 0, expenses: 0, spentByCategory: {} };
               const left = (b.totalBudget ?? 0) - tx.expenses;
@@ -1587,7 +1596,7 @@ export function BudgetScreen() {
               );
             })}
 
-            {eventsActive.length ? <SectionHeader title="Events & trips" /> : null}
+            {eventsActive.length ? <SectionHeader title="Events & trips" info="One-off budgets for a wedding, a trip or a project. They run alongside your monthly plan, so spending on them doesn't eat into it." /> : null}
             {eventsActive.map((b) => {
               const tx = budgetTxByBudgetId[String(b.id)] ?? { income: 0, expenses: 0, spentByCategory: {} };
               const r = getBudgetRange(b);
@@ -1621,7 +1630,7 @@ export function BudgetScreen() {
               );
             })}
 
-            {history.length ? <SectionHeader title="Other budgets" /> : null}
+            {history.length ? <SectionHeader title="Other budgets" info="Budgets that have ended or haven't started yet. Open one to see how it went, or start the next period from it." /> : null}
           </View>
         }
         renderItem={({ item }) => {

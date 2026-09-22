@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
-import { Amount, InlineError, ListRow, Screen, ScreenHeader, formatAmount } from '../components/Common/ui';
+import { Amount, InfoTip, InlineError, ListRow, Screen, ScreenHeader, formatAmount } from '../components/Common/ui';
 import { AddLine, PlainHeader, PlainList } from '../components/Common/PlainList';
 import { BankLogo } from '../components/Common/BankLogo';
 import { DebtSheet, HAVE_KINDS, HoldingSheet, OWN_KINDS, PayDebtSheet, RatesSheet } from '../components/Money/MoneySheets';
@@ -15,6 +15,7 @@ import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { useT } from '../lib/i18n';
+import { afterSheetCloses } from '../lib/afterSheetCloses';
 
 const kindLabel = (k: string) => [...HAVE_KINDS, ...OWN_KINDS].find((x) => x.key === k)?.label.replace(/ \(.*\)$/, '') ?? k;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -106,7 +107,9 @@ export default function MoneyScreen() {
       {data ? (
         <>
           <View style={{ marginTop: 18 }}>
-            <Text style={[type.eyebrow, { color: theme.colors.textMuted }]}>All together</Text>
+            <InfoTip text="Cash, accounts and wallets, plus what you own (land, a car, shares), plus what people owe you, minus what you owe. Your net worth. The numbers are what you last typed; linked banks update themselves.">
+              All together
+            </InfoTip>
             <Amount value={data.totals.net} currency={glyph} size="hero" hidden={hide} style={{ marginTop: 4 }} />
             <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 4 }]}>
               {since && !hide
@@ -209,7 +212,8 @@ export default function MoneyScreen() {
             onEdit={() => {
               const d = paying;
               setPaying(null);
-              if (d) setDebtSheet({ direction: d.direction, debt: d });
+              // One sheet at a time: the edit sheet opens once this one has gone.
+              if (d) afterSheetCloses(() => setDebtSheet({ direction: d.direction, debt: d }));
             }}
           />
           <RatesSheet visible={ratesOpen} onClose={() => setRatesOpen(false)} currencies={foreign} rates={data.rates} own={rates?.own ?? {}} onSaved={load} />

@@ -21,7 +21,10 @@ type TeamState = {
   /** More than one business to choose from (your own counts once it's in use). */
   canChoose: boolean;
   choose: (ownerId: string | null) => Promise<void>;
+  /** Joins with a code. Doesn't move you anywhere yet: call enter() once any sheet has closed. */
   join: (code: string) => Promise<Membership>;
+  /** Makes a business the one you're working in and opens the Business space. */
+  enter: (ownerId: string) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -35,6 +38,7 @@ const TeamContext = createContext<TeamState>({
   join: async () => {
     throw new Error('Not ready');
   },
+  enter: async () => undefined,
   refresh: async () => undefined
 });
 
@@ -81,17 +85,19 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
     [key]
   );
 
-  const join = useCallback(
-    async (code: string) => {
-      const res = await joinTeam(code);
-      const fresh = await getTeam();
-      setTeam(fresh);
-      const m = fresh.businesses.find((b) => b.ownerId === res.ownerId) ?? { id: '', ownerId: res.ownerId, name: res.businessName, role: res.role, roleLabel: res.roleLabel };
-      await choose(res.ownerId);
-      // Straight into the business they joined.
+  const join = useCallback(async (code: string) => {
+    const res = await joinTeam(code);
+    const fresh = await getTeam();
+    setTeam(fresh);
+    return fresh.businesses.find((b) => b.ownerId === res.ownerId) ?? { id: '', ownerId: res.ownerId, name: res.businessName, role: res.role, roleLabel: res.roleLabel };
+  }, []);
+
+  // Switching business rebuilds every screen, so it must never happen while a sheet is still on screen.
+  const enter = useCallback(
+    async (ownerId: string) => {
+      await choose(ownerId);
       setSpacesEnabled(true);
       setActiveSpaceId('business');
-      return m;
     },
     [choose, setActiveSpaceId, setSpacesEnabled]
   );
@@ -105,9 +111,10 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
       canChoose: memberships.length + (team?.own.active ? 1 : 0) > 1,
       choose,
       join,
+      enter,
       refresh
     }),
-    [active, choose, join, memberships.length, refresh, team]
+    [active, choose, enter, join, memberships.length, refresh, team]
   );
   return <TeamContext.Provider value={value}>{children}</TeamContext.Provider>;
 }

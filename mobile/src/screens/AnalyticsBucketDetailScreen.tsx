@@ -91,7 +91,7 @@ export default function AnalyticsBucketDetailScreen() {
         <Text style={[type.small, { color: inkText, opacity: 0.78 }]}>How your spending lines up with your plan.</Text>
       </HeroCard>
 
-      <SectionHeader title="Buckets" />
+      <SectionHeader title="Buckets" info="Needs are what you must pay (rent, food, transport). Wants make life nicer but can wait. Savings is money you put away first. Each category belongs to one bucket; change it in Settings, Categories." />
       {isLoading && !data ? (
         <ActivityIndicator color={theme.colors.primary} />
       ) : items.length === 0 ? (

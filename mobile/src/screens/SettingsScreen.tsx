@@ -234,6 +234,9 @@ export default function SettingsScreen() {
           <GuideAnchor id="settings.list">
           <ListCard>
             {businessesRow}
+            {biz && !biz.businessName ? (
+              <ListRow icon={tile(Sparkles)} title="Set up your business" subtitle="Two minutes: name, money today, VAT and staff" onPress={() => nav.navigate('BusinessSetup')} chevron />
+            ) : null}
             <ListRow icon={tile(Users)} title="Your team" subtitle="People who record and manage with their own login" onPress={() => nav.navigate('Team')} chevron />
             <ListRow
               icon={tile(Building2)}

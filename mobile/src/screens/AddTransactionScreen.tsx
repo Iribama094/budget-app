@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, View, Text, Pressable, Modal, TextInput, ScrollView, Switch, StyleSheet } from 'react-native';
+import { ActivityIndicator, View, Text, Pressable, TextInput, ScrollView, Switch, StyleSheet } from 'react-native';
+import { Modal } from '../components/Common/AppModal';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CalendarDays, ChevronLeft, ChevronRight, ClipboardPaste, Delete, Mic, PieChart, Plus, Receipt, Repeat, Sparkles, Square, Wallet, X } from '../icons';
@@ -28,6 +29,7 @@ import { getRates } from '../api/money';
 import { ChoiceChip } from '../components/Plan/ChoiceChip';
 import { useT } from '../lib/i18n';
 import { useTeam } from '../contexts/TeamContext';
+import { afterSheetCloses } from '../lib/afterSheetCloses';
 import { BUCKETS, bucketDisplayName, normalizeBucket, type Bucket } from '../theme/buckets';
 import { guessIconKey, iconForKey } from '../lib/categoryIcons';
 import { currencySymbol, formatNumberInput, formatShortDate, toIsoDate, toIsoDateTime } from '../utils/format';
@@ -958,7 +960,8 @@ export function AddTransactionScreen() {
                   style={{ marginTop: 14 }}
                   onPress={() => {
                     setShowBudgetSheet(false);
-                    nav.navigate('Main', { screen: 'Budget' });
+                    // Leaving this full-page screen while the sheet is still closing can freeze an iPhone.
+                    afterSheetCloses(() => nav.navigate('Main', { screen: 'Budget' }));
                   }}
                 />
               </View>

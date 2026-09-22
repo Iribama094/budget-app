@@ -88,6 +88,7 @@ import { ActingProvider, useActing } from './src/contexts/ActingContext';
 import { TeamProvider, useTeam } from './src/contexts/TeamContext';
 import TeamScreen from './src/screens/TeamScreen';
 import YourBusinessesScreen from './src/screens/YourBusinessesScreen';
+import BusinessSetupScreen from './src/screens/BusinessSetupScreen';
 import { PendingInvite } from './src/components/Business/PendingInvite';
 import { ActingBanner } from './src/components/Common/ActingBanner';
 
@@ -191,6 +192,7 @@ function AuthedStack() {
       <Stack.Screen name="Prices" component={PricesScreen} />
       <Stack.Screen name="Team" component={TeamScreen} />
       <Stack.Screen name="YourBusinesses" component={YourBusinessesScreen} />
+      <Stack.Screen name="BusinessSetup" component={BusinessSetupScreen} options={{ gestureEnabled: false }} />
     </Stack.Navigator>
   );
 }

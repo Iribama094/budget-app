@@ -117,7 +117,7 @@ export default function StatementImportScreen() {
 
       {spacesEnabled ? (
         <>
-          <SectionHeader title="Add to" />
+          <SectionHeader title="Add to" info="Which space the imported lines go into. Money in becomes sales or income; money out becomes costs. You check them before anything is saved." />
           <SegmentedControl
             options={[
               { key: 'business', label: 'Business' },

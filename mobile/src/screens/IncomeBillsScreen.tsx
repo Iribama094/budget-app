@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal } from '../components/Common/AppModal';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
@@ -240,7 +241,7 @@ export default function IncomeBillsScreen() {
         </ListCard>
       ) : null}
 
-      <SectionHeader title="Budget period" />
+      <SectionHeader title="Budget period" info="Payday to payday starts each budget the day your pay lands, so the money always matches the days it has to last. Calendar month starts on the 1st." />
       <Card>
         <SegmentedControl
           options={[

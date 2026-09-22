@@ -238,7 +238,7 @@ export default function BusinessTaxScreen() {
         </Card>
       ) : null}
 
-      <SectionHeader title="Coming up" />
+      <SectionHeader title="Coming up" info="Usual Nigerian filing dates for VAT and PAYE. We remind you before each one. Always confirm with your accountant or the tax office." />
       {tax.deadlines.length ? (
         <ListCard>
           {tax.deadlines.map((d) => (

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, Modal, StyleSheet, type TextInput } from 'react-native';
+import { View, Text, Pressable, StyleSheet, type TextInput } from 'react-native';
+import { Modal } from '../components/Common/AppModal';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ChevronLeft, ChevronRight, CalendarDays, Check } from '../icons';
 

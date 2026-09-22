@@ -6,12 +6,13 @@ import { useToast } from '../Common/Toast';
 import { PrimaryButton, TextField } from '../Common/ui';
 import { Sheet } from './parts';
 import { type } from '../../theme/typography';
+import { afterSheetCloses } from '../../lib/afterSheetCloses';
 
 /** Joining someone's business with the code they sent. Lands straight in that business. */
 export function JoinBusinessSheet({ visible, onClose, onJoined }: { visible: boolean; onClose: () => void; onJoined?: () => void }) {
   const { theme } = useTheme();
   const toast = useToast();
-  const { join } = useTeam();
+  const { join, enter } = useTeam();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -21,8 +22,12 @@ export function JoinBusinessSheet({ visible, onClose, onJoined }: { visible: boo
       const m = await join(code.trim());
       setCode('');
       onClose();
-      toast.show(`You’re in ${m.name} as ${m.roleLabel}. Everything you record goes to ${m.name}.`, 'success', 5000);
-      onJoined?.();
+      // Into the business once the sheet is gone: switching rebuilds every screen.
+      afterSheetCloses(() => {
+        void enter(m.ownerId);
+        toast.show(`You’re in ${m.name} as ${m.roleLabel}. Everything you record goes to ${m.name}.`, 'success', 5000);
+        onJoined?.();
+      });
     } catch (e) {
       toast.show(e instanceof Error ? e.message : 'That code didn’t work', 'error');
     } finally {

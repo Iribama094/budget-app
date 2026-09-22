@@ -13,7 +13,7 @@ import { claimReferral } from '../../api/referrals';
  */
 export function PendingInvite() {
   const { user, refreshUser } = useAuth();
-  const { join } = useTeam();
+  const { join, enter } = useTeam();
   const toast = useToast();
   const tried = useRef(false);
 
@@ -36,6 +36,7 @@ export function PendingInvite() {
           await refreshUser();
         }
         const m = await join(code);
+        await enter(m.ownerId);
         toast.show(`Welcome to ${m.name}. You’re in as ${m.roleLabel}.`, 'success', 5000);
       } catch (e) {
         toast.show(

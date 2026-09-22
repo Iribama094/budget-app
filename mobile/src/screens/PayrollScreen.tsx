@@ -15,6 +15,7 @@ import { currencySymbol, formatShortDate, monthName } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { afterSheetCloses } from '../lib/afterSheetCloses';
 
 type Draft = { id: string | null; name: string; role: string; gross: string; active: boolean; pension: boolean; nhf: boolean };
 
@@ -205,7 +206,7 @@ export default function PayrollScreen() {
         </GuideAnchor>
       ) : null}
 
-      <SectionHeader title="Team" />
+      <SectionHeader title="Team" info="People you pay. Adding someone here doesn't give them the app. To let them record sales or costs, open their name and tap Give them app access." />
       {loading ? (
         <ActivityIndicator color={theme.colors.primary} />
       ) : staff.length ? (
@@ -326,7 +327,7 @@ export default function PayrollScreen() {
                 onPress={() => {
                   const d = draft;
                   setDraft(null);
-                  nav.navigate('Team', { name: d.name, title: d.role, staffId: d.id });
+                  afterSheetCloses(() => nav.navigate('Team', { name: d.name, title: d.role, staffId: d.id }));
                 }}
                 style={{ marginTop: 10 }}
               />

@@ -8,6 +8,7 @@ import { useSpace } from './SpaceContext';
 import { useTheme } from './ThemeContext';
 import { useTour } from './TourContext';
 import { CoachmarkOverlay } from '../components/Common/CoachmarkOverlay';
+import { anySheetOpen } from '../components/Common/AppModal';
 import { navigationRef } from '../navigation/navigationRef';
 import { guideFor, type GuideStep } from '../guides/screenGuides';
 import { PrimaryButton, TextButton } from '../components/Common/ui';
@@ -72,7 +73,13 @@ export function GuideProvider({ children }: { children: React.ReactNode }) {
     const guide = guideFor(route, spacesEnabled ? activeSpaceId : 'personal');
     if (!guide || seen.has(guide.key)) return;
     timer.current = setTimeout(() => {
-      if (navigationRef.getCurrentRoute()?.name === route) setActive(guide);
+      if (navigationRef.getCurrentRoute()?.name !== route) return;
+      // Never on top of an open sheet: two layers opening over each other can freeze an iPhone. Try again shortly.
+      if (anySheetOpen()) {
+        check();
+        return;
+      }
+      setActive(guide);
     }, SHOW_DELAY_MS);
   }, [userId, seen, active, isTourActive, spacesEnabled, activeSpaceId]);
 

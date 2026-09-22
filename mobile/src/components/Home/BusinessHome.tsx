@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -44,6 +44,7 @@ import { fonts, type } from '../../theme/typography';
 import { GuideAnchor } from '../Common/GuideAnchor';
 import { useConfig } from '../../contexts/ConfigContext';
 import { useTeam } from '../../contexts/TeamContext';
+import { businessSetupPostponed } from '../../screens/BusinessSetupScreen';
 
 const LOOK = SPACE_LOOK.business;
 
@@ -55,6 +56,7 @@ export function BusinessHome() {
   const wrapped = useConfig().wrappedFor('business');
   // A manager or accountant in someone else's business: the name at the top says whose it is.
   const { active: teamBusiness } = useTeam();
+  const offeredSetup = useRef(false);
   const { showAmounts, toggleShowAmounts } = useAmountVisibility();
   const { hasUnreadNotifications } = useNotificationBadges();
   const glyph = currencySymbol(user?.currency);
@@ -76,12 +78,17 @@ export function BusinessHome() {
       ]);
       setS(summary);
       setRecent(tx.items || []);
+      // First visit to a business with no name yet: offer the setup once (it can wait, and lives in Settings).
+      if (!summary.settings.businessName && !teamBusiness && user && !offeredSetup.current) {
+        offeredSetup.current = true;
+        if (!(await businessSetupPostponed(user.id))) nav.navigate('BusinessSetup', { intro: true });
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load your business numbers');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [nav, teamBusiness, user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -355,7 +362,12 @@ export function BusinessHome() {
         </View>
       ) : s ? (
         <>
-          <SectionHeader title="Last 6 months" actionLabel="Reports" onAction={() => nav.navigate('BusinessReports')} />
+          <SectionHeader
+            title="Last 6 months"
+            actionLabel="Reports"
+            onAction={() => nav.navigate('BusinessReports')}
+            info="Sales and costs you recorded each month. Profit is sales minus costs; it isn't the same as the cash in your account."
+          />
           <Card>
             <View style={styles.chart}>
               {s.series.map((m) => (

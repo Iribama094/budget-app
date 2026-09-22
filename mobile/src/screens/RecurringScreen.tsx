@@ -1,7 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { BUCKETS } from '../theme/buckets';
 import { useCategories } from '../contexts/CategoriesContext';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Modal } from '../components/Common/AppModal';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Plus, Repeat, X } from '../icons';

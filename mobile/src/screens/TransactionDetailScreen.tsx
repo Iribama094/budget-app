@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BUCKETS, bucketDisplayName, normalizeBucket } from '../theme/buckets';
 import { useCategories } from '../contexts/CategoriesContext';
-import { ActivityIndicator, Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { Modal } from '../components/Common/AppModal';
 import { deleteWithUndo } from '../lib/undoDelete';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ChevronLeft } from '../icons';

@@ -333,6 +333,7 @@ export default function BudgetDetailScreen() {
               </View>
             </Pressable>
 
+            {isBusiness ? null : (
             <Pressable
               onPress={() => nav.navigate('ShareBudget', { budgetId: budget.id, budgetName: budget.name })}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -344,6 +345,7 @@ export default function BudgetDetailScreen() {
                 <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_700Bold' }}>{budget.isShared ? 'Shared' : 'Share'}</Text>
               </View>
             </Pressable>
+            )}
 
             <Pressable
               onPress={confirmDelete}

@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { View, Text, Pressable, Image, Alert, Modal, ScrollView } from 'react-native';
+import { View, Text, Pressable, Image, Alert, ScrollView } from 'react-native';
+import { Modal } from '../components/Common/AppModal';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft } from '../icons';
 import { useAuth } from '../contexts/AuthContext';

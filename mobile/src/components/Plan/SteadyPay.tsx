@@ -8,6 +8,7 @@ import { ListRow, PrimaryButton, formatAmount } from '../Common/ui';
 import { MoneyField, Sheet, moneyText, parseMoney } from '../Business/parts';
 import { toIsoDate } from '../../utils/format';
 import { type } from '../../theme/typography';
+import { afterSheetCloses } from '../../lib/afterSheetCloses';
 
 /**
  * Steady pay, for income that comes in lumps (freelance work, a harvest, a gratuity, a good month in trade):
@@ -51,7 +52,7 @@ export function SteadyPay({ glyph, suggested }: { glyph: string; suggested: numb
       });
       setOpen(false);
       toast.show('Steady pay is on. Put good months in the buffer; pay yourself from it each month.', 'success', 4500);
-      nav.navigate('GoalDetail', { goalId: goal.id, goal });
+      afterSheetCloses(() => nav.navigate('GoalDetail', { goalId: goal.id, goal }));
     } catch (e) {
       toast.show(e instanceof Error ? e.message : 'Could not set that up', 'error');
     } finally {

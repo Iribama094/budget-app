@@ -157,7 +157,7 @@ export default function BusinessReportsScreen() {
             <LineItem label="Kept in the business" value={formatAmount(pl.retained, glyph)} />
           </Card>
 
-          <SectionHeader title="Cash flow" />
+          <SectionHeader title="Cash flow" info="Money that actually came in and went out, including what you paid yourself. A month can show profit and still be short of cash, for example when customers haven't paid yet." />
           <Card>
             <LineItem label="Opening balance" value={formatAmount(report.cashFlow.openingBalance, glyph)} />
             {report.cashFlow.months.map((mm) => (
@@ -179,7 +179,7 @@ export default function BusinessReportsScreen() {
             </View>
           </Card>
 
-          <SectionHeader title="Position today" />
+          <SectionHeader title="Position today" info="What customers still owe you and what you still owe suppliers, as of today." />
           <ListCard>
             <ListRow title="Customers owe you" subtitle={`${report.position.receivables.count} open invoice${report.position.receivables.count === 1 ? '' : 's'}`} right={<Amount value={report.position.receivables.total} currency={glyph} size="sm" />} onPress={() => nav.navigate('Invoices')} chevron />
             <ListRow title="You owe" subtitle={`${report.position.payables.count} open bill${report.position.payables.count === 1 ? '' : 's'}`} right={<Amount value={report.position.payables.total} currency={glyph} size="sm" />} onPress={() => nav.navigate('Bills')} chevron />
