@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 
 import { addTeamMember, getTeam, removeTeamMember, ROLES, suggestRole, updateTeamMember, type TeamMember, type TeamRole } from '../api/team';
@@ -11,6 +11,7 @@ import { Sheet } from '../components/Business/parts';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
+import { confirmDestructive } from '../lib/confirm';
 
 /** One role per person, each explained in a line. No grid of switches. */
 function RolePicker({ value, onChange }: { value: TeamRole; onChange: (r: TeamRole) => void }) {
@@ -110,20 +111,18 @@ export default function TeamScreen() {
   };
 
   const remove = (m: TeamMember) =>
-    Alert.alert(`Remove ${m.name}?`, 'They lose access straight away. What they recorded stays, with their name on it.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () =>
-          void removeTeamMember(m.id)
-            .then(() => {
-              setOpen(null);
-              return load();
-            })
-            .catch(() => toast.show('Could not remove them', 'error'))
-      }
-    ]);
+    confirmDestructive({
+      title: `Remove ${m.name}?`,
+      body: 'They lose access straight away. What they recorded stays, with their name on it.',
+      action: 'Remove',
+      onConfirm: () =>
+        void removeTeamMember(m.id)
+          .then(() => {
+            setOpen(null);
+            return load();
+          })
+          .catch(() => toast.show('Could not remove them', 'error'))
+    });
 
   const label = (r: TeamRole) => ROLES.find((x) => x.key === r)?.label ?? r;
   return (

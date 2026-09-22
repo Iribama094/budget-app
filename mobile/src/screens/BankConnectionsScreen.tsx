@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ClipboardPaste, Landmark, RefreshCw, Upload } from '../icons';
 
@@ -16,6 +16,7 @@ import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
 import { type } from '../theme/typography';
 import { errorMessage } from '../lib/errorMessage';
+import { confirmDestructive } from '../lib/confirm';
 
 /** Banks this account imports from: what they hold, when they last synced, and what needs attention. */
 export default function BankConnectionsScreen() {
@@ -76,29 +77,23 @@ export default function BankConnectionsScreen() {
 
   // Disconnecting stops every future import, so it asks first and says what is kept.
   const confirmDisconnect = (link: ApiBankLink) => {
-    Alert.alert(
-      `Disconnect ${link.bankName}?`,
-      'Nothing new will come in from this bank. Everything already logged stays in your records, and you can connect it again later.',
-      [
-        { text: 'Keep it', style: 'cancel' },
-        {
-          text: 'Disconnect',
-          style: 'destructive',
-          onPress: async () => {
-            setBusyId(link.id);
-            try {
-              await deleteBankLink(link.id, spacesEnabled ? { spaceId: activeSpaceId } : undefined);
-              setLinks((prev) => prev.filter((l) => l.id !== link.id));
-              toast.show(`${link.bankName} disconnected`, 'success');
-            } catch (e) {
-              toast.show(errorMessage(e, 'Could not disconnect this bank'), 'error');
-            } finally {
-              setBusyId(null);
-            }
+    confirmDestructive({
+      title: `Disconnect ${link.bankName}?`,
+      body: 'Nothing new will come in from this bank. Everything already logged stays in your records, and you can connect it again later.',
+      action: 'Disconnect',
+      onConfirm: async () => {
+          setBusyId(link.id);
+          try {
+            await deleteBankLink(link.id, spacesEnabled ? { spaceId: activeSpaceId } : undefined);
+            setLinks((prev) => prev.filter((l) => l.id !== link.id));
+            toast.show(`${link.bankName} disconnected`, 'success');
+          } catch (e) {
+            toast.show(errorMessage(e, 'Could not disconnect this bank'), 'error');
+          } finally {
+            setBusyId(null);
           }
         }
-      ]
-    );
+    });
   };
 
   const otherWays = (

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Switch, Text, View } from 'react-native';
+import { Switch, Text, View } from 'react-native';
 import { createDebt, createHolding, deleteDebt, deleteHolding, payDebt, setRates, updateDebt, updateHolding, type ApiDebt, type ApiHolding, type HoldingKind } from '../../api/money';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useToast } from '../Common/Toast';
@@ -9,6 +9,7 @@ import { DateChoice, MoneyField, Sheet, moneyText, parseMoney } from '../Busines
 import { formatShortDate } from '../../utils/format';
 import { type } from '../../theme/typography';
 import { errorMessage } from '../../lib/errorMessage';
+import { confirmDestructive } from '../../lib/confirm';
 
 export const HAVE_KINDS: Array<{ key: HoldingKind; label: string }> = [
   { key: 'cash', label: 'Cash' },
@@ -82,18 +83,16 @@ export function HoldingSheet({
 
   const remove = () => {
     if (!holding) return;
-    Alert.alert(`Remove ${holding.name}?`, 'It stops counting in your money. Nothing else changes.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteHolding(holding.id).catch(() => undefined);
-          onSaved();
-          onClose();
-        }
+    confirmDestructive({
+      title: `Remove ${holding.name}?`,
+      body: 'It stops counting in your money. Nothing else changes.',
+      action: 'Remove',
+      onConfirm: async () => {
+        await deleteHolding(holding.id).catch(() => undefined);
+        onSaved();
+        onClose();
       }
-    ]);
+    });
   };
 
   const sym = currency === home ? glyph : currency;
@@ -180,18 +179,16 @@ export function DebtSheet({
 
   const remove = () => {
     if (!debt) return;
-    Alert.alert(`Remove ${debt.person}?`, 'Only the record goes. Payments already counted as spending stay.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteDebt(debt.id).catch(() => undefined);
-          onSaved();
-          onClose();
-        }
+    confirmDestructive({
+      title: `Remove ${debt.person}?`,
+      body: 'Only the record goes. Payments already counted as spending stay.',
+      action: 'Remove',
+      onConfirm: async () => {
+        await deleteDebt(debt.id).catch(() => undefined);
+        onSaved();
+        onClose();
       }
-    ]);
+    });
   };
 
   return (

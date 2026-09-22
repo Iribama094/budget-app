@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Lock, Smartphone, UserRound } from '../../icons';
 import { useAuth } from '../../contexts/AuthContext';
@@ -10,6 +10,7 @@ import { ListRow, Screen, ScreenHeader } from '../Common/ui';
 import { PlainHeader, PlainList } from '../Common/PlainList';
 import { type } from '../../theme/typography';
 import { goBackOrHome } from '../../navigation/goBack';
+import { confirmDestructive } from '../../lib/confirm';
 
 /** Profile for someone working in another person's business: which business, what their role allows, and them. */
 export function MemberProfile({ onLogout }: { onLogout: () => void }) {
@@ -21,18 +22,16 @@ export function MemberProfile({ onLogout }: { onLogout: () => void }) {
   const line = ROLES.find((r) => r.key === active.role)?.line;
 
   const leave = () =>
-    Alert.alert(`Leave ${active.name}?`, 'You won’t see it any more. What you recorded stays there.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Leave',
-        style: 'destructive',
-        onPress: async () => {
-          await removeTeamMember(active.id).catch(() => undefined);
-          await choose(null);
-          await refresh();
-        }
+    confirmDestructive({
+      title: `Leave ${active.name}?`,
+      body: 'You won’t see it any more. What you recorded stays there.',
+      action: 'Leave',
+      onConfirm: async () => {
+        await removeTeamMember(active.id).catch(() => undefined);
+        await choose(null);
+        await refresh();
       }
-    ]);
+    });
 
   return (
     <Screen bottomInset={48}>

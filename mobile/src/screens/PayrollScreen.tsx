@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { CalendarCheck, Plus, UserRound } from '../icons';
 
@@ -17,6 +17,7 @@ import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
 import { afterSheetCloses } from '../lib/afterSheetCloses';
 import { errorMessage } from '../lib/errorMessage';
+import { confirmDestructive } from '../lib/confirm';
 
 type Draft = { id: string | null; name: string; role: string; gross: string; active: boolean; pension: boolean; nhf: boolean };
 
@@ -134,19 +135,17 @@ export default function PayrollScreen() {
   const remove = () => {
     if (!draft?.id) return;
     const id = draft.id;
-    Alert.alert('Remove this person?', 'Past pay records stay. To keep them for later, switch them off instead.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () =>
-          void act(async () => {
-            await removeStaff(id);
-            setDraft(null);
-            await load();
-          })
-      }
-    ]);
+    confirmDestructive({
+      title: 'Remove this person?',
+      body: 'Past pay records stay. To keep them for later, switch them off instead.',
+      action: 'Remove',
+      onConfirm: () =>
+        void act(async () => {
+          await removeStaff(id);
+          setDraft(null);
+          await load();
+        })
+    });
   };
 
   const recordPay = () =>

@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { MessageCircle, Plus, UserRound } from '../icons';
 
@@ -13,6 +13,7 @@ import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
+import { confirmDestructive } from '../lib/confirm';
 
 const initials = (name: string) =>
   name
@@ -93,22 +94,20 @@ export default function CustomersScreen() {
   };
 
   const remove = (c: Customer) => {
-    Alert.alert(`Remove ${c.name}?`, 'Their invoices stay exactly as they are. Only the saved contact goes.', [
-      { text: 'Keep', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteCustomer(c.id);
-            toast.show(`${c.name} removed`, 'success');
-            await load();
-          } catch (e) {
-            toast.show(errorMessage(e, 'Could not remove that customer'), 'error');
-          }
+    confirmDestructive({
+      title: `Remove ${c.name}?`,
+      body: 'Their invoices stay exactly as they are. Only the saved contact goes.',
+      action: 'Remove',
+      onConfirm: async () => {
+        try {
+          await deleteCustomer(c.id);
+          toast.show(`${c.name} removed`, 'success');
+          await load();
+        } catch (e) {
+          toast.show(errorMessage(e, 'Could not remove that customer'), 'error');
         }
       }
-    ]);
+    });
   };
 
   return (

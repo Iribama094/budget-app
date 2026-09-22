@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, Pressable, Image, Alert, StyleSheet } from 'react-native';
+import { View, Text, Pressable, Image, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
 import { Briefcase, Gift, HeartHandshake, Lock, Smartphone, UserPlus, UserRound, Users, Wallet, Home } from '../icons';
@@ -21,6 +21,7 @@ import { currencySymbol } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { confirmDestructive } from '../lib/confirm';
 
 const PAIN_LABELS: Record<string, string> = {
   runs_out: 'Money lasting until payday',
@@ -75,10 +76,12 @@ export function ProfileScreen() {
   const hasPlan = !!plan && plan.monthlyIncome > 0;
 
   const confirmLogout = () => {
-    Alert.alert('Log out of BudgetFriendly?', 'You’ll need your password to sign back in on this phone.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Log out', style: 'destructive', onPress: () => void logout() }
-    ]);
+    confirmDestructive({
+      title: 'Log out of BudgetFriendly?',
+      body: 'You’ll need your password to sign back in on this phone.',
+      action: 'Log out',
+      onConfirm: () => void logout()
+    });
   };
 
   if (isBusiness) return teamBusiness ? <MemberProfile onLogout={confirmLogout} /> : <BusinessProfile onLogout={confirmLogout} />;

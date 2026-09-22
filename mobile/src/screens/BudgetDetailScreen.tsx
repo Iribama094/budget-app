@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { bucketDisplayName } from '../theme/buckets';
-import { View, Text, Pressable, ActivityIndicator, Animated, Alert } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, Animated } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Amount as UiAmount, Card, Chip, HeroCard, PrimaryButton, ProgressBar, SectionHeader, TextButton } from '../components/Common/ui';
 import { type } from '../theme/typography';
@@ -21,6 +21,7 @@ import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
 import { MoveMoneySheet } from '../components/Budget/MoveMoneySheet';
 import { errorMessage } from '../lib/errorMessage';
+import { confirmDestructive } from '../lib/confirm';
 
 function parseIsoDateLocal(value?: string | null) {
   if (!value) return null;
@@ -189,23 +190,21 @@ export default function BudgetDetailScreen() {
 
   const confirmDelete = useCallback(() => {
     if (!budget) return;
-    Alert.alert('Delete budget?', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            if (spacesEnabled) await deleteBudgetInSpace(budget.id, activeSpaceId);
-            else await deleteBudget(budget.id);
-            toast.show('Budget deleted');
-            goBackOrHome(nav);
-          } catch (e) {
-            toast.show(errorMessage(e, 'Failed to delete budget'));
-          }
+    confirmDestructive({
+      title: 'Delete budget?',
+      body: 'This cannot be undone.',
+      action: 'Delete',
+      onConfirm: async () => {
+        try {
+          if (spacesEnabled) await deleteBudgetInSpace(budget.id, activeSpaceId);
+          else await deleteBudget(budget.id);
+          toast.show('Budget deleted');
+          goBackOrHome(nav);
+        } catch (e) {
+          toast.show(errorMessage(e, 'Failed to delete budget'));
         }
       }
-    ]);
+    });
   }, [activeSpaceId, budget, nav, spacesEnabled, toast]);
 
   useEffect(() => {

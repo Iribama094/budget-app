@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Modal } from '../components/Common/AppModal';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
@@ -40,6 +40,7 @@ import { currencySymbol } from '../utils/format';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
+import { confirmDestructive } from '../lib/confirm';
 
 const FREQ: Record<string, string> = { daily: 'a day', monthly: 'monthly', termly: 'a term', yearly: 'yearly', weekly: 'weekly', biweekly: 'every 2 weeks', irregular: 'varies' };
 const TIER_TONE: Record<BillTier, 'neutral' | 'brass' | 'primary'> = { must: 'neutral', reduce: 'brass', pause: 'primary' };
@@ -113,22 +114,20 @@ export default function IncomeBillsScreen() {
   const remove = () => {
     if (!editing?.id) return;
     const id = editing.id;
-    Alert.alert('Remove this income?', 'Your plan will be recalculated without it.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteIncomeSource(id);
-            setEditing(null);
-            await load();
-          } catch (e) {
-            toast.show(errorMessage(e, 'Could not remove'), 'error');
-          }
+    confirmDestructive({
+      title: 'Remove this income?',
+      body: 'Your plan will be recalculated without it.',
+      action: 'Remove',
+      onConfirm: async () => {
+        try {
+          await deleteIncomeSource(id);
+          setEditing(null);
+          await load();
+        } catch (e) {
+          toast.show(errorMessage(e, 'Could not remove'), 'error');
         }
       }
-    ]);
+    });
   };
 
   const setPeriod = async (basis: 'payday' | 'monthly') => {

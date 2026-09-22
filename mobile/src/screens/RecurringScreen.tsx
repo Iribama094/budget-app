@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { BUCKETS } from '../theme/buckets';
 import { useCategories } from '../contexts/CategoriesContext';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { Modal } from '../components/Common/AppModal';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,6 +39,7 @@ import { currencySymbol, formatNumberInput, formatShortDate, parseNumberInput, t
 import { fonts, type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
+import { confirmDestructive } from '../lib/confirm';
 
 const FREQ_LABEL: Record<RecurringFrequency, string> = { weekly: 'Weekly', monthly: 'Monthly', termly: 'Each term', yearly: 'Yearly' };
 
@@ -241,23 +242,21 @@ export default function RecurringScreen() {
 
   const remove = () => {
     if (!draft?.id) return;
-    Alert.alert('Delete this schedule?', 'Transactions it already recorded stay in your history.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteRecurring(draft.id!);
-            setDraft(null);
-            toast.show('Schedule deleted', 'success');
-            await load();
-          } catch (e) {
-            setFormError(errorMessage(e, 'Could not delete. Try again.'));
-          }
+    confirmDestructive({
+      title: 'Delete this schedule?',
+      body: 'Transactions it already recorded stay in your history.',
+      action: 'Delete',
+      onConfirm: async () => {
+        try {
+          await deleteRecurring(draft.id!);
+          setDraft(null);
+          toast.show('Schedule deleted', 'success');
+          await load();
+        } catch (e) {
+          setFormError(errorMessage(e, 'Could not delete. Try again.'));
         }
       }
-    ]);
+    });
   };
 
   const row = (r: ApiRecurring) => {

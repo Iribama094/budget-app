@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Smartphone } from '../icons';
 
@@ -12,6 +12,7 @@ import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
+import { confirmDestructive } from '../lib/confirm';
 
 function timeAgo(iso: string): string {
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -53,44 +54,40 @@ export default function DevicesScreen() {
   const others = items.filter((s) => !s.current);
 
   const signOut = (s: ApiSession) => {
-    Alert.alert(`Sign out ${s.deviceName || 'this device'}?`, 'It will need your password to get back in.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await revokeSession(s.id);
-            setItems((list) => list.filter((x) => x.id !== s.id));
-            toast.show('Device signed out', 'success');
-          } catch (e) {
-            setError(errorMessage(e, 'Could not sign that device out.'));
-          }
+    confirmDestructive({
+      title: `Sign out ${s.deviceName || 'this device'}?`,
+      body: 'It will need your password to get back in.',
+      action: 'Sign out',
+      onConfirm: async () => {
+        try {
+          await revokeSession(s.id);
+          setItems((list) => list.filter((x) => x.id !== s.id));
+          toast.show('Device signed out', 'success');
+        } catch (e) {
+          setError(errorMessage(e, 'Could not sign that device out.'));
         }
       }
-    ]);
+    });
   };
 
   const signOutOthers = () => {
-    Alert.alert('Sign out everywhere else?', `${others.length} other device${others.length === 1 ? '' : 's'} will need your password to get back in.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out others',
-        style: 'destructive',
-        onPress: async () => {
-          setBusy(true);
-          try {
-            const { revoked } = await revokeOtherSessions();
-            toast.show(`${revoked} device${revoked === 1 ? '' : 's'} signed out`, 'success');
-            await load();
-          } catch (e) {
-            setError(errorMessage(e, 'Could not sign other devices out.'));
-          } finally {
-            setBusy(false);
-          }
+    confirmDestructive({
+      title: 'Sign out everywhere else?',
+      body: `${others.length} other device${others.length === 1 ? '' : 's'} will need your password to get back in.`,
+      action: 'Sign out others',
+      onConfirm: async () => {
+        setBusy(true);
+        try {
+          const { revoked } = await revokeOtherSessions();
+          toast.show(`${revoked} device${revoked === 1 ? '' : 's'} signed out`, 'success');
+          await load();
+        } catch (e) {
+          setError(errorMessage(e, 'Could not sign other devices out.'));
+        } finally {
+          setBusy(false);
         }
       }
-    ]);
+    });
   };
 
   return (

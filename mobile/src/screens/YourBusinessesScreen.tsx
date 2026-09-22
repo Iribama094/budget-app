@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Check } from '../icons';
 
@@ -11,6 +11,7 @@ import { PlainList } from '../components/Common/PlainList';
 import { removeTeamMember } from '../api/team';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { confirmDestructive } from '../lib/confirm';
 
 /**
  * Which business "Business" means right now. Only reachable when there's more than one: your own and the ones
@@ -36,18 +37,16 @@ export default function YourBusinessesScreen() {
   };
 
   const leave = (id: string, name: string) =>
-    Alert.alert(`Leave ${name}?`, 'You won’t see it any more. What you recorded stays there.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Leave',
-        style: 'destructive',
-        onPress: async () => {
-          await removeTeamMember(id).catch(() => undefined);
-          if (active?.id === id) await choose(null);
-          await refresh();
-        }
+    confirmDestructive({
+      title: `Leave ${name}?`,
+      body: 'You won’t see it any more. What you recorded stays there.',
+      action: 'Leave',
+      onConfirm: async () => {
+        await removeTeamMember(id).catch(() => undefined);
+        if (active?.id === id) await choose(null);
+        await refresh();
       }
-    ]);
+    });
 
   const tick = <Check color={theme.colors.primary} size={18} strokeWidth={3} />;
   return (

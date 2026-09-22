@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Landmark, Plus, Receipt } from '../icons';
 
@@ -16,6 +16,7 @@ import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
+import { confirmDestructive } from '../lib/confirm';
 
 type Filter = 'open' | 'paid' | 'all';
 const CATEGORIES = ['Stock & supplies', 'Rent', 'Utilities', 'Transport & logistics', 'Marketing', 'Equipment', 'Professional fees', 'Other'];
@@ -116,20 +117,18 @@ export default function BillsScreen() {
 
   const removeOrVoid = (b: SupplierBill) => {
     const canDelete = b.amountPaid === 0;
-    Alert.alert(canDelete ? 'Delete this bill?' : 'Void this bill?', canDelete ? 'It will be removed from what you owe.' : 'Payments already recorded stay in your costs.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: canDelete ? 'Delete' : 'Void',
-        style: 'destructive',
-        onPress: () =>
-          void act(async () => {
-            if (canDelete) await deleteBill(b.id);
-            else await updateBill(b.id, { status: 'void' });
-            setSelected(null);
-            await load();
-          })
-      }
-    ]);
+    confirmDestructive({
+      title: canDelete ? 'Delete this bill?' : 'Void this bill?',
+      body: canDelete ? 'It will be removed from what you owe.' : 'Payments already recorded stay in your costs.',
+      action: canDelete ? 'Delete' : 'Void',
+      onConfirm: () =>
+        void act(async () => {
+          if (canDelete) await deleteBill(b.id);
+          else await updateBill(b.id, { status: 'void' });
+          setSelected(null);
+          await load();
+        })
+    });
   };
 
   const open = selected && (selected.status === 'unpaid' || selected.status === 'part_paid');

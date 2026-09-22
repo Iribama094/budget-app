@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 import { deleteProperty, listProperties, recordRent, saveProperty, type ApiProperty } from '../api/money';
@@ -14,6 +14,7 @@ import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
+import { confirmDestructive } from '../lib/confirm';
 
 const FREQ = { monthly: 'a month', quarterly: 'a quarter', yearly: 'a year' } as const;
 
@@ -163,20 +164,18 @@ export default function PropertiesScreen() {
             title="Remove property"
             style={{ marginTop: 10 }}
             onPress={() =>
-              Alert.alert(`Remove ${current.name}?`, 'Rent already recorded stays in your income.', [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Remove',
-                  style: 'destructive',
-                  onPress: () =>
-                    void deleteProperty(current.id)
-                      .then(() => {
-                        setOpen(null);
-                        return load();
-                      })
-                      .catch(() => toast.show('Could not remove it', 'error'))
-                }
-              ])
+              confirmDestructive({
+                title: `Remove ${current.name}?`,
+                body: 'Rent already recorded stays in your income.',
+                action: 'Remove',
+                onConfirm: () =>
+                  void deleteProperty(current.id)
+                    .then(() => {
+                      setOpen(null);
+                      return load();
+                    })
+                    .catch(() => toast.show('Could not remove it', 'error'))
+              })
             }
           />
         ) : null}

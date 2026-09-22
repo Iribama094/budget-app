@@ -19,6 +19,7 @@ import { BUCKETS, bucketDescription, bucketDisplayName, type Bucket } from '../t
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
+import { confirmDestructive } from '../lib/confirm';
 
 type Draft = { id: string | null; name: string; type: 'income' | 'expense'; bucket: Bucket; icon: string; hidden: boolean; iconTouched: boolean };
 
@@ -96,21 +97,19 @@ export default function CategoriesScreen() {
   const confirmDelete = () => {
     if (!draft?.id) return;
     const id = draft.id;
-    Alert.alert(`Delete ${draft.name}?`, 'Past transactions keep this name. To keep it off the list without deleting, hide it instead.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await remove(id);
-            setDraft(null);
-          } catch (e) {
-            toast.show(errorMessage(e, 'Could not delete'), 'error');
-          }
+    confirmDestructive({
+      title: `Delete ${draft.name}?`,
+      body: 'Past transactions keep this name. To keep it off the list without deleting, hide it instead.',
+      action: 'Delete',
+      onConfirm: async () => {
+        try {
+          await remove(id);
+          setDraft(null);
+        } catch (e) {
+          toast.show(errorMessage(e, 'Could not delete'), 'error');
         }
       }
-    ]);
+    });
   };
 
   const row = (c: ApiCategory) => (

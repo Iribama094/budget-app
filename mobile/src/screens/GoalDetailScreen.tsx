@@ -37,6 +37,7 @@ import { currencySymbol, formatNumberInput, formatShortDate } from '../utils/for
 import { type as typo } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
+import { confirmDestructive } from '../lib/confirm';
 
 const AUTO_SAVE_OPTIONS = [5, 10, 15, 20, 30];
 
@@ -222,23 +223,21 @@ export default function GoalDetailScreen() {
 
   const confirmDelete = useCallback(() => {
     if (!goal) return;
-    Alert.alert('Delete this goal?', 'Your progress on it goes too. This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            if (spacesEnabled) await deleteGoalInSpace(goal.id, activeSpaceId);
-            else await deleteGoal(goal.id);
-            toast.show('Goal deleted');
-            goBackOrHome(nav);
-          } catch (e) {
-            setError(errorMessage(e, 'Failed to delete goal'));
-          }
+    confirmDestructive({
+      title: 'Delete this goal?',
+      body: 'Your progress on it goes too. This cannot be undone.',
+      action: 'Delete',
+      onConfirm: async () => {
+        try {
+          if (spacesEnabled) await deleteGoalInSpace(goal.id, activeSpaceId);
+          else await deleteGoal(goal.id);
+          toast.show('Goal deleted');
+          goBackOrHome(nav);
+        } catch (e) {
+          setError(errorMessage(e, 'Failed to delete goal'));
         }
       }
-    ]);
+    });
   }, [activeSpaceId, goal, nav, spacesEnabled, toast]);
 
   const progress = useMemo(() => {

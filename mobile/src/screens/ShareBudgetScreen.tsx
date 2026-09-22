@@ -16,6 +16,7 @@ import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
 import { settleJoinedBudget } from '../lib/joinedBudget';
 import { errorMessage } from '../lib/errorMessage';
+import { confirmDestructive } from '../lib/confirm';
 
 const cleanCode = (t: string) => t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 const labelOf = (name: string) => name.replace(/^My Budget \((.*)\)$/, '$1');
@@ -98,33 +99,27 @@ export default function ShareBudgetScreen() {
 
   const remove = (m: ApiBudgetMember) => {
     const leaving = m.userId === user?.id;
-    Alert.alert(
-      leaving ? `Leave ${budgetName}?` : `Remove ${m.name || m.email}?`,
-      leaving ? 'You’ll stop seeing this budget. What you added stays in your own history, and everyone else is told you left.' : 'They’ll lose access to this budget. What they added stays.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: leaving ? 'Leave' : 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await removeBudgetMember(budgetId!, m.userId);
-              if (leaving) {
-                if (user?.homeBudget === 'shared') await patchMe({ homeBudget: 'own' }).catch(() => undefined);
-                await refreshUser().catch(() => undefined);
-                toast.show(`You left ${budgetName}`, 'success');
-                nav.navigate('Main', { screen: 'Budget' });
-              } else {
-                toast.show('Member removed', 'success');
-                await load();
-              }
-            } catch (e) {
-              setError(errorMessage(e, 'Could not update members.'));
+    confirmDestructive({
+      title: leaving ? `Leave ${budgetName}?` : `Remove ${m.name || m.email}?`,
+      body: leaving ? 'You’ll stop seeing this budget. What you added stays in your own history, and everyone else is told you left.' : 'They’ll lose access to this budget. What they added stays.',
+      action: leaving ? 'Leave' : 'Remove',
+      onConfirm: async () => {
+          try {
+            await removeBudgetMember(budgetId!, m.userId);
+            if (leaving) {
+              if (user?.homeBudget === 'shared') await patchMe({ homeBudget: 'own' }).catch(() => undefined);
+              await refreshUser().catch(() => undefined);
+              toast.show(`You left ${budgetName}`, 'success');
+              nav.navigate('Main', { screen: 'Budget' });
+            } else {
+              toast.show('Member removed', 'success');
+              await load();
             }
+          } catch (e) {
+            setError(errorMessage(e, 'Could not update members.'));
           }
         }
-      ]
-    );
+    });
   };
 
   /** Lives in lib/joinedBudget so joining from the code box in Settings settles Home the same way. */

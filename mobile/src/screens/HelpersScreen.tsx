@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, Share, Text, View } from 'react-native';
+import { Share, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 import { getDelegates, inviteDelegate, removeDelegate, type ApiDelegates } from '../api/money';
@@ -14,6 +14,7 @@ import { JoinCodeSheet } from '../components/Common/JoinCodeSheet';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
+import { confirmDestructive } from '../lib/confirm';
 
 const ROLE: Record<'view' | 'record', string> = { view: 'Can see', record: 'Can see and add spending' };
 
@@ -69,14 +70,12 @@ export default function HelpersScreen() {
   };
 
   const confirmRemove = (id: string, title: string, body: string) =>
-    Alert.alert(title, body, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () => void removeDelegate(id).then(load).catch(() => toast.show('Could not remove that', 'error'))
-      }
-    ]);
+    confirmDestructive({
+      title: title,
+      body: body,
+      action: 'Remove',
+      onConfirm: () => void removeDelegate(id).then(load).catch(() => toast.show('Could not remove that', 'error'))
+    });
 
   return (
     <Screen onRefresh={load} bottomInset={48}>
