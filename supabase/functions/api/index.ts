@@ -63,6 +63,8 @@ import { debtById, debtsIndex, fxRatesRoute, holdingById, holdingsIndex, moneyRo
 import { delegatesRoute, propertiesRoute } from './routes/people.ts';
 import { sendMoneyReminders } from './lib/reminders.ts';
 import { waitlistJoin } from './routes/waitlist.ts';
+import { referralsRoute } from './routes/referrals.ts';
+import { announceReferrals } from './lib/referral.ts';
 
 export type Ctx = {
   req: Request;
@@ -122,6 +124,7 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
   summary.team = await sendTeamDigests(today);
   summary.business = await sendBusinessReminders(today);
   summary.shared = { ...(await sendSharedDigests(today)), periodEnding: await sendPeriodEndingReminders(today) };
+  summary.referrals = await announceReferrals();
 
   if (monoConfigured()) {
     const stale = await sql<BankLinkRow[]>`
@@ -254,6 +257,8 @@ function route(parts: string[]): Handler | null {
 
   // Public: the pre-launch waitlist page posts here. No sign-in; rate limited inside.
   if (a === 'waitlist' && n === 1) return waitlistJoin;
+  // Invite friends: your code, and the friend who invited you.
+  if (a === 'referrals' && n <= 2) return referralsRoute;
 
   // The staff console. Each one checks the admin_users table before anything else.
   if (a === 'admin' && b === 'me') return adminMe;

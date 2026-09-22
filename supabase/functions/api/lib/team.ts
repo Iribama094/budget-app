@@ -67,7 +67,7 @@ export const TEAM_RULES: Rule[] = [
  * Routes that are always about the person holding the phone, never the business they're in: signing in, their own
  * profile and alerts, and team membership itself. The X-Business header is ignored on these.
  */
-export const SELF_PATHS = /^(health|auth|users\/me|config|push-tokens|notifications|delegates|team|voice|cron|admin|waitlist)(\/|$)/;
+export const SELF_PATHS = /^(health|auth|users\/me|config|push-tokens|notifications|delegates|team|voice|cron|admin|waitlist|referrals)(\/|$)/;
 
 /** Bodies that choose a space: a team request always goes to the business space. */
 export const BODY_SPACE_PATHS = /^(transactions|recurring|categories|budgets|goals|holdings|debts)$/;

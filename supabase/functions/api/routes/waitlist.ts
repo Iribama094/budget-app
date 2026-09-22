@@ -2,12 +2,11 @@ import { sql, isUniqueViolation } from '../lib/db.ts';
 import { body, json, methodNotAllowed, z } from '../lib/http.ts';
 import { enforceRateLimit } from '../lib/rateLimit.ts';
 import { sendEmail } from '../lib/email.ts';
+import { cleanCode, codeTaken, inviteLink, newReferralCode } from '../lib/referral.ts';
 import type { Ctx } from '../index.ts';
 
 /** Each friend who joins with your link moves you up this many places. */
 const REFERRAL_BOOST = 10;
-/** Where invite links point. The waitlist page reads ?ref= and sends it back as `ref`. */
-const SITE = Deno.env.get('WAITLIST_SITE_URL') || 'https://budgetfriendly.ng';
 
 const PAINS = ['runs_out', 'no_idea', 'cant_save', 'debt', 'irregular'] as const;
 
@@ -32,14 +31,6 @@ function normalizePhone(raw: string | null | undefined): string | null {
   return /^[0-9]{7,15}$/.test(national) ? national : null;
 }
 
-// Letters and digits that can't be misread for each other (no 0/O, 1/I/L).
-const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-function referralCode(firstName: string): string {
-  const stem = firstName.normalize('NFKD').replace(/[^A-Za-z]/g, '').slice(0, 6).toUpperCase() || 'FRIEND';
-  const bytes = crypto.getRandomValues(new Uint8Array(4));
-  return stem + Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join('');
-}
-
 type Row = { id: string; seq: number; firstName: string; referralCode: string; referralCount: number };
 
 /** 1 is the front of the line. Earlier joiners go first; each referral jumps REFERRAL_BOOST places. */
@@ -57,7 +48,7 @@ function answer(row: Row, position: number, alreadyJoined: boolean) {
     firstName: row.firstName,
     position,
     referralCode: row.referralCode,
-    referralLink: `${SITE}/?ref=${row.referralCode}`,
+    referralLink: inviteLink(row.referralCode),
     referrals: row.referralCount,
     alreadyJoined
   });
@@ -87,19 +78,23 @@ export async function waitlistJoin(ctx: Ctx) {
   `;
   if (existing) return answer(existing, await placeInLine(existing), true);
 
-  const refCode = (input.ref ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  // The code can be somebody else's on the waitlist, which moves them up, or somebody's already in the app.
+  const refCode = cleanCode(input.ref);
   const [referrer] = refCode ? await sql<{ id: string }[]>`select id from public.waitlist_signups where referral_code = ${refCode}` : [];
+  const invitedWith = referrer || (refCode && (await codeTaken(refCode))) ? refCode : null;
 
   let row: Row | undefined;
   for (let attempt = 0; attempt < 5 && !row; attempt++) {
+    const code = newReferralCode(input.firstName);
+    if (await codeTaken(code)) continue;
     try {
       row = await sql.begin(async (tx) => {
         const [created] = await tx<Row[]>`
           insert into public.waitlist_signups
-            (email, first_name, phone, use_for, pain_points, wants_updates, referral_code, referred_by, source)
+            (email, first_name, phone, use_for, pain_points, wants_updates, referral_code, referred_by, invited_with, source)
           values (
             ${email}, ${input.firstName}, ${normalizePhone(input.phone)}, ${input.use}, ${input.pains}, ${input.updates},
-            ${referralCode(input.firstName)}, ${referrer?.id ?? null}, ${input.source || null}
+            ${code}, ${referrer?.id ?? null}, ${invitedWith}, ${input.source || null}
           )
           returning id, seq, first_name, referral_code, referral_count
         `;
@@ -117,7 +112,7 @@ export async function waitlistJoin(ctx: Ctx) {
   if (!row) throw new Error('Could not create a unique invite code');
 
   const position = await placeInLine(row);
-  const link = `${SITE}/?ref=${row.referralCode}`;
+  const link = inviteLink(row.referralCode);
   // A confirmation with their invite link. Signing up still works if email isn't configured.
   await sendEmail({
     to: email,

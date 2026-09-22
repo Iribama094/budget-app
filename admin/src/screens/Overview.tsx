@@ -22,7 +22,8 @@ const KIND_LABELS: Record<string, string> = {
   rollover: 'Money rolled over',
   bank: 'Bank updates',
   invoice: 'Invoice reminders',
-  tax: 'Tax reminders'
+  tax: 'Tax reminders',
+  referral: 'Friends joined'
 };
 
 export function Overview({ onGoToWrapped }: { onGoToWrapped: () => void }) {
@@ -99,6 +100,30 @@ export function Overview({ onGoToWrapped }: { onGoToWrapped: () => void }) {
                 <p className="meta">{n.n.toLocaleString()} sent</p>
               </div>
               <span className="muted">{ago(n.last)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="spread">
+          <h2>Waitlist and invites</h2>
+          <span className="muted">
+            {data ? `${data.waitlist.total.toLocaleString()} on the waitlist · ${data.waitlist.today} today · ${data.waitlist.invited} came from an invite` : ''}
+          </span>
+        </div>
+        <div style={{ marginTop: 6 }}>
+          {!data ? <p className="muted" style={{ paddingTop: 12 }}>Loading...</p> : null}
+          {data && data.topReferrers.length === 0 ? <p className="muted" style={{ paddingTop: 12 }}>Nobody has joined with an invite code yet.</p> : null}
+          {data?.topReferrers.map((r) => (
+            <div className="row" key={r.code}>
+              <div className="grow">
+                <p className="name">{r.name}</p>
+                <p className="meta">Code {r.code}</p>
+              </div>
+              <span className="muted">
+                {r.app} in the app · {r.waitlist} on the waitlist
+              </span>
             </div>
           ))}
         </div>

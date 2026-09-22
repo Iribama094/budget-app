@@ -17,6 +17,7 @@ import {
   Settings2,
   ShieldCheck,
   TrendingUp,
+  UserPlus,
   Users,
   type LucideIcon
 } from '../icons';
@@ -55,7 +56,8 @@ const KIND_ICON: Record<NotificationKind, LucideIcon> = {
   insight: Lightbulb,
   invoice: FileText,
   tax: Receipt,
-  household: Users
+  household: Users,
+  referral: UserPlus
 };
 
 const TAB_SCREENS: Record<string, string> = { Dashboard: 'Dashboard', Budget: 'Budget', Analytics: 'Analytics', Goals: 'Goals' };

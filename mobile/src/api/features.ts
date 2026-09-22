@@ -96,7 +96,8 @@ export type NotificationKind =
   | 'insight'
   | 'invoice'
   | 'tax'
-  | 'household';
+  | 'household'
+  | 'referral';
 
 export type ApiNotification = {
   id: string;

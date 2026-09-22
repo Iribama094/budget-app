@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, Pressable, Image, Alert, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
-import { Briefcase, Gift, HeartHandshake, Lock, Smartphone, UserRound, Users, Wallet, Home } from '../icons';
+import { Briefcase, Gift, HeartHandshake, Lock, Smartphone, UserPlus, UserRound, Users, Wallet, Home } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -185,6 +185,12 @@ export function ProfileScreen() {
         <ListRow icon={tile(Home)} title="Household staff" subtitle="Pay a driver, nanny or cook, with payslips" onPress={() => nav.navigate('Payroll', { spaceId: 'personal' })} chevron />
         {acting ? null : <ListRow icon={tile(Users)} title="People who help" subtitle="Let someone you trust see your money" onPress={() => nav.navigate('Helpers')} chevron />}
       </ListCard>
+
+      {acting ? null : (
+        <ListCard style={{ marginTop: 16 }}>
+          <ListRow icon={tile(UserPlus)} title="Invite friends" subtitle="Share BudgetFriendly with your code" onPress={() => nav.navigate('InviteFriends')} chevron />
+        </ListCard>
+      )}
 
       <Text style={[type.eyebrow, styles.groupLabel, { color: theme.colors.textMuted }]}>Account security</Text>
       <ListCard>

@@ -36,6 +36,7 @@ BudgetFriendly is not a bank. It never holds, sends or debits money. Bank links 
 | **Money Wrapped** | An animated look back at the first half of the year or the whole year. Only visible when staff have certified it ready (see below) |
 | **Sharing** | Share a household budget with a partner or family by invite code; each keeps their own budget too |
 | **Helpers** | Let a trusted person see (view) or add transactions to (record) your money. They can never change settings, security or anything else |
+| **Invite friends** | One short code per person, from Profile. A friend enters it at sign-up (or within 30 days, from the same screen). People who joined the waitlist keep their waitlist code, so friends they brought before launch still count. A friend counts once they confirm their email and record something, and the inviter is told the next morning. No reward is attached yet |
 | **Notifications** | Alerts, bill reminders, insights, a weekly summary, and a daily nudge to log spending, each switchable in Settings |
 | **Widgets** | "Safe to spend" on the Android home screen, with an iOS widget target in place |
 
@@ -90,7 +91,7 @@ A separate web app for the team that runs BudgetFriendly. Sign-in needs the pass
 
 | Page | What staff can do | Who |
 | --- | --- | --- |
-| Overview | Health at a glance, what needs attention | All staff |
+| Overview | Health at a glance, what needs attention, waitlist size and top referrers | All staff |
 | Feature flags | Switch features on or off for everyone, or for a share of people | Owner, engineer |
 | Money Wrapped | Certify a period ready, preview any person's Wrapped | Owner, engineer |
 | People | Find someone by name, email or account id; see how their account is set up (never their transactions); send a password reset; sign out their devices | Owner, support |

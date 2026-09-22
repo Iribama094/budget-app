@@ -25,7 +25,7 @@ export function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Someone joining a business they work in: the owner sent them a code.
+  // A friend's code, or one from the owner of a business they work in.
   const [hasCode, setHasCode] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
 
@@ -38,7 +38,7 @@ export function RegisterScreen() {
     setError(null);
     setIsSubmitting(true);
     try {
-      if (hasCode && inviteCode.trim().length >= 6) await savePendingInvite(inviteCode);
+      if (hasCode && inviteCode.trim().length >= 4) await savePendingInvite(inviteCode);
       await auth.register(normalizedEmail, password, name.trim() ? name.trim() : undefined);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Check your connection and try again.');
@@ -128,14 +128,14 @@ export function RegisterScreen() {
           value={inviteCode}
           onChangeText={(v) => setInviteCode(v.toUpperCase())}
           autoCapitalize="characters"
-          placeholder="e.g. K7M2QX9P"
-          maxLength={12}
+          placeholder="e.g. ADAK7M2"
+          maxLength={16}
           editable={!isSubmitting}
-          hint="From the business owner. You’ll join once your email is confirmed."
+          hint="From a friend, or from a business you work in. We’ll add it once your email is confirmed."
         />
       ) : (
         <Pressable onPress={() => setHasCode(true)} hitSlop={8} accessibilityRole="button" style={{ marginBottom: 14 }}>
-          <Text style={[type.smallStrong, { color: theme.colors.primary }]}>Have an invite code from a business?</Text>
+          <Text style={[type.smallStrong, { color: theme.colors.primary }]}>Have an invite code?</Text>
         </Pressable>
       )}
 

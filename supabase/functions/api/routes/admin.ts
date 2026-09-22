@@ -18,7 +18,7 @@ export async function adminOverview(ctx: Ctx) {
   await requireAdmin(ctx.req);
   const today = todayIso();
 
-  const [[people], [logged], [wrapped], jobs] = await Promise.all([
+  const [[people], [logged], [wrapped], jobs, [waitlist], referrers] = await Promise.all([
     sql<{ total: number; today: number }[]>`
       select count(*)::int as total, count(*) filter (where created_at >= ${today}::date)::int as today from public.profiles
     `,
@@ -33,6 +33,26 @@ export async function adminOverview(ctx: Ctx) {
     sql<{ kind: string; last: string; n: number }[]>`
       select kind, max(created_at) as last, count(*)::int as n from public.notifications
       where created_at > now() - interval '48 hours' group by kind order by kind
+    `,
+    sql<{ total: number; today: number; invited: number }[]>`
+      select count(*)::int as total, count(*) filter (where created_at >= ${today}::date)::int as today,
+        count(*) filter (where invited_with is not null)::int as invited
+      from public.waitlist_signups
+    `,
+    // Who brings the most people, in the app and on the waitlist, by the one code they share.
+    sql<{ code: string; name: string; app: number; waitlist: number }[]>`
+      with codes as (
+        select referred_code as code, count(*)::int as app, 0 as waitlist from public.profiles where referred_code is not null group by 1
+        union all
+        select invited_with, 0, count(*)::int from public.waitlist_signups where invited_with is not null group by 1
+      )
+      select c.code, coalesce(nullif(split_part(p.name, ' ', 1), ''), w.first_name, 'Unknown') as name,
+        sum(c.app)::int as app, sum(c.waitlist)::int as waitlist
+      from codes c
+      left join public.profiles p on p.referral_code = c.code
+      left join public.waitlist_signups w on w.referral_code = c.code
+      group by c.code, p.name, w.first_name
+      order by sum(c.app) + sum(c.waitlist) desc limit 10
     `
   ]);
 
@@ -40,7 +60,9 @@ export async function adminOverview(ctx: Ctx) {
     people: { total: people?.total ?? 0, today: people?.today ?? 0 },
     transactions: { today: logged?.today ?? 0, week: logged?.week ?? 0 },
     wrappedWaiting: wrapped?.waiting ?? 0,
-    notifications: jobs
+    notifications: jobs,
+    waitlist: { total: waitlist?.total ?? 0, today: waitlist?.today ?? 0, invited: waitlist?.invited ?? 0 },
+    topReferrers: referrers
   });
 }
 

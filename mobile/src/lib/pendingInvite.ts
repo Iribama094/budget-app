@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
- * A business invite code typed on the sign-up screen. It waits here until the new account has confirmed its
- * email, then the app joins the business and opens straight into it (components/Business/PendingInvite).
+ * An invite code typed on the sign-up screen: a friend's, or a business's. It waits here until the new account
+ * has confirmed its email, then components/Business/PendingInvite works out which kind it is and uses it.
  */
 const KEY = 'bf_pending_team_code_v1';
 

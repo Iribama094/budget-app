@@ -125,6 +125,28 @@ try {
   check('users/me PATCH', r.status === 200 && r.data.user.currency === 'NGN' && r.data.user.monthlyIncome === 500000 && r.data.user.taxProfile?.country === 'NG', r);
   check('users/me rejects unknown fields', (await call(a.token, 'PATCH', '/users/me', { role: 'admin' })).status === 400);
 
+  section('Invite friends');
+  r = await call(a.token, 'GET', '/referrals');
+  const aCode = r.data?.code;
+  check('everyone gets a code and a message to share', r.status === 200 && /^ADA[A-Z0-9]{4}$/.test(aCode) && r.data.message.includes(aCode) && r.data.link.endsWith(`?ref=${aCode}`), r);
+  check('a new account can still say who invited them', r.data?.canEnterCode === true && r.data?.joined === 0 && r.data?.invitedBy === null, r.data);
+  check('the same code every time', (await call(a.token, 'GET', '/referrals')).data?.code === aCode);
+  r = await call(a.token, 'POST', '/referrals/claim', { code: aCode.toLowerCase() });
+  check('your own code is refused', r.status === 400 && r.data?.error?.code === 'OWN_CODE', r);
+  r = await call(b.token, 'POST', '/referrals/claim', { code: 'NOSUCHCODE9' });
+  check('an unknown code is refused', r.status === 404 && r.data?.error?.code === 'INVALID_CODE', r);
+  r = await call(b.token, 'POST', '/referrals/claim', { code: ` ${aCode.slice(0, 3)}-${aCode.slice(3)} ` });
+  check('a friend enters the code, however they type it', r.status === 200 && r.data.invitedBy === 'Ada', r);
+  r = await call(b.token, 'POST', '/referrals/claim', { code: aCode });
+  check('the same code again is fine', r.status === 200, r);
+  const bCode = (await call(b.token, 'GET', '/referrals')).data?.code;
+  r = await call(b.token, 'GET', '/referrals');
+  check('the friend sees who invited them and cannot change it', r.data?.invitedBy === 'Ada' && r.data?.canEnterCode === false, r.data);
+  r = await call(a.token, 'POST', '/referrals/claim', { code: bCode });
+  check('two people cannot each have invited the other', r.status === 400 && r.data?.error?.code === 'CIRCULAR', r);
+  r = await call(a.token, 'GET', '/referrals');
+  check('the inviter sees the friend joined', r.data?.joined === 1 && typeof r.data?.counted === 'number', r.data);
+
   section('Budgets');
   r = await call(a.token, 'POST', '/budgets', {
     name: 'My Budget (This month)',
@@ -739,7 +761,7 @@ try {
   section('Scheduled job');
   check('daily job rejects missing secret', (await call(null, 'POST', '/cron/daily')).status === 401);
   r = await call(null, 'POST', '/cron/daily?insights=1', {}, { 'x-cron-secret': CRON });
-  check('daily job runs with secret', r.status === 200 && r.data.today === today && typeof r.data.billReminders === 'number' && typeof r.data.insights?.sent === 'number' && typeof r.data.business?.invoices === 'number', r);
+  check('daily job runs with secret', r.status === 200 && r.data.today === today && typeof r.data.billReminders === 'number' && typeof r.data.insights?.sent === 'number' && typeof r.data.business?.invoices === 'number' && typeof r.data.referrals?.sent === 'number', r);
 
   section('Clean up');
   const fresh = (await signIn(A.email, 'ResetPassw0rd-3')).data?.access_token ?? a.token;

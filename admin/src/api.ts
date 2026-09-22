@@ -54,6 +54,9 @@ export type Overview = {
   transactions: { today: number; week: number };
   wrappedWaiting: number;
   notifications: Array<{ kind: string; last: string; n: number }>;
+  waitlist: { total: number; today: number; invited: number };
+  /** Friends brought in with each code: `app` signed up in the app, `waitlist` joined the waitlist. */
+  topReferrers: Array<{ code: string; name: string; app: number; waitlist: number }>;
 };
 
 export type StaffRow = Admin & { createdAt: string; lastSeenAt: string | null; disabledAt: string | null };

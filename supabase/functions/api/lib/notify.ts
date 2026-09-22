@@ -14,7 +14,8 @@ export type NotificationKind =
   | 'insight'
   | 'invoice'
   | 'tax'
-  | 'household';
+  | 'household'
+  | 'referral';
 
 /** Which space a notification belongs to. null means the whole account (for example security) and shows in both. */
 export type NotificationSpace = 'personal' | 'business';

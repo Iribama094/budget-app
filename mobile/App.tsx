@@ -81,6 +81,7 @@ import StatementImportScreen from './src/screens/StatementImportScreen';
 import WrappedScreen from './src/screens/WrappedScreen';
 import MoneyScreen from './src/screens/MoneyScreen';
 import HelpersScreen from './src/screens/HelpersScreen';
+import InviteFriendsScreen from './src/screens/InviteFriendsScreen';
 import PropertiesScreen from './src/screens/PropertiesScreen';
 import PricesScreen from './src/screens/PricesScreen';
 import { ActingProvider, useActing } from './src/contexts/ActingContext';
@@ -185,6 +186,7 @@ function AuthedStack() {
       <Stack.Screen name="Wrapped" component={WrappedScreen} />
       <Stack.Screen name="Money" component={MoneyScreen} />
       <Stack.Screen name="Helpers" component={HelpersScreen} />
+      <Stack.Screen name="InviteFriends" component={InviteFriendsScreen} />
       <Stack.Screen name="Properties" component={PropertiesScreen} />
       <Stack.Screen name="Prices" component={PricesScreen} />
       <Stack.Screen name="Team" component={TeamScreen} />
