@@ -1,5 +1,5 @@
 import { sql } from './lib/db.ts';
-import { CORS_HEADERS, errorResponse, HttpError, json } from './lib/http.ts';
+import { CORS_HEADERS, errorResponse, HttpError, json, SECURITY_HEADERS } from './lib/http.ts';
 import { todayIso } from './lib/dates.ts';
 import { runAllDueRecurring, sendBillReminders } from './lib/recurring.ts';
 import { monoConfigured, syncBankLink, type BankLinkRow } from './lib/bank.ts';
@@ -71,6 +71,15 @@ export type Ctx = {
 
 type Handler = (ctx: Ctx) => Response | Promise<Response>;
 
+/** Compares in constant time, so how long a wrong guess takes says nothing about how close it was. */
+function sameSecret(given: string, expected: string): boolean {
+  const a = new TextEncoder().encode(given);
+  const b = new TextEncoder().encode(expected);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < b.length; i++) diff |= (a[i] ?? 0) ^ b[i];
+  return diff === 0;
+}
+
 /**
  * GET /v1/cron/daily — called once a day by pg_cron with the shared secret.
  * Records due recurring transactions, sends bill reminders and refreshes live bank connections.
@@ -78,7 +87,7 @@ type Handler = (ctx: Ctx) => Response | Promise<Response>;
 async function cronDaily(ctx: Ctx): Promise<Response> {
   const secret = Deno.env.get('CRON_SECRET');
   if (!secret) throw new HttpError(500, 'NOT_CONFIGURED', 'CRON_SECRET is not set');
-  if (ctx.req.headers.get('x-cron-secret') !== secret) throw new HttpError(401, 'UNAUTHORIZED', 'Invalid cron secret');
+  if (!sameSecret(ctx.req.headers.get('x-cron-secret') ?? '', secret)) throw new HttpError(401, 'UNAUTHORIZED', 'Invalid cron secret');
 
   const today = todayIso();
   const summary: Record<string, unknown> = { today };
@@ -313,7 +322,7 @@ function route(parts: string[]): Handler | null {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: { ...CORS_HEADERS, ...SECURITY_HEADERS } });
 
   const url = new URL(req.url);
   // The function is mounted at /functions/v1/api; the platform passes the path from /api onwards.

@@ -18,15 +18,25 @@ export const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS'
 };
 
+/**
+ * On every response. Answers are about somebody's money, so no proxy, shared network cache or browser back
+ * button should keep a copy, and nothing should try to read them as anything but JSON.
+ */
+export const SECURITY_HEADERS: Record<string, string> = {
+  'Cache-Control': 'no-store',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer'
+};
+
 export function json(status: number, body: unknown, headers?: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS_HEADERS, ...(headers ?? {}) }
+    headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS_HEADERS, ...SECURITY_HEADERS, ...(headers ?? {}) }
   });
 }
 
 export function noContent(): Response {
-  return new Response(null, { status: 204, headers: CORS_HEADERS });
+  return new Response(null, { status: 204, headers: { ...CORS_HEADERS, ...SECURITY_HEADERS } });
 }
 
 export function errorResponse(status: number, code: string, message: string, details?: unknown, headers?: Record<string, string>): Response {
@@ -45,8 +55,15 @@ export function badRequest(message: string, code = 'VALIDATION_ERROR', details?:
   throw new HttpError(400, code, message, details);
 }
 
+/** The biggest thing anybody sends is a voice note as base64, well under this. Anything larger is refused unread. */
+const MAX_BODY_BYTES = 8 * 1024 * 1024;
+
 export async function readJson(req: Request): Promise<unknown> {
-  const raw = (await req.text().catch(() => '')).trim();
+  const declared = Number(req.headers.get('content-length') ?? 0);
+  if (declared > MAX_BODY_BYTES) throw new HttpError(413, 'TOO_LARGE', 'That is too large to send.');
+  const text = await req.text().catch(() => '');
+  if (text.length > MAX_BODY_BYTES) throw new HttpError(413, 'TOO_LARGE', 'That is too large to send.');
+  const raw = text.trim();
   if (!raw) return {};
   try {
     return JSON.parse(raw);

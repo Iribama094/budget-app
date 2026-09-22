@@ -136,8 +136,8 @@ export async function forgotPassword(ctx: Ctx) {
   await sendEmail({
     to: email,
     subject: `${code} is your BudgetFriendly reset code`,
-    text: `Use this code to reset your BudgetFriendly password: ${code}\n\nIt expires in 15 minutes. If you didn't ask for a reset, you can ignore this email; your password hasn't changed.`,
-    html: `<p>Use this code to reset your BudgetFriendly password:</p><p style="font-size:28px;font-weight:600;letter-spacing:6px">${code}</p><p>It expires in 15 minutes. If you didn't ask for a reset, you can ignore this email; your password hasn't changed.</p>`
+    text: `Use this code to reset your BudgetFriendly password: ${code}\n\nIt expires in 15 minutes. Never share it with anyone, including anybody who says they are from BudgetFriendly: we will never ask you for it. If you didn't ask for a reset, you can ignore this email; your password hasn't changed.`,
+    html: `<p>Use this code to reset your BudgetFriendly password:</p><p style="font-size:28px;font-weight:600;letter-spacing:6px">${code}</p><p>It expires in 15 minutes.</p><p><strong>Never share this code with anyone</strong>, including anybody who says they are from BudgetFriendly. We will never call, text or DM you to ask for it.</p><p>If you didn't ask for a reset, you can ignore this email; your password hasn't changed.</p>`
   });
 
   // Opt-in only, for test projects without email delivery: returns the code to the app.
@@ -152,6 +152,8 @@ export async function changePassword(ctx: Ctx) {
   if (ctx.method !== 'POST') methodNotAllowed(['POST']);
   const auth = await requireAuth(ctx.req);
   const input = await body(ctx.req, ChangePasswordSchema, 'New password must be at least 8 characters');
+  // Somebody holding an unlocked phone could otherwise guess the current password here as fast as they type.
+  await enforceRateLimit({ key: `change-password:${auth.userId}`, limit: 5, windowSec: 15 * 60 });
 
   const [row] = await sql`
     select coalesce(encrypted_password = extensions.crypt(${input.oldPassword}, encrypted_password), false) as ok
@@ -171,6 +173,20 @@ export async function changePassword(ctx: Ctx) {
     title: 'Password changed',
     body: 'Your BudgetFriendly password was just changed. If this was not you, reset it now from the sign-in screen.'
   }).catch(() => undefined);
+  // By email as well. Whoever changed it may also have signed the owner's phone out, so a push alone could
+  // land on nobody.
+  const [who] = await sql<{ email: string | null }[]>`select email from public.profiles where id = ${auth.userId}`;
+  if (who?.email) {
+    await sendEmail({
+      to: who.email,
+      subject: 'Your BudgetFriendly password was changed',
+      text:
+        'Your BudgetFriendly password was just changed.\n\n' +
+        'If this was you, there is nothing to do.\n\n' +
+        'If it was not, reset it now: open the app, tap Sign in, then Forgot password. Then check Profile, Your devices, and sign out anything you do not recognise.\n\n' +
+        'We will never call, text or DM you to ask for your password or a code.'
+    }).catch(() => undefined);
+  }
   return noContent();
 }
 

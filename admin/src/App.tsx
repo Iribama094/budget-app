@@ -10,6 +10,7 @@ import { TaxRules } from './screens/TaxRules';
 import { Audit } from './screens/Audit';
 import { Staff } from './screens/Staff';
 import { Settings } from './screens/Settings';
+import { TwoFactor } from './screens/TwoFactor';
 
 type Page = 'overview' | 'flags' | 'wrapped' | 'people' | 'content' | 'tax' | 'audit' | 'staff' | 'settings';
 
@@ -30,6 +31,7 @@ export function App() {
   const [checking, setChecking] = useState(true);
   const [page, setPage] = useState<Page>('overview');
   const [denied, setDenied] = useState<string | null>(null);
+  const [needsSecondStep, setNeedsSecondStep] = useState(false);
 
   /**
    * Signed in is not the same as staff. The session may be perfectly valid and still have no business here,
@@ -38,6 +40,7 @@ export function App() {
   const check = useCallback(async () => {
     setChecking(true);
     setDenied(null);
+    setNeedsSecondStep(false);
     const { data } = await supabase.auth.getSession();
     if (!data.session) {
       setAdmin(null);
@@ -49,7 +52,10 @@ export function App() {
       setAdmin(res.admin);
     } catch (err) {
       setAdmin(null);
-      if (err instanceof ApiError && err.status === 404) {
+      if (err instanceof ApiError && err.code === 'MFA_REQUIRED') {
+        // Staff, with the right password, but not yet past the second step.
+        setNeedsSecondStep(true);
+      } else if (err instanceof ApiError && err.status === 404) {
         setDenied('That account is not on the staff list. Ask an owner to add you.');
         await supabase.auth.signOut();
       } else {
@@ -75,6 +81,8 @@ export function App() {
       </div>
     );
   }
+
+  if (needsSecondStep) return <TwoFactor onVerified={check} onCancel={() => void supabase.auth.signOut()} />;
 
   if (!admin) return <SignIn notice={denied} onSignedIn={check} />;
 

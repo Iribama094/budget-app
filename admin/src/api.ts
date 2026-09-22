@@ -177,7 +177,7 @@ export type TaxCountry = {
 };
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(public status: number, message: string, public code?: string) {
     super(message);
   }
 }
@@ -194,7 +194,7 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   const text = await res.text();
   const body = text ? JSON.parse(text) : null;
   if (!res.ok) {
-    throw new ApiError(res.status, body?.error?.message ?? `Request failed (${res.status})`);
+    throw new ApiError(res.status, body?.error?.message ?? `Request failed (${res.status})`, body?.error?.code);
   }
   return body as T;
 }

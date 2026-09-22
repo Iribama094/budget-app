@@ -24,6 +24,7 @@ import { SpaceProvider } from './src/contexts/SpaceContext';
 import { ToastProvider } from './src/components/Common/Toast';
 import { AppBackground } from './src/components/Common/AppBackground';
 import { AppTabBar } from './src/components/Common/TabBar';
+import { PrivacyCover } from './src/components/Common/PrivacyCover';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
@@ -322,6 +323,7 @@ export default function App() {
                                   <AppBackground />
                                   <Root />
                                   <AppServices />
+                                  <PrivacyCover />
                                 </View>
                               </NudgesProvider>
                             </GuideProvider>

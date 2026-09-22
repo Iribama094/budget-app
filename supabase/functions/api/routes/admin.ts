@@ -245,13 +245,25 @@ export async function adminStaff(ctx: Ctx) {
   if (ctx.method === 'POST' && !id) {
     const admin = await requireAdmin(ctx.req, 'staff');
     const input = await body(ctx.req, StaffInput);
+    const email = input.email.toLowerCase();
+
+    // Staff access is tied to an account that already exists, at the moment it is granted. Holding a row open
+    // for an address nobody has signed up with yet would give it to whoever registers that address first.
+    const [account] = await sql<{ id: string; createdAt: Date }[]>`
+      select id, created_at from auth.users where lower(email) = ${email} and deleted_at is null
+    `;
+    if (!account) {
+      badRequest('There is no BudgetFriendly account with that email yet. Ask them to sign up in the app first, then add them here.', 'NO_ACCOUNT');
+    }
+
     const [row] = await sql`
-      insert into public.admin_users (email, name, role, created_by)
-      values (${input.email.toLowerCase()}, ${input.name ?? null}, ${input.role}, ${admin.id})
-      on conflict (email) do update set role = excluded.role, name = coalesce(excluded.name, admin_users.name), disabled_at = null
+      insert into public.admin_users (email, name, role, created_by, user_id)
+      values (${email}, ${input.name ?? null}, ${input.role}, ${admin.id}, ${account.id})
+      on conflict (email) do update set role = excluded.role, name = coalesce(excluded.name, admin_users.name),
+        user_id = excluded.user_id, disabled_at = null
       returning id, email, name, role
     `;
-    await audit(admin, 'staff.add', row.email, { role: row.role });
+    await audit(admin, 'staff.add', row.email, { role: row.role, accountCreated: account.createdAt });
     return json(201, { staff: row });
   }
 

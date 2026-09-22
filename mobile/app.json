@@ -25,7 +25,8 @@
         "backgroundColor": "#0D2B26"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.budgetfriendly.app"
+      "package": "com.budgetfriendly.app",
+    "allowBackup": false
     },
     "web": {
       "favicon": "./assets/favicon.png"

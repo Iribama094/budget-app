@@ -1,12 +1,13 @@
 import 'react-native-url-polyfill/auto';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, processLock } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from '../config';
+import { secureSessionStorage } from './secureSessionStorage';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: AsyncStorage,
+    // In the phone's keystore, not plain storage: the session carries a long-lived refresh token.
+    storage: secureSessionStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

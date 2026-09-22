@@ -1,12 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { revokeSession, unregisterPushToken } from '../api/features';
 import { getRememberedPushToken, rememberPushToken } from '../lib/notifications';
 import { clearWidgetSnapshot } from '../lib/widgetData';
 import { clearCaches } from '../lib/localCache';
 import { friendlyAuthError, sessionIdOf, supabase } from '../lib/supabase';
+import { secureSessionStorage } from '../lib/secureSessionStorage';
 import { SUPABASE_URL } from '../config';
 import {
   getBiometricEnabled,
@@ -254,7 +254,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const { error } = await supabase.auth.signOut({ scope: 'local' });
     // Offline: the server session expires on its own; make sure this phone forgets it now.
-    if (error) await AsyncStorage.removeItem(SESSION_STORAGE_KEY).catch(() => undefined);
+    if (error) await secureSessionStorage.removeItem(SESSION_STORAGE_KEY).catch(() => undefined);
     // Don’t leave balances on the home screen after signing out.
     void clearWidgetSnapshot().catch(() => undefined);
     await clearCaches();

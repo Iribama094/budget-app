@@ -26,17 +26,23 @@ const CAN: Record<string, AdminRole[]> = {
  * console cannot be used to find out who works here.
  */
 export async function requireAdmin(req: Request, area?: keyof typeof CAN): Promise<Admin> {
-  const { userId } = await requireAuth(req);
+  const { userId, aal } = await requireAuth(req);
+  // Matched on the account, never on the email. Sign-up does not prove somebody owns an address, so matching
+  // on email would hand staff access to whoever registered a staff member's address first.
   const [row] = await sql<{ id: string; email: string; name: string | null; role: AdminRole }[]>`
     select a.id, a.email, a.name, a.role
     from public.admin_users a
-    join public.profiles p on lower(p.email) = lower(a.email)
-    where p.id = ${userId} and a.disabled_at is null
+    where a.user_id = ${userId} and a.disabled_at is null
   `;
   if (!row) throw new HttpError(404, 'NOT_FOUND', 'Not found');
 
-  // First sign in ties the row to the account, so later lookups are cheap and a rename is visible.
-  await sql`update public.admin_users set user_id = ${userId}, last_seen_at = now() where id = ${row.id}`;
+  // A password alone does not open the console. It can sign people out, reset their passwords and change
+  // what the app tells everybody they owe, so it needs a second factor as well.
+  if (aal !== 'aal2') {
+    throw new HttpError(403, 'MFA_REQUIRED', 'Confirm it is you with your authenticator app first.');
+  }
+
+  await sql`update public.admin_users set last_seen_at = now() where id = ${row.id}`;
 
   if (area && !CAN[area].includes(row.role)) {
     throw new HttpError(403, 'FORBIDDEN', `Your role (${row.role}) cannot change this.`);
@@ -48,8 +54,7 @@ export async function requireAdmin(req: Request, area?: keyof typeof CAN): Promi
 export async function isStaff(userId: string): Promise<boolean> {
   const [row] = await sql`
     select 1 as ok from public.admin_users a
-    join public.profiles p on lower(p.email) = lower(a.email)
-    where p.id = ${userId} and a.disabled_at is null limit 1
+    where a.user_id = ${userId} and a.disabled_at is null limit 1
   `;
   return !!row;
 }

@@ -8,8 +8,7 @@ import { changePassword } from '../api/endpoints';
 import { useTheme } from '../contexts/ThemeContext';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
-
-const MIN_PASSWORD = 8;
+import { MIN_PASSWORD, PASSWORD_HINT, passwordProblem } from '../lib/passwordRules';
 
 export default function ChangePasswordScreen() {
   const nav = useNavigation<any>();
@@ -23,7 +22,8 @@ export default function ChangePasswordScreen() {
   const [isChanging, setIsChanging] = useState(false);
 
   const mismatch = confirmPass.length > 0 && newPass !== confirmPass;
-  const canSubmit = !!currPass && newPass.length >= MIN_PASSWORD && newPass === confirmPass && !isChanging;
+  const newPassIssue = passwordProblem(newPass);
+  const canSubmit = !!currPass && newPass.length >= MIN_PASSWORD && !newPassIssue && newPass === confirmPass && !isChanging;
 
   const handleUpdate = async () => {
     setError(null);
@@ -62,7 +62,8 @@ export default function ChangePasswordScreen() {
         secureTextEntry={!show}
         autoComplete="new-password"
         textContentType="newPassword"
-        error={newPass.length > 0 && newPass.length < MIN_PASSWORD ? `Use at least ${MIN_PASSWORD} characters` : null}
+        error={newPassIssue}
+        hint={PASSWORD_HINT}
       />
       <TextField
         label="Confirm new password"

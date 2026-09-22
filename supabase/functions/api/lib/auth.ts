@@ -1,6 +1,8 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.116.0';
 import { sql } from './db.ts';
 import { HttpError } from './http.ts';
+import { sendEmail } from './email.ts';
+import { notifyUser } from './notify.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 
@@ -43,7 +45,16 @@ export function adminAuth() {
  * `userId` is whose money the request is about. When someone helps another person with their money (a
  * delegate), it's the owner's id and `actorId` is the helper's own; otherwise both are the caller.
  */
-export type AuthContext = { userId: string; sessionId: string | null; email: string | null; token: string; actorId: string; delegateRole: 'view' | 'record' | null };
+export type AuthContext = {
+  userId: string;
+  sessionId: string | null;
+  email: string | null;
+  token: string;
+  actorId: string;
+  delegateRole: 'view' | 'record' | null;
+  /** 'aal2' once the session has passed a second factor. Staff tools refuse anything less. */
+  aal: 'aal1' | 'aal2';
+};
 
 /** What a helper may do in someone else's money. Everything else is refused before any route runs. */
 function delegateMayDo(req: Request, role: 'view' | 'record'): boolean {
@@ -108,20 +119,23 @@ export async function requireAuth(req: Request): Promise<AuthContext> {
     if (!rows.length) throw new HttpError(401, 'UNAUTHORIZED', 'This device was signed out');
 
     if (deviceName) {
-      await sql`
+      const touched = await sql<{ inserted: boolean }[]>`
         insert into public.device_sessions (session_id, user_id, device_name, platform)
         values (${sessionId}, ${userId}, ${deviceName}, ${platform})
         on conflict (session_id) do update
           set device_name = excluded.device_name, platform = excluded.platform, last_seen_at = now()
           where device_sessions.last_seen_at < now() - make_interval(mins => ${DEVICE_TOUCH_MINUTES})
              or device_sessions.device_name is distinct from excluded.device_name
-      `.catch(() => undefined);
+        returning (xmax = 0) as inserted
+      `.catch(() => [] as { inserted: boolean }[]);
+      if (touched[0]?.inserted) await alertNewDevice(userId, sessionId, deviceName, platform);
     }
   }
 
   const email = typeof claims.email === 'string' ? claims.email : null;
+  const aal = claims.aal === 'aal2' ? 'aal2' : 'aal1';
   const actAs = (req.headers.get('x-act-as') ?? '').trim();
-  if (!actAs || actAs === userId) return { userId, sessionId, email, token, actorId: userId, delegateRole: null };
+  if (!actAs || actAs === userId) return { userId, sessionId, email, token, actorId: userId, delegateRole: null, aal };
 
   const [grant] = await sql<{ role: 'view' | 'record' }[]>`
     select role from public.delegates where owner_id = ${actAs} and delegate_id = ${userId} and accepted_at is not null
@@ -130,5 +144,64 @@ export async function requireAuth(req: Request): Promise<AuthContext> {
   if (!delegateMayDo(req, grant.role)) {
     throw new HttpError(403, 'FORBIDDEN', grant.role === 'view' ? 'You can look, but only they can change things.' : 'You can add transactions, but only they can change anything else.');
   }
-  return { userId: actAs, sessionId, email: null, token, actorId: userId, delegateRole: grant.role };
+  return { userId: actAs, sessionId, email: null, token, actorId: userId, delegateRole: grant.role, aal };
+}
+
+/**
+ * Tells somebody when their account is opened on a device it has not been on before.
+ *
+ * The most common way into somebody's money is not breaking the app, it is their password: phished, reused
+ * or read over a shoulder. They cannot stop a sign-in they never hear about, so every new device gets a push
+ * to the devices they already have and an email, with the one thing to do if it was not them. The first
+ * device on a brand new account is left alone, since that is them signing up.
+ */
+async function alertNewDevice(userId: string, sessionId: string, deviceName: string, platform: string | null): Promise<void> {
+  try {
+    const [row] = await sql<{ others: number; email: string | null; name: string | null }[]>`
+      select
+        (select count(*)::int from public.device_sessions where user_id = ${userId} and session_id <> ${sessionId}) as others,
+        p.email, p.name
+      from public.profiles p where p.id = ${userId}
+    `;
+    const [signIns] = await sql<{ n: number }[]>`
+      select count(*)::int as n from auth.sessions where user_id = ${userId}
+    `;
+    if (!row || (row.others === 0 && (signIns?.n ?? 0) <= 1)) return;
+
+    const where = platform ? `${deviceName} (${platform})` : deviceName;
+    const when = new Date().toLocaleString('en-GB', { timeZone: 'Africa/Lagos', dateStyle: 'medium', timeStyle: 'short' });
+    await notifyUser(userId, {
+      kind: 'security',
+      title: 'New sign-in to your account',
+      body: `${where} just signed in. If this was not you, open Profile, then Your devices, sign it out and change your password.`,
+      data: { screen: 'Devices' },
+      dedupeKey: `new-device:${sessionId}`
+    }).catch(() => undefined);
+
+    if (row.email) {
+      await sendEmail({
+        to: row.email,
+        subject: 'New sign-in to your BudgetFriendly account',
+        text:
+          `Hi${row.name ? ` ${row.name}` : ''},\n\n` +
+          `Your account was just opened on ${where}, ${when} Lagos time.\n\n` +
+          `If this was you, there is nothing to do.\n\n` +
+          `If it was not: open the app, go to Profile, then Your devices, sign that device out, and change your password. ` +
+          `We will never call, text or DM you to ask for your password or a code, so anyone who does is not us.`,
+        html:
+          `<p>Hi${row.name ? ` ${escapeHtml(row.name)}` : ''},</p>` +
+          `<p>Your account was just opened on <strong>${escapeHtml(where)}</strong>, ${escapeHtml(when)} Lagos time.</p>` +
+          `<p>If this was you, there is nothing to do.</p>` +
+          `<p>If it was not: open the app, go to <strong>Profile, then Your devices</strong>, sign that device out, and change your password.</p>` +
+          `<p style="color:#5a6e69">We will never call, text or DM you to ask for your password or a code, so anyone who does is not us.</p>`
+      });
+    }
+  } catch (err) {
+    // An alert that fails must never stop somebody using their own account.
+    console.error('[auth] new device alert failed', err);
+  }
+}
+
+export function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
 }

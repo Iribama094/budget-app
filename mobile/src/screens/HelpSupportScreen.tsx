@@ -172,6 +172,37 @@ const TOPICS: Topic[] = [
     ]
   },
   {
+    // Most people who lose money to "their app" lose it to somebody pretending to be it. This says, once and
+    // plainly, what we will never do, so anything that does it stands out as not us.
+    title: 'Staying safe from scams',
+    items: [
+      {
+        q: 'Will BudgetFriendly ever ask for my password or a code?',
+        a: 'Never. Not by call, SMS, WhatsApp, Instagram DM or email. Codes we send are for you to type into the app, nowhere else. Anyone asking you to read one out or send it to them is not us, however official they sound.'
+      },
+      {
+        q: 'Someone from “BudgetFriendly support” messaged me. Is it real?',
+        a: 'We only reply from support@budgetfriendly.app, and only after you write to us first. We never ask you to move money, pay a fee to “unlock” anything, install another app or share your screen. If a message does any of that, block and report it.'
+      },
+      {
+        q: 'I got a “new sign-in” email but it wasn’t me',
+        a: 'Open Profile › Your devices, sign out the device you don’t recognise, then change it in Profile › Password. Use a password you don’t use anywhere else: most break-ins use a password leaked from another site.'
+      },
+      {
+        q: 'My phone was lost or stolen',
+        a: 'Sign in on another phone, go to Profile › Your devices and sign the lost one out, then change your password. With Face ID or fingerprint turned on, whoever has the phone still can’t open the app.'
+      },
+      {
+        q: 'Is it safe to link my bank?',
+        a: 'Linking is read-only: the app can see transactions but can never move money, and you never give us your bank password or PIN. Your bank’s own login happens on its page, not ours. You can unlink at any time in Settings › Linked banks.'
+      },
+      {
+        q: 'Which app is the real one?',
+        a: 'Only download BudgetFriendly from the App Store or Google Play. A link in a message that offers the app as a file to install is not us.'
+      }
+    ]
+  },
+  {
     title: 'Account and data',
     items: [
       {
@@ -180,7 +211,7 @@ const TOPICS: Topic[] = [
       },
       {
         q: 'How do I keep my account secure?',
-        a: 'Turn on Face ID or fingerprint sign-in in Settings, and check Profile › Your devices to sign out any phone you don’t recognise.'
+        a: 'Turn on Face ID or fingerprint sign-in in Settings, use a password you don’t use anywhere else, and check Profile › Your devices to sign out any phone you don’t recognise. We email you whenever a new device signs in.'
       },
       {
         q: 'I’m seeing missing or duplicate transactions',

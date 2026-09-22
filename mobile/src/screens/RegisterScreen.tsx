@@ -8,8 +8,7 @@ import { IconButton, InlineError, PrimaryButton, Screen, TextField } from '../co
 import { fonts, type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 
-// Must match zPassword on the API (backend/_lib/validate.ts).
-const MIN_PASSWORD = 8;
+import { MIN_PASSWORD, PASSWORD_HINT, passwordProblem } from '../lib/passwordRules';
 
 export function RegisterScreen() {
   const auth = useAuth();
@@ -28,8 +27,8 @@ export function RegisterScreen() {
 
   const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
   const emailLooksValid = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail), [normalizedEmail]);
-  const passwordTooShort = password.length > 0 && password.length < MIN_PASSWORD;
-  const canSubmit = !isSubmitting && emailLooksValid && password.length >= MIN_PASSWORD;
+  const passwordIssue = passwordProblem(password, normalizedEmail);
+  const canSubmit = !isSubmitting && emailLooksValid && password.length >= MIN_PASSWORD && !passwordIssue;
 
   const submit = async () => {
     setError(null);
@@ -109,8 +108,8 @@ export function RegisterScreen() {
         placeholder={`At least ${MIN_PASSWORD} characters`}
         editable={!isSubmitting}
         inputRef={passwordRef}
-        error={passwordTooShort ? `${MIN_PASSWORD - password.length} more character${MIN_PASSWORD - password.length === 1 ? '' : 's'} to go` : null}
-        hint={`Use at least ${MIN_PASSWORD} characters.`}
+        error={passwordIssue}
+        hint={PASSWORD_HINT}
         right={
           <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={10} accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
             {showPassword ? <EyeOff color={theme.colors.textMuted} size={20} /> : <Eye color={theme.colors.textMuted} size={20} />}

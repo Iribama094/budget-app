@@ -46,7 +46,7 @@ async function call(token, method, path, body, headers = {}) {
   } catch {
     data = text;
   }
-  return { status: res.status, data };
+  return { status: res.status, data, headers: res.headers };
 }
 
 async function authApi(method, path, body, { key = PUB, token } = {}) {
@@ -536,11 +536,66 @@ try {
     check('removed helper loses access at once', (await call(b.token, 'GET', '/money', undefined, { 'x-act-as': a.id })).status === 403);
   }
 
+  section('Security: one account cannot reach another');
+  // Everything here belongs to one person. The other is signed in and knows the ids, which is the realistic
+  // attack: ids leak through screenshots, shared links and logs. Every attempt must look like nothing is there.
+  const theirs = [
+    ['goal', `/goals/${goalId}`],
+    ['transaction', `/transactions/${expenseId}`],
+    ['recurring payment', `/recurring/${recId}`],
+    ['bank link', `/bank-links/${linkId}`],
+    ['category', `/categories/${genId}`],
+    ['invoice', `/invoices/${inv1}`],
+    ['supplier bill', `/bills/${billId}`],
+    ['holding', `/holdings/${cashId}`],
+    ['debt', `/debts/${loanId}`],
+    ['property', `/properties/${flatId}`]
+  ];
+  for (const [what, path] of theirs) {
+    const reads = await call(b.token, 'GET', path);
+    const edits = await call(b.token, 'PATCH', path, { name: 'hijacked', note: 'hijacked', amount: 1 });
+    const deletes = await call(b.token, 'DELETE', path);
+    const refused = (s) => s === 404 || s === 403 || s === 405;
+    check(`someone else cannot read, change or delete your ${what}`, refused(reads.status) && refused(edits.status) && refused(deletes.status), {
+      get: reads.status,
+      patch: edits.status,
+      delete: deletes.status
+    });
+  }
+  check('their income source is not yours either', [403, 404, 405].includes((await call(a.token, 'DELETE', `/income-sources/${sideId}`)).status));
+  r = await call(a.token, 'GET', `/goals/${goalId}`);
+  check('the owner still has everything afterwards', r.status === 200 && r.data.goal?.name !== 'hijacked', r.status);
+  r = await call(b.token, 'GET', '/transactions', undefined, { 'x-act-as': a.id });
+  check('acting for somebody who never invited you is refused', r.status === 403, r.status);
+
+  section('Security: what the server sends back');
+  r = await call(a.token, 'GET', '/auth/me');
+  check('answers about money are never cached', r.headers.get('cache-control') === 'no-store', r.headers.get('cache-control'));
+  check('answers are never sniffed as anything but JSON', r.headers.get('x-content-type-options') === 'nosniff');
+  r = await call(null, 'GET', '/budgets');
+  check('no token, no data', r.status === 401);
+  r = await call('not-a-real-token', 'GET', '/budgets');
+  check('a forged token gets nothing', r.status === 401);
+  const huge = await fetch(`${API}/transactions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${a.token}`, 'Content-Length': String(9 * 1024 * 1024) },
+    body: JSON.stringify({ note: 'x'.repeat(9 * 1024 * 1024) })
+  }).catch(() => null);
+  check('an oversized request is refused unread', huge?.status === 413, huge?.status);
+  r = await call(a.token, 'GET', '/admin/me');
+  check('a normal account cannot see the staff console exists', r.status === 404, r.status);
+  r = await call(null, 'GET', '/cron/daily', undefined, { 'x-cron-secret': 'guess' });
+  check('the daily job refuses a guessed secret', r.status === 401);
+
   section('Devices, passwords and recovery');
   r = await call(a.token, 'GET', '/auth/sessions');
   check('devices list names this phone', r.status === 200 && r.data.items.some((s) => s.current && s.deviceName === 'Test iPhone'), r);
   const second = await signIn(A.email, A.password);
   check('sign in on a second device', second.status === 200, second.data);
+  // The second phone makes its first request, which is when the account holder is told.
+  await call(second.data.access_token, 'GET', '/auth/me', undefined, { 'x-device-name': 'Unknown Pixel', 'x-device-platform': 'android' });
+  r = await call(a.token, 'GET', '/notifications');
+  check('a new device signing in is announced to the account holder', (r.data?.items ?? []).some((n) => /new sign-in/i.test(n.title) && /Unknown Pixel/.test(n.body)), r.data?.items?.map((n) => n.title));
   check('devices list shows both', (await call(a.token, 'GET', '/auth/sessions')).data?.items?.length >= 2);
   r = await call(a.token, 'POST', '/auth/sessions/revoke-others');
   check('sign out other devices', r.status === 200 && r.data.revoked >= 1, r);

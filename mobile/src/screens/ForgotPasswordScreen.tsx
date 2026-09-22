@@ -7,6 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Chip, IconButton, InlineError, PrimaryButton, Screen, TextButton, TextField } from '../components/Common/ui';
 import { fonts, type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { MIN_PASSWORD, PASSWORD_HINT, passwordProblem } from '../lib/passwordRules';
 
 const CODE_LENGTH = 6;
 const RESEND_SECONDS = 60;
@@ -31,7 +32,8 @@ export default function ForgotPasswordScreen() {
 
   const normalizedEmail = email.trim().toLowerCase();
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
-  const canReset = code.length === CODE_LENGTH && password.length >= 8 && !busy;
+  const passwordIssue = passwordProblem(password, normalizedEmail);
+  const canReset = code.length === CODE_LENGTH && password.length >= MIN_PASSWORD && !passwordIssue && !busy;
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -165,7 +167,8 @@ export default function ForgotPasswordScreen() {
               autoComplete="new-password"
               textContentType="newPassword"
               placeholder="At least 8 characters"
-              hint="Use at least 8 characters."
+              error={passwordIssue}
+              hint={PASSWORD_HINT}
               right={
                 <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={10} accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
                   {showPassword ? <EyeOff color={theme.colors.textMuted} size={20} /> : <Eye color={theme.colors.textMuted} size={20} />}
