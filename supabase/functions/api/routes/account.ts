@@ -4,7 +4,7 @@ import { body, HttpError, json, methodNotAllowed, noContent, notFound, z } from 
 import { DEFAULT_NOTIFICATION_PREFS, getNotificationPrefs, notifyUser } from '../lib/notify.ts';
 import { enforceRateLimit } from '../lib/rateLimit.ts';
 import { sendEmail } from '../lib/email.ts';
-import { checkVerificationCode, isEmailVerified, sendVerificationCode } from '../lib/verify.ts';
+import { checkVerificationCode, isEmailVerified, mustProveEmail, sendVerificationCode } from '../lib/verify.ts';
 import type { Ctx } from '../index.ts';
 
 export function toApiUser(p: any, _opts: { withTax?: boolean } = {}) {
@@ -47,8 +47,8 @@ export async function loadProfile(userId: string, email: string | null) {
 export async function authMe(ctx: Ctx) {
   if (ctx.method !== 'GET') methodNotAllowed(['GET']);
   const auth = await requireAuth(ctx.req);
-  const [profile, emailVerified] = await Promise.all([loadProfile(auth.userId, auth.email), isEmailVerified(auth.userId)]);
-  return json(200, { user: { ...toApiUser(profile), emailVerified } });
+  const [profile, mustProve] = await Promise.all([loadProfile(auth.userId, auth.email), mustProveEmail(auth.userId)]);
+  return json(200, { user: { ...toApiUser(profile), emailVerified: !mustProve } });
 }
 
 const VerifyCodeSchema = z.object({ code: z.string().trim().regex(/^\d{6}$/, 'Enter the six digits from the email') });

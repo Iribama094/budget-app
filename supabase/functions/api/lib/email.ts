@@ -15,6 +15,11 @@ function parseSender(value: string): { name?: string; email: string } {
  * and EMAIL_FROM must be a sender Brevo has verified or the send is rejected.
  * Returns true when the provider accepted the message.
  */
+/** Whether the app can send email at all. Without a Brevo key every send is only logged. */
+export function emailConfigured(): boolean {
+  return !!Deno.env.get('BREVO_API_KEY');
+}
+
 export async function sendEmail(message: { to: string; subject: string; text: string; html?: string }): Promise<boolean> {
   const apiKey = Deno.env.get('BREVO_API_KEY');
   const from = Deno.env.get('EMAIL_FROM') || 'BudgetFriendly <no-reply@budgetfriendly.app>';

@@ -1,6 +1,6 @@
 import { sql } from './db.ts';
 import { adminAuth } from './auth.ts';
-import { sendEmail } from './email.ts';
+import { emailConfigured, sendEmail } from './email.ts';
 
 /**
  * Proving somebody owns the email address on their account, with a six-digit code sent through Brevo.
@@ -13,6 +13,18 @@ const CODE_TTL_MIN = 15;
 const MAX_ATTEMPTS = 5;
 /** A second send inside this window reuses the code already on its way, rather than piling up emails. */
 const RESEND_AFTER_SEC = 60;
+
+/**
+ * Whether this account still has to prove its address before it can use the app or invite anybody.
+ *
+ * The check exists so we never email a stranger. While no mail provider is configured we email nobody, and
+ * a code could never arrive, so asking for one would only trap every new person on the code screen. It
+ * switches itself on the moment BREVO_API_KEY is set; anybody who signed up in between is asked then.
+ */
+export async function mustProveEmail(userId: string): Promise<boolean> {
+  if (!emailConfigured()) return false;
+  return !(await isEmailVerified(userId));
+}
 
 export async function isEmailVerified(userId: string): Promise<boolean> {
   const [row] = await sql<{ at: string | null }[]>`
