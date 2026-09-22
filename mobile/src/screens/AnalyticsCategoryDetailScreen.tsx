@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { PieChart } from '../icons';
 
-import { Amount, EmptyState, HeroCard, InlineError, ListCard, ProgressBar, Screen, ScreenHeader, SectionHeader } from '../components/Common/ui';
+import { Amount, EmptyState, HeroCard, InlineError, ListCard, ProgressBar, Screen, ScreenHeader, SectionHeader, Spinner } from '../components/Common/ui';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
@@ -83,7 +83,7 @@ export default function AnalyticsCategoryDetailScreen() {
 
       <SectionHeader title="Categories" />
       {isLoading && !data ? (
-        <ActivityIndicator color={theme.colors.primary} />
+        <Spinner />
       ) : items.length === 0 ? (
         <EmptyState title="Nothing to show yet" body="No spending in this period. Log an expense and your breakdown will show here." />
       ) : (

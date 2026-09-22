@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Briefcase } from '../icons';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
-import { Card, IconTile, InlineError, PrimaryButton, Screen, ScreenHeader, SectionHeader, TextField } from '../components/Common/ui';
+import { Card, IconTile, InlineError, PrimaryButton, Screen, ScreenHeader, SectionHeader, Spinner, TextField } from '../components/Common/ui';
 import { getBusinessSettings, updateBusinessSettings } from '../api/business';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
@@ -42,7 +42,7 @@ export default function BusinessDetailsScreen() {
     return (
       <Screen bottomInset={48}>
         <ScreenHeader title="Business details" onBack={() => goBackOrHome(nav)} />
-        {error ? <InlineError message={error} /> : <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 40 }} />}
+        {error ? <InlineError message={error} /> : <Spinner style={{ marginTop: 40 }} />}
       </Screen>
     );
   }

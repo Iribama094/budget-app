@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { CalendarCheck, Plus, UserRound } from '../icons';
 
@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
 import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
-import { Amount, Card, Chip, EmptyState, HeroCard, IconTile, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SecondaryButton, SectionHeader, SegmentedControl, TextField, formatAmount } from '../components/Common/ui';
+import { Amount, Card, Chip, EmptyState, formatAmount, HeroCard, IconTile, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SecondaryButton, SectionHeader, SegmentedControl, Spinner, TextField } from '../components/Common/ui';
 import { LineItem, MoneyField, Sheet, moneyText, parseMoney } from '../components/Business/parts';
 import { payslipMessage, sendOnWhatsApp, sharePayslipPdf } from '../lib/documents';
 import { addStaff, getBusinessSettings, getPayroll, removeStaff, runPayroll, updateStaff, type BusinessSettings, type PayrollLine, type PayrollRun, type Staff } from '../api/business';
@@ -208,7 +208,7 @@ export default function PayrollScreen() {
 
       <SectionHeader title="Team" info="People you pay. Adding someone here doesn't give them the app. To let them record sales or costs, open their name and tap Give them app access." />
       {loading ? (
-        <ActivityIndicator color={theme.colors.primary} />
+        <Spinner />
       ) : staff.length ? (
         <ListCard>
           {staff.map((s) => (

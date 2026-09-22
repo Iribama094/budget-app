@@ -1,28 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { CalendarClock, Pencil, PiggyBank, Plus, Repeat, Trash2 } from '../icons';
 
 import { deleteGoal, deleteGoalInSpace, getGoal, getGoalInSpace, patchGoal, patchGoalInSpace, type ApiGoal } from '../api/endpoints';
 import { addMoneyToGoal } from '../api/business';
 import { getPrices, takeFromGoal } from '../api/money';
-import {
-  Amount,
-  Card,
-  Chip,
-  HeroCard,
-  IconButton,
-  IconTile,
-  InlineError,
-  PrimaryButton,
-  ProgressBar,
-  Screen,
-  ScreenHeader,
-  SecondaryButton,
-  SectionHeader,
-  TextField,
-  formatAmount
-} from '../components/Common/ui';
+import { Amount, Card, Chip, formatAmount, HeroCard, IconButton, IconTile, InlineError, PrimaryButton, ProgressBar, Screen, ScreenHeader, SecondaryButton, SectionHeader, Spinner, TextField } from '../components/Common/ui';
 import { MoneyField, Sheet, parseMoney } from '../components/Business/parts';
 import { PendingSavingsCard } from '../components/Home/PendingSavingsCard';
 import { useToast } from '../components/Common/Toast';
@@ -324,7 +308,7 @@ export default function GoalDetailScreen() {
       <ScreenHeader title={title} subtitle={goal?.category ? String(goal.category) : undefined} onBack={() => goBackOrHome(nav)} right={headerActions} />
 
       {error ? <InlineError message={error} /> : null}
-      {!goal && isLoading ? <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 40 }} /> : null}
+      {!goal && isLoading ? <Spinner style={{ marginTop: 40 }} /> : null}
 
       {goal ? (
         <>

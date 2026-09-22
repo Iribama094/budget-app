@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlan, type ApiPlan } from '../api/personal';
 import { bucketDescription, bucketDisplayName, normalizeBucket, type Bucket } from '../theme/buckets';
-import { View, Text, Pressable, ActivityIndicator, ScrollView, Animated, useWindowDimensions, FlatList, TextInput, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, Animated, useWindowDimensions, FlatList, TextInput, StyleSheet } from 'react-native';
 import { Modal } from '../components/Common/AppModal';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import Slider from '@react-native-community/slider';
@@ -11,26 +11,7 @@ import { ArrowRightLeft, CalendarDays, Check, ChevronLeft, ChevronRight, Eye, Ey
 import { applyRollover, getRollover, type RolloverPreview } from '../api/features';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import {
-  Amount,
-  Card,
-  Chip,
-  EmptyState,
-  IconButton,
-  IconTile,
-  InlineError,
-  ListCard,
-  ListRow,
-  PrimaryButton,
-  ProgressBar,
-  Screen,
-  ScreenHeader,
-  SecondaryButton,
-  SectionHeader,
-  SegmentedControl,
-  Skeleton,
-  formatAmount
-} from '../components/Common/ui';
+import { Amount, Card, Chip, EmptyState, formatAmount, IconButton, IconTile, InlineError, ListCard, ListRow, PrimaryButton, ProgressBar, Screen, ScreenHeader, SecondaryButton, SectionHeader, SegmentedControl, Skeleton, Spinner } from '../components/Common/ui';
 import { InfoTip, TextField } from '../components/Common/ui';
 import { SelectField } from '../components/Common/SelectField';
 import { KeyboardAwareScrollView, KeyboardStickyView } from 'react-native-keyboard-controller';
@@ -1719,7 +1700,7 @@ export function BudgetScreen() {
                 {!rolloverFor.preview.nextBudget && !rolloverFor.preview.goals.length ? (
                   <Text style={[type.small, { color: theme.colors.textMuted, marginTop: 12 }]}>Create a goal or next month’s budget first, then come back.</Text>
                 ) : null}
-                {rollingOver ? <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 12 }} /> : null}
+                {rollingOver ? <Spinner style={{ marginTop: 12 }} /> : null}
                 <SecondaryButton title="Not now" onPress={() => setRolloverSheet(false)} style={{ marginTop: 14 }} />
               </>
             ) : null}

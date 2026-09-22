@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { bucketDisplayName } from '../theme/buckets';
-import { View, Text, Pressable, ActivityIndicator, Animated } from 'react-native';
+import { View, Text, Pressable, Animated } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Amount as UiAmount, Card, Chip, HeroCard, PrimaryButton, ProgressBar, SectionHeader, TextButton } from '../components/Common/ui';
+import { Amount as UiAmount, Card, Chip, HeroCard, PrimaryButton, ProgressBar, SectionHeader, Spinner, TextButton } from '../components/Common/ui';
 import { type } from '../theme/typography';
 import { currencySymbol } from '../utils/format';
 import { CalendarPlus, ChevronLeft } from '../icons';
@@ -368,7 +368,7 @@ export default function BudgetDetailScreen() {
 
       {isLoading ? (
         <View style={{ marginTop: 12 }}>
-          <ActivityIndicator color={theme.colors.primary} />
+          <Spinner />
         </View>
       ) : null}
 

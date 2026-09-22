@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Share, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import { CalendarSync, Copy, Share2, Users } from '../icons';
@@ -9,7 +9,7 @@ import { patchMe, type ApiBudget } from '../api/endpoints';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
-import { Card, Chip, IconTile, InfoTip, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SecondaryButton, SectionHeader, TextButton, TextField } from '../components/Common/ui';
+import { Card, Chip, IconTile, InfoTip, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SecondaryButton, SectionHeader, Spinner, TextButton, TextField } from '../components/Common/ui';
 import { formatShortDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
@@ -205,7 +205,7 @@ export default function ShareBudgetScreen() {
         <>
           <SectionHeader title="People" />
           {loading && !members.length ? (
-            <ActivityIndicator color={theme.colors.primary} />
+            <Spinner />
           ) : (
             <ListCard>
               {members.map((m) => {

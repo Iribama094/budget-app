@@ -1,12 +1,12 @@
 import React from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { getPrices, type ApiPrices } from '../api/money';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
-import { InlineError, ListRow, Screen, ScreenHeader, formatAmount } from '../components/Common/ui';
+import { formatAmount, InlineError, ListRow, Screen, ScreenHeader, Spinner } from '../components/Common/ui';
 import { PlainHeader, PlainList } from '../components/Common/PlainList';
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
@@ -37,7 +37,7 @@ export default function PricesScreen() {
     <Screen onRefresh={load} bottomInset={48}>
       <ScreenHeader title="Rising prices" subtitle="What your own life costs now" onBack={() => goBackOrHome(nav)} />
       {error ? <InlineError message={error} /> : null}
-      {!data && !error ? <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 24 }} /> : null}
+      {!data && !error ? <Spinner style={{ marginTop: 24 }} /> : null}
 
       {data ? (
         <>

@@ -6,7 +6,7 @@ import { Banknote, Check, FileText, MessageCircle, MoreHorizontal } from '../ico
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
-import { Amount, Card, HeroCard, IconButton, InlineError, ListCard, ListRow, PrimaryButton, ProgressBar, Screen, ScreenHeader, SectionHeader, formatAmount } from '../components/Common/ui';
+import { Amount, Card, formatAmount, HeroCard, IconButton, InlineError, ListCard, ListRow, PrimaryButton, ProgressBar, Screen, ScreenHeader, SectionHeader, Spinner } from '../components/Common/ui';
 import { DateChoice, LineItem, MoneyField, Sheet, StatusChip, moneyText, parseMoney, todayIso } from '../components/Business/parts';
 import { deleteInvoice, getInvoice, markInvoiceSent, recordInvoicePayment, updateInvoice, type BusinessSettings, type Invoice } from '../api/business';
 import { invoiceMessage, sendOnWhatsApp, shareInvoicePdf } from '../lib/documents';
@@ -64,7 +64,7 @@ export default function InvoiceDetailScreen() {
     return (
       <Screen bottomInset={48}>
         <ScreenHeader title="Invoice" onBack={() => goBackOrHome(nav)} />
-        {error ? <InlineError message={error} /> : <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 40 }} />}
+        {error ? <InlineError message={error} /> : <Spinner style={{ marginTop: 40 }} />}
       </Screen>
     );
   }

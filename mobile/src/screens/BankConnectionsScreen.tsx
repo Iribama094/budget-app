@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ClipboardPaste, Landmark, RefreshCw, Upload } from '../icons';
 
@@ -7,7 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
 import { useAuth } from '../contexts/AuthContext';
 import { useSpace } from '../contexts/SpaceContext';
-import { Amount, Card, Chip, HeroCard, IconTile, PrimaryButton, Screen, ScreenHeader, SecondaryButton, formatAmount } from '../components/Common/ui';
+import { Amount, Card, Chip, formatAmount, HeroCard, IconTile, PrimaryButton, Screen, ScreenHeader, SecondaryButton, Spinner } from '../components/Common/ui';
 import { BankLogo } from '../components/Common/BankLogo';
 import { listBankLinks, deleteBankLink, type ApiBankLink } from '../api/endpoints';
 import { syncBankConnection } from '../api/features';
@@ -156,7 +156,7 @@ export default function BankConnectionsScreen() {
           }
           ListEmptyComponent={
             loading ? (
-              <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 40 }} />
+              <Spinner style={{ marginTop: 40 }} />
             ) : (
               <View style={{ paddingTop: 26 }}>
                 <View style={{ alignItems: 'center' }}>

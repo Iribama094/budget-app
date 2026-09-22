@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { FileDown } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
-import { Amount, Card, Chip, HeroCard, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SectionHeader, formatAmount } from '../components/Common/ui';
+import { Amount, Card, Chip, formatAmount, HeroCard, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SectionHeader, Spinner } from '../components/Common/ui';
 import { ChoiceChip } from '../components/Plan/ChoiceChip';
 import { LineItem } from '../components/Business/parts';
 import { getBusinessReport, type BusinessReport } from '../api/business';
@@ -105,7 +105,7 @@ export default function BusinessReportsScreen() {
       ) : null}
 
       {loading || !report || !pl ? (
-        <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 40 }} />
+        <Spinner style={{ marginTop: 40 }} />
       ) : (
         <>
           <HeroCard style={{ marginTop: 14 }}>

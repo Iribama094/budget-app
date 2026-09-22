@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { Landmark, Lock } from '../icons';
@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
-import { Card, IconTile, InlineError, PrimaryButton, Screen, ScreenHeader, SecondaryButton } from '../components/Common/ui';
+import { Card, IconTile, InlineError, PrimaryButton, Screen, ScreenHeader, SecondaryButton, Spinner } from '../components/Common/ui';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
@@ -142,7 +142,7 @@ export default function MonoConnectScreen() {
   if (phase === 'connecting') {
     return (
       <View style={[styles.fill, { backgroundColor: theme.colors.background }]}>
-        {!loaded ? <ActivityIndicator color={theme.colors.primary} style={StyleSheet.absoluteFill} /> : null}
+        {!loaded ? <Spinner style={StyleSheet.absoluteFill} /> : null}
         <WebView
           source={{ html, baseUrl: 'https://connect.withmono.com' }}
           originWhitelist={['*']}

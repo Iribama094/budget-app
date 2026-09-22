@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
@@ -10,7 +10,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
 import { useToast } from '../components/Common/Toast';
-import { Amount, EmptyState, IconButton, Screen, SegmentedControl, formatAmount } from '../components/Common/ui';
+import { Amount, EmptyState, formatAmount, IconButton, Screen, SegmentedControl, Spinner } from '../components/Common/ui';
 import { ChoiceChip } from '../components/Plan/ChoiceChip';
 import { getWrapped, type Wrapped } from '../api/business';
 import { Confetti, CountUp, GrowBar, Pop, Reveal } from '../components/Wrapped/motion';
@@ -449,7 +449,7 @@ export default function WrappedScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 60 }} />
+        <Spinner style={{ marginTop: 60 }} />
       ) : error ? (
         <View style={{ marginTop: 16 }}>
           <EmptyState title="Not ready yet" body={/start|future|not started/i.test(error) ? 'That period hasn’t started. Pick another one.' : error} />

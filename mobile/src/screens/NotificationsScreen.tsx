@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, SectionList, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, SectionList, StyleSheet, Switch, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
   AlertTriangle,
@@ -35,7 +35,7 @@ import { getBusinessSettings, updateBusinessSettings } from '../api/business';
 import { useTheme } from '../contexts/ThemeContext';
 import { SPACE_LOOK, useSpace } from '../contexts/SpaceContext';
 import { useNotificationBadges } from '../contexts/NotificationBadgeContext';
-import { EmptyState, IconButton, IconTile, InfoTip, InlineError, ListCard, Screen, ScreenHeader, TextButton } from '../components/Common/ui';
+import { EmptyState, IconButton, IconTile, InfoTip, InlineError, ListCard, Screen, ScreenHeader, Spinner, TextButton } from '../components/Common/ui';
 import { scheduleWeeklyCheckIn } from '../lib/notifications';
 import { formatRelativeDay } from '../utils/format';
 import { type } from '../theme/typography';
@@ -243,7 +243,7 @@ export default function NotificationsScreen() {
                       );
                     })
                   ) : (
-                    <ActivityIndicator color={theme.colors.primary} style={{ marginVertical: 16 }} />
+                    <Spinner style={{ marginVertical: 16 }} />
                   )}
                 </ListCard>
                 </GuideAnchor>
@@ -316,7 +316,7 @@ export default function NotificationsScreen() {
         }}
         ListEmptyComponent={
           loading ? (
-            <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 32 }} />
+            <Spinner style={{ marginTop: 32 }} />
           ) : (
             <View style={{ marginTop: 18 }}>
               {isBusiness ? (

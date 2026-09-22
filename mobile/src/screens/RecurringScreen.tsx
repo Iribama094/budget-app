@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { BUCKETS } from '../theme/buckets';
 import { useCategories } from '../contexts/CategoriesContext';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { Modal } from '../components/Common/AppModal';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,23 +14,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { useToast } from '../components/Common/Toast';
 import { CategoryIcon } from '../components/Common/CategoryIcon';
-import {
-  Amount,
-  Card,
-  Chip,
-  EmptyState,
-  IconButton,
-  InlineError,
-  ListCard,
-  ListRow,
-  PrimaryButton,
-  Screen,
-  ScreenHeader,
-  SectionHeader,
-  SecondaryButton,
-  SegmentedControl,
-  formatAmount
-} from '../components/Common/ui';
+import { Amount, Card, Chip, EmptyState, formatAmount, IconButton, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SecondaryButton, SectionHeader, SegmentedControl, Spinner } from '../components/Common/ui';
 import { SelectField } from '../components/Common/SelectField';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
@@ -344,7 +328,7 @@ export default function RecurringScreen() {
         </Card>
       ) : null}
 
-      {loading && !items.length ? <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 24 }} /> : null}
+      {loading && !items.length ? <Spinner style={{ marginTop: 24 }} /> : null}
 
       {!loading && !items.length && !error ? (
         <View style={{ marginTop: 16 }}>

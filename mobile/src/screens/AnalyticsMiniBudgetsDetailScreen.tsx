@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Wallet } from '../icons';
 
-import { Amount, EmptyState, HeroCard, InlineError, ListCard, ProgressBar, Screen, ScreenHeader, SectionHeader } from '../components/Common/ui';
+import { Amount, EmptyState, HeroCard, InlineError, ListCard, ProgressBar, Screen, ScreenHeader, SectionHeader, Spinner } from '../components/Common/ui';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
@@ -82,7 +82,7 @@ export default function AnalyticsMiniBudgetsDetailScreen() {
 
       <SectionHeader title="Mini budgets" />
       {isLoading && !data ? (
-        <ActivityIndicator color={theme.colors.primary} />
+        <Spinner />
       ) : items.length === 0 ? (
         <EmptyState title="No mini budget spending yet" body="Link an expense to a mini budget and it will show here." />
       ) : (

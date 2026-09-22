@@ -1,12 +1,12 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Text, View } from 'react-native';
+import { Alert, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Wallet } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
-import { Amount, Card, HeroCard, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SectionHeader, TextButton, formatAmount } from '../components/Common/ui';
+import { Amount, Card, formatAmount, HeroCard, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SectionHeader, Spinner, TextButton } from '../components/Common/ui';
 import { LineItem, MoneyField, moneyText, parseMoney } from '../components/Business/parts';
 import { getPayYourself, recordOwnerPay, type PayYourselfSuggestion } from '../api/business';
 import { currencySymbol, formatShortDate, monthName } from '../utils/format';
@@ -56,7 +56,7 @@ export default function PayYourselfScreen() {
     return (
       <Screen bottomInset={48}>
         <ScreenHeader title="Pay yourself" onBack={() => goBackOrHome(nav)} />
-        {error ? <InlineError message={error} /> : <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 40 }} />}
+        {error ? <InlineError message={error} /> : <Spinner style={{ marginTop: 40 }} />}
       </Screen>
     );
   }

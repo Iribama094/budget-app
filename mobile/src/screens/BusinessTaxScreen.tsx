@@ -1,12 +1,12 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Building2, CalendarClock, Check, UserRound } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
-import { Amount, Card, Chip, HeroCard, IconTile, InfoTip, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SectionHeader, TextField, formatAmount } from '../components/Common/ui';
+import { Amount, Card, Chip, formatAmount, HeroCard, IconTile, InfoTip, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SectionHeader, Spinner, TextField } from '../components/Common/ui';
 import { ChoiceChip } from '../components/Plan/ChoiceChip';
 import { getBusinessSummary, setTaxFiling, updateBusinessSettings, type BusinessSettings, type BusinessSummary } from '../api/business';
 import { currencySymbol, formatShortDate } from '../utils/format';
@@ -98,7 +98,7 @@ export default function BusinessTaxScreen() {
     return (
       <Screen bottomInset={48}>
         <ScreenHeader title="Tax" onBack={() => goBackOrHome(nav)} />
-        {error ? <InlineError message={error} /> : <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 40 }} />}
+        {error ? <InlineError message={error} /> : <Spinner style={{ marginTop: 40 }} />}
       </Screen>
     );
   }

@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { CalendarDays } from '../icons';
 
-import { Amount, EmptyState, HeroCard, InlineError, ListCard, ProgressBar, Screen, ScreenHeader, SectionHeader } from '../components/Common/ui';
+import { Amount, EmptyState, HeroCard, InlineError, ListCard, ProgressBar, Screen, ScreenHeader, SectionHeader, Spinner } from '../components/Common/ui';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
@@ -87,7 +87,7 @@ export default function AnalyticsWeeklyDetailScreen() {
 
       <SectionHeader title="Daily spending" />
       {isLoading && !data ? (
-        <ActivityIndicator color={theme.colors.primary} />
+        <Spinner />
       ) : daily.length === 0 ? (
         <EmptyState title="No daily breakdown yet" body="Log a few expenses this week and your days will show here." />
       ) : (

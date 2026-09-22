@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, View, Text, Pressable, TextInput, ScrollView, Switch, StyleSheet } from 'react-native';
+import { View, Text, Pressable, TextInput, ScrollView, Switch, StyleSheet } from 'react-native';
 import { Modal } from '../components/Common/AppModal';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,7 +12,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { useTourAnchor } from '../contexts/TourContext';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
-import { IconButton, InlineError, ListCard, PrimaryButton, Screen, SegmentedControl, TextField, formatAmount } from '../components/Common/ui';
+import { formatAmount, IconButton, InlineError, ListCard, PrimaryButton, Screen, SegmentedControl, Spinner, TextField } from '../components/Common/ui';
 import { SelectField } from '../components/Common/SelectField';
 import { useVoiceNote } from '../lib/voice';
 import { parseVoiceEntry } from '../lib/voiceParse';
@@ -654,7 +654,7 @@ export function AddTransactionScreen() {
             onPress={() => (voice.state === 'recording' ? void voice.stop() : void voice.start())}
           >
             {voice.state === 'working' ? (
-              <ActivityIndicator color={theme.colors.primary} size="small" />
+              <Spinner size="small" />
             ) : voice.state === 'recording' ? (
               <Square color={theme.colors.error} size={17} fill={theme.colors.error} />
             ) : (

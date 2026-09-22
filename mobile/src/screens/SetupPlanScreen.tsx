@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, Animated, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { KeyboardAwareScrollView, KeyboardStickyView } from 'react-native-keyboard-controller';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,7 +8,7 @@ import { BellRing, Check, ChevronLeft, CircleDollarSign, Layers, ListChecks, Plu
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
-import { Amount, Card, Chip, HeroCard, IconTile, InlineError, PrimaryButton, SecondaryButton, SegmentedControl, TextButton, TextField } from '../components/Common/ui';
+import { Amount, Card, Chip, HeroCard, IconTile, InlineError, PrimaryButton, SecondaryButton, SegmentedControl, Spinner, TextButton, TextField } from '../components/Common/ui';
 import { ChoiceChip } from '../components/Plan/ChoiceChip';
 import { IncomeEditor } from '../components/Plan/IncomeEditor';
 import { PlanSplit } from '../components/Plan/PlanSplit';
@@ -555,7 +555,7 @@ export default function SetupPlanScreen() {
       <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Your plan</Text>
       <Text style={[type.h2, { color: theme.colors.text, marginTop: 6 }]}>{mode === 'shared' ? 'Here’s what you can bring to the household' : 'Here’s a plan built around you'}</Text>
       {planLoading || !plan ? (
-        <View style={{ paddingVertical: 48, alignItems: 'center' }}>{planLoading ? <ActivityIndicator color={theme.colors.primary} /> : null}</View>
+        <View style={{ paddingVertical: 48, alignItems: 'center' }}>{planLoading ? <Spinner /> : null}</View>
       ) : plan.status === 'no_income' ? (
         <Card style={{ marginTop: 14 }}>
           <Text style={[type.bodyStrong, { color: theme.colors.text }]}>Add your income to see a plan</Text>

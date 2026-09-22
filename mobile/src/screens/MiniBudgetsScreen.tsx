@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BUCKETS, bucketDisplayName } from '../theme/buckets';
-import { View, FlatList, Text, Pressable, ActivityIndicator } from 'react-native';
+import { View, FlatList, Text, Pressable } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useNavigation } from '@react-navigation/native';
 import { X } from '../icons';
@@ -8,7 +8,7 @@ import { X } from '../icons';
 import { createMiniBudget, createMiniBudgetInSpace, listBudgets, listMiniBudgets, listMiniBudgetsInSpace, type ApiMiniBudget } from '../api/endpoints';
 import { useSpace } from '../contexts/SpaceContext';
 import { useAuth } from '../contexts/AuthContext';
-import { Screen, Card, TextField, H1, P, SecondaryButton, PrimaryButton, InlineError } from '../components/Common/ui';
+import { Card, H1, InlineError, P, PrimaryButton, Screen, SecondaryButton, Spinner, TextField } from '../components/Common/ui';
 import { useTheme } from '../contexts/ThemeContext';
 import { formatMoney, formatNumberInput } from '../utils/format';
 import { tokens } from '../theme/tokens';
@@ -245,7 +245,7 @@ export default function MiniBudgetsScreen({ route }: any) {
 
             <View style={{ marginTop: 12 }}>
               {error ? <InlineError message={error} /> : null}
-              {isLoading ? <ActivityIndicator color={theme.colors.primary} /> : null}
+              {isLoading ? <Spinner /> : null}
             </View>
 
             <Card style={{ marginTop: 12, paddingVertical: 10, paddingHorizontal: 12 }}>

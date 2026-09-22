@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { useNavigation } from '@react-navigation/native';
@@ -9,7 +9,7 @@ import { ArrowUp, Mic, Sparkles, Square, X } from '../icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotificationBadges } from '../contexts/NotificationBadgeContext';
-import { IconButton, IconTile, InfoTip, PrimaryButton, SecondaryButton, formatAmount } from '../components/Common/ui';
+import { formatAmount, IconButton, IconTile, InfoTip, PrimaryButton, SecondaryButton, Spinner } from '../components/Common/ui';
 import { useVoiceNote } from '../lib/voice';
 import { ChoiceChip } from '../components/Plan/ChoiceChip';
 import { assistantChat, createTransaction, listBudgets, type ApiBudget, type ChatTurn, type EntryDraft } from '../api/endpoints';
@@ -205,7 +205,7 @@ export default function AssistantScreen() {
 
           {sending ? (
             <View style={[styles.bubble, styles.left, styles.typing, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-              <ActivityIndicator color={theme.colors.primary} size="small" />
+              <Spinner size="small" />
               <Text style={[type.small, { color: theme.colors.textMuted }]}>{ASSISTANT_NAME} is thinking…</Text>
             </View>
           ) : null}
@@ -239,7 +239,7 @@ export default function AssistantScreen() {
               style={[styles.send, { backgroundColor: voice.state === 'recording' ? theme.colors.errorSoft : 'transparent' }]}
             >
               {voice.state === 'working' ? (
-                <ActivityIndicator color={theme.colors.primary} size="small" />
+                <Spinner size="small" />
               ) : voice.state === 'recording' ? (
                 <Square color={theme.colors.error} size={16} fill={theme.colors.error} />
               ) : (

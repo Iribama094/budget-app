@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { MessageCircle, Plus, UserRound } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
-import { Amount, Card, Chip, HeroCard, IconTile, InlineError, PrimaryButton, Screen, ScreenHeader, SecondaryButton, TextField, formatAmount } from '../components/Common/ui';
+import { Amount, Card, Chip, formatAmount, HeroCard, IconTile, InlineError, PrimaryButton, Screen, ScreenHeader, SecondaryButton, Spinner, TextField } from '../components/Common/ui';
 import { Sheet } from '../components/Business/parts';
 import { createCustomer, deleteCustomer, listCustomers, updateCustomer, type Customer } from '../api/business';
 import { currencySymbol, formatShortDate } from '../utils/format';
@@ -130,7 +130,7 @@ export default function CustomersScreen() {
         }
         ListEmptyComponent={
           loading ? (
-            <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 40 }} />
+            <Spinner style={{ marginTop: 40 }} />
           ) : (
             <View style={{ alignItems: 'center', paddingTop: 30 }}>
               <IconTile bg={theme.colors.primarySoft} size={58}>

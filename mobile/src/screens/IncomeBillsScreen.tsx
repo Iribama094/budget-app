@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Modal } from '../components/Common/AppModal';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
@@ -10,24 +10,7 @@ import { AlertTriangle, Briefcase, Sparkles } from '../icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
-import {
-  Amount,
-  Card,
-  Chip,
-  EmptyState,
-  IconTile,
-  InfoTip,
-  InlineError,
-  ListCard,
-  ListRow,
-  PrimaryButton,
-  Screen,
-  ScreenHeader,
-  SecondaryButton,
-  SectionHeader,
-  SegmentedControl,
-  formatAmount
-} from '../components/Common/ui';
+import { Amount, Card, Chip, EmptyState, formatAmount, IconTile, InfoTip, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SecondaryButton, SectionHeader, SegmentedControl, Spinner } from '../components/Common/ui';
 import { IncomeEditor } from '../components/Plan/IncomeEditor';
 import { SteadyPay } from '../components/Plan/SteadyPay';
 import { PlanSplit } from '../components/Plan/PlanSplit';
@@ -185,7 +168,7 @@ export default function IncomeBillsScreen() {
       ) : null}
 
       {loading ? (
-        <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 40 }} />
+        <Spinner style={{ marginTop: 40 }} />
       ) : plan && plan.monthlyIncome > 0 ? (
         <Card style={{ marginTop: 12 }}>
           <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Your plan each month</Text>

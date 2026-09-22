@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { getMoney, getRates, type ApiDebt, type ApiHolding, type ApiMoney, type ApiRates } from '../api/money';
@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
-import { Amount, InfoTip, InlineError, ListRow, Screen, ScreenHeader, formatAmount } from '../components/Common/ui';
+import { Amount, formatAmount, InfoTip, InlineError, ListRow, Screen, ScreenHeader, Spinner } from '../components/Common/ui';
 import { AddLine, PlainHeader, PlainList } from '../components/Common/PlainList';
 import { BankLogo } from '../components/Common/BankLogo';
 import { DebtSheet, HAVE_KINDS, HoldingSheet, OWN_KINDS, PayDebtSheet, RatesSheet } from '../components/Money/MoneySheets';
@@ -90,7 +90,7 @@ export default function MoneyScreen() {
       <ScreenHeader title={t('Your money')} subtitle={t('What you have, own and owe')} onBack={() => goBackOrHome(nav)} />
 
       {error ? <InlineError message={error} /> : null}
-      {!data && loading ? <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 24 }} /> : null}
+      {!data && loading ? <Spinner style={{ marginTop: 24 }} /> : null}
 
       {data ? (
         <>

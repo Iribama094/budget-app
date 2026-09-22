@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Smartphone } from '../icons';
 
 import { listSessions, revokeOtherSessions, revokeSession, type ApiSession } from '../api/features';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
-import { Chip, IconTile, InlineError, ListCard, ListRow, Screen, ScreenHeader, SecondaryButton, TextButton } from '../components/Common/ui';
+import { Chip, IconTile, InlineError, ListCard, ListRow, Screen, ScreenHeader, SecondaryButton, Spinner, TextButton } from '../components/Common/ui';
 import { formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
@@ -82,7 +82,7 @@ export default function DevicesScreen() {
       </Text>
 
       {error ? <InlineError message={error} /> : null}
-      {loading && !items.length ? <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 24 }} /> : null}
+      {loading && !items.length ? <Spinner style={{ marginTop: 24 }} /> : null}
 
       {items.length ? (
         <GuideAnchor id="devices.list">

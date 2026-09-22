@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BUCKETS, bucketDisplayName, normalizeBucket } from '../theme/buckets';
 import { useCategories } from '../contexts/CategoriesContext';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import { Modal } from '../components/Common/AppModal';
 import { deleteWithUndo } from '../lib/undoDelete';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -11,7 +11,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useSpace } from '../contexts/SpaceContext';
 import { useToast } from '../components/Common/Toast';
-import { Card, InlineError, PrimaryButton, Screen, SecondaryButton, TextField } from '../components/Common/ui';
+import { Card, InlineError, PrimaryButton, Screen, SecondaryButton, Spinner, TextField } from '../components/Common/ui';
 import { formatMoney, formatNumberInput, toIsoDate, toIsoDateTime } from '../utils/format';
 import {
   deleteTransaction,
@@ -298,7 +298,7 @@ export default function TransactionDetailScreen() {
 
       <View style={{ marginTop: 14 }}>
         {error ? <InlineError message={error} /> : null}
-        {isLoading ? <ActivityIndicator color={theme.colors.primary} /> : null}
+        {isLoading ? <Spinner /> : null}
       </View>
 
       {tx ? (

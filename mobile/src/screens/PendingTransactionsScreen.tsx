@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BUCKETS, bucketDisplayName } from '../theme/buckets';
 import { useCategories } from '../contexts/CategoriesContext';
-import { Alert, View, Text, FlatList, Pressable, ActivityIndicator, type TextStyle, type ViewStyle } from 'react-native';
+import { Alert, View, Text, FlatList, Pressable, type TextStyle, type ViewStyle } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft, CheckCircle2, XCircle, AlertCircle, ChevronLeft, ChevronRight } from '../icons';
 import * as SecureStore from 'expo-secure-store';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
-import { Screen, Card, H1, P, PrimaryButton, SecondaryButton } from '../components/Common/ui';
+import { Card, H1, P, PrimaryButton, Screen, SecondaryButton, Spinner } from '../components/Common/ui';
 import { SelectField } from '../components/Common/SelectField';
 import {
   bulkImportedTransactions,
@@ -660,7 +660,7 @@ export default function PendingTransactionsScreen() {
               </Card>
             </View>
 
-            <View style={{ marginTop: 12 }}>{loading ? <ActivityIndicator color={theme.colors.primary} /> : null}</View>
+            <View style={{ marginTop: 12 }}>{loading ? <Spinner /> : null}</View>
           </View>
         }
         ListEmptyComponent={!loading ? (

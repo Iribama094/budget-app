@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Landmark, Plus, Receipt } from '../icons';
 
@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
 import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
-import { Amount, EmptyState, HeroCard, IconTile, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SecondaryButton, SegmentedControl, TextField, formatAmount } from '../components/Common/ui';
+import { Amount, EmptyState, formatAmount, HeroCard, IconTile, InlineError, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader, SecondaryButton, SegmentedControl, Spinner, TextField } from '../components/Common/ui';
 import { SelectField } from '../components/Common/SelectField';
 import { DateChoice, LineItem, MoneyField, Sheet, StatusChip, addDaysIso, dueText, isIsoDate, moneyText, parseMoney, todayIso } from '../components/Business/parts';
 import { createBill, deleteBill, listBills, payBill, updateBill, type SupplierBill } from '../api/business';
@@ -160,7 +160,7 @@ export default function BillsScreen() {
 
       <View style={{ marginTop: 12 }}>
         {loading ? (
-          <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 20 }} />
+          <Spinner style={{ marginTop: 20 }} />
         ) : shown.length ? (
           <ListCard>
             {shown.map((b) => {

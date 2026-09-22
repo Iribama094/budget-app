@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Plus } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
-import { Amount, EmptyState, HeroCard, InlineError, ListCard, ListRow, Screen, ScreenHeader, SegmentedControl, formatAmount } from '../components/Common/ui';
+import { Amount, EmptyState, formatAmount, HeroCard, InlineError, ListCard, ListRow, Screen, ScreenHeader, SegmentedControl, Spinner } from '../components/Common/ui';
 import { StatusChip } from '../components/Business/parts';
 import { listInvoices, type Invoice } from '../api/business';
 import { currencySymbol, formatShortDate } from '../utils/format';
@@ -78,7 +78,7 @@ export default function InvoicesScreen() {
 
       <View style={{ marginTop: 12 }}>
         {loading ? (
-          <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 20 }} />
+          <Spinner style={{ marginTop: 20 }} />
         ) : shown.length ? (
           <ListCard>
             {shown.map((i) => (

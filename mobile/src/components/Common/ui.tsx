@@ -658,6 +658,12 @@ export function Ring({ progress, size = 44, stroke = 5, color, label }: { progre
   );
 }
 
+/** The app's spinner: it always turns in the brand colour, so no screen has to reach for the theme to say so. */
+export function Spinner({ size, style }: { size?: 'small' | 'large'; style?: StyleProp<ViewStyle> }) {
+  const { theme } = useTheme();
+  return <ActivityIndicator color={theme.colors.primary} size={size} style={style} />;
+}
+
 /** Grey rows that gently pulse while the first data loads, so the screen keeps its shape instead of showing a spinner. */
 /**
  * Stands in for a number that is still on its way, at the size the number will be. Used where showing a figure
