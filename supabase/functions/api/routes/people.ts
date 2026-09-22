@@ -4,6 +4,7 @@ import { badRequest, body, HttpError, json, methodNotAllowed, noContent, notFoun
 import { ISO_DATE, todayIso } from '../lib/dates.ts';
 import { nextOccurrence } from '../lib/recurring.ts';
 import { sendEmail } from '../lib/email.ts';
+import { isEmailVerified } from '../lib/verify.ts';
 import { afterTransactionCreated } from '../lib/effects.ts';
 import type { Ctx } from '../index.ts';
 
@@ -59,6 +60,9 @@ export async function delegatesRoute(ctx: Ctx) {
   if (ctx.method === 'POST') {
     const input = await body(ctx.req, InviteSchema);
     if (auth.email && input.email.toLowerCase() === auth.email.toLowerCase()) badRequest('Invite someone else.');
+    if (!(await isEmailVerified(auth.actorId))) {
+      throw new HttpError(403, 'EMAIL_UNVERIFIED', 'Confirm your own email address first, then you can invite people.');
+    }
     const [{ n }] = await sql`select count(*)::int as n from public.delegates where owner_id = ${userId}`;
     if (n >= 5) badRequest('You can have up to five helpers. Remove one first.');
     const code = newCode();

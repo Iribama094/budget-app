@@ -4,6 +4,7 @@ import { body, HttpError, json, methodNotAllowed, noContent, notFound, z } from 
 import { DEFAULT_NOTIFICATION_PREFS, getNotificationPrefs, notifyUser } from '../lib/notify.ts';
 import { enforceRateLimit } from '../lib/rateLimit.ts';
 import { sendEmail } from '../lib/email.ts';
+import { checkVerificationCode, isEmailVerified, sendVerificationCode } from '../lib/verify.ts';
 import type { Ctx } from '../index.ts';
 
 export function toApiUser(p: any, _opts: { withTax?: boolean } = {}) {
@@ -46,7 +47,38 @@ export async function loadProfile(userId: string, email: string | null) {
 export async function authMe(ctx: Ctx) {
   if (ctx.method !== 'GET') methodNotAllowed(['GET']);
   const auth = await requireAuth(ctx.req);
-  return json(200, { user: toApiUser(await loadProfile(auth.userId, auth.email)) });
+  const [profile, emailVerified] = await Promise.all([loadProfile(auth.userId, auth.email), isEmailVerified(auth.userId)]);
+  return json(200, { user: { ...toApiUser(profile), emailVerified } });
+}
+
+const VerifyCodeSchema = z.object({ code: z.string().trim().regex(/^\d{6}$/, 'Enter the six digits from the email') });
+
+/**
+ * POST /v1/auth/verify-email/send   emails a six-digit code to the address on the account
+ * POST /v1/auth/verify-email        { code } proves the address, after which normal email resumes
+ */
+export async function verifyEmail(ctx: Ctx) {
+  if (ctx.method !== 'POST') methodNotAllowed(['POST']);
+  const auth = await requireAuth(ctx.req);
+  if (auth.delegateRole) throw new HttpError(403, 'FORBIDDEN', 'Only the account holder can do this.');
+
+  if (ctx.parts[2] === 'send') {
+    // Per account, so nobody can use one account to flood an inbox with codes.
+    await enforceRateLimit({ key: `verify-send:${auth.userId}`, limit: 5, windowSec: 60 * 60 });
+    const result = await sendVerificationCode(auth.userId);
+    return json(200, { status: result });
+  }
+
+  await enforceRateLimit({ key: `verify-check:${auth.userId}`, limit: 15, windowSec: 15 * 60 });
+  const { code } = await body(ctx.req, VerifyCodeSchema, 'Enter the six digits from the email');
+  const result = await checkVerificationCode(auth.userId, code);
+  if (result === 'verified') return json(200, { verified: true });
+  const message = {
+    wrong: 'That code is not right. Check the latest email from us.',
+    expired: 'That code has expired. Send a new one.',
+    'too-many': 'Too many wrong tries. Send a new code.'
+  }[result];
+  throw new HttpError(400, result === 'wrong' ? 'WRONG_CODE' : 'CODE_EXPIRED', message);
 }
 
 const TaxProfileSchema = z
@@ -176,7 +208,7 @@ export async function changePassword(ctx: Ctx) {
   // By email as well. Whoever changed it may also have signed the owner's phone out, so a push alone could
   // land on nobody.
   const [who] = await sql<{ email: string | null }[]>`select email from public.profiles where id = ${auth.userId}`;
-  if (who?.email) {
+  if (who?.email && (await isEmailVerified(auth.userId))) {
     await sendEmail({
       to: who.email,
       subject: 'Your BudgetFriendly password was changed',

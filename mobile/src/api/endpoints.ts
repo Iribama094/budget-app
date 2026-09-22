@@ -37,6 +37,8 @@ export type ApiUser = {
   homeBudget?: 'own' | 'shared';
   createdAt: string;
   updatedAt: string;
+  /** False until the account holder types the code we emailed. Accounts from before this existed are true. */
+  emailVerified?: boolean;
 };
 
 export async function getMe(): Promise<ApiUser> {
@@ -77,6 +79,15 @@ export async function calcTax(payload: { country: string; grossAnnual: number; d
 
 export async function changePassword(oldPassword: string, newPassword: string): Promise<void> {
   await apiFetch('/v1/auth/change-password', { method: 'POST', body: JSON.stringify({ oldPassword, newPassword }) });
+}
+
+/** Emails a six-digit code to the address on the account. 'verified' means there is nothing to prove. */
+export async function sendEmailCode(): Promise<{ status: 'sent' | 'already-sent' | 'verified' }> {
+  return (await apiFetch('/v1/auth/verify-email/send', { method: 'POST' })) as { status: 'sent' | 'already-sent' | 'verified' };
+}
+
+export async function confirmEmailCode(code: string): Promise<void> {
+  await apiFetch('/v1/auth/verify-email', { method: 'POST', body: JSON.stringify({ code }) });
 }
 
 export async function forgotPassword(email: string): Promise<{ ok: boolean; devCode?: string }> {

@@ -3,7 +3,7 @@ import { CORS_HEADERS, errorResponse, HttpError, json, SECURITY_HEADERS } from '
 import { todayIso } from './lib/dates.ts';
 import { runAllDueRecurring, sendBillReminders } from './lib/recurring.ts';
 import { monoConfigured, syncBankLink, type BankLinkRow } from './lib/bank.ts';
-import { authMe, changePassword, forgotPassword, notifications, pushTokens, sessions, usersMe } from './routes/account.ts';
+import { authMe, changePassword, forgotPassword, notifications, pushTokens, sessions, usersMe, verifyEmail } from './routes/account.ts';
 import { acceptInvite, budgetById, budgetPace, budgetsIndex, miniBudgets, nextPeriod, rollover, sharing } from './routes/budgets.ts';
 import { sendPeriodEndingReminders, sendSharedDigests } from './lib/shared.ts';
 import { analyticsSummary, transactionById, transactionsIndex } from './routes/transactions.ts';
@@ -200,6 +200,11 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
 
   await sql`delete from public.rate_limits where expires_at < now()`;
   await sql`delete from public.alert_log where expires_at < now()`;
+  // Codes nobody used, devices whose sign-in has ended, and the scheduler's own run history. None of it is
+  // needed once it has expired, and keeping it only leaves more to lose.
+  await sql`delete from public.email_verifications where expires_at < now() - interval '1 day'`;
+  await sql`delete from public.device_sessions d where not exists (select 1 from auth.sessions s where s.id = d.session_id)`;
+  await sql`delete from cron.job_run_details where end_time < now() - interval '30 days'`.catch(() => undefined);
   return json(200, summary);
 }
 
@@ -212,6 +217,7 @@ function route(parts: string[]): Handler | null {
   if (a === 'auth' && b === 'me') return authMe;
   if (a === 'auth' && b === 'change-password') return changePassword;
   if (a === 'auth' && b === 'forgot-password') return forgotPassword;
+  if (a === 'auth' && b === 'verify-email' && n <= 3) return verifyEmail;
   if (a === 'auth' && b === 'sessions') return sessions;
   if (a === 'users' && b === 'me' && n === 2) return usersMe;
 

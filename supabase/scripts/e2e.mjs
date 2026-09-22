@@ -65,15 +65,22 @@ const users = [];
 const A = { email: `bf.e2e.a.${stamp}@example.com`, password: 'Passw0rd-A-1', name: 'Ada Test' };
 const B = { email: `bf.e2e.b.${stamp}@example.com`, password: 'Passw0rd-B-1', name: 'Ben Test' };
 
-async function createUser(u) {
+/** Test addresses cannot receive the code, so they are marked verified the way only the server can. */
+async function markVerified(id) {
+  await authApi('PUT', `/admin/users/${id}`, { app_metadata: { email_verified_at: new Date().toISOString() } }, { key: SECRET });
+}
+
+async function createUser(u, { verified = true } = {}) {
   const res = await authApi('POST', '/signup', { email: u.email, password: u.password, data: { name: u.name } });
   if (res.status === 200 && res.data?.access_token) {
     users.push(res.data.user.id);
+    if (verified) await markVerified(res.data.user.id);
     return { id: res.data.user.id, token: res.data.access_token, via: 'signup' };
   }
   console.log('  (signup returned', res.status, res.data?.error_code ?? res.data?.msg, '- creating with admin API)');
   const admin = await authApi('POST', '/admin/users', { email: u.email, password: u.password, email_confirm: true, user_metadata: { name: u.name } }, { key: SECRET });
   users.push(admin.data.id);
+  if (verified) await markVerified(admin.data.id);
   const s = await signIn(u.email, u.password);
   return { id: admin.data.id, token: s.data.access_token, via: 'admin' };
 }
@@ -576,6 +583,29 @@ try {
   check('the owner still has everything afterwards', r.status === 200 && r.data.goal?.name !== 'hijacked', r.status);
   r = await call(b.token, 'GET', '/transactions', undefined, { 'x-act-as': a.id });
   check('acting for somebody who never invited you is refused', r.status === 403, r.status);
+
+  section('Security: proving an email address');
+  const C = { email: `bf.e2e.c.${stamp}@example.com`, password: 'Passw0rd-C-1', name: 'Chi Test' };
+  const c = await createUser(C, { verified: false });
+  r = await call(c.token, 'GET', '/auth/me');
+  check('a brand new account starts unverified', r.status === 200 && r.data.user.emailVerified === false, r.data?.user?.emailVerified);
+  r = await call(a.token, 'GET', '/auth/me');
+  check('a verified account says so', r.data?.user?.emailVerified === true, r.data?.user?.emailVerified);
+  r = await call(c.token, 'POST', '/auth/verify-email/send');
+  check('a code can be sent', r.status === 200 && ['sent', 'already-sent'].includes(r.data.status), r);
+  r = await call(c.token, 'POST', '/auth/verify-email/send');
+  check('asking again straight away does not send a second email', r.status === 200 && r.data.status === 'already-sent', r.data);
+  r = await call(c.token, 'POST', '/auth/verify-email', { code: '000000' });
+  check('a wrong code is refused', r.status === 400 && ['WRONG_CODE', 'CODE_EXPIRED'].includes(r.data?.error?.code), r);
+  r = await call(c.token, 'POST', '/auth/verify-email', { code: 'abc' });
+  check('something that is not a code is refused', r.status === 400, r.status);
+  r = await call(c.token, 'POST', '/delegates', { email: `someone.${stamp}@example.com`, role: 'view' });
+  check('an unverified account cannot send invites', r.status === 403 && r.data?.error?.code === 'EMAIL_UNVERIFIED', r);
+  await markVerified(c.id);
+  r = await call(c.token, 'GET', '/auth/me');
+  check('once proved, the account is verified', r.data?.user?.emailVerified === true, r.data?.user?.emailVerified);
+  r = await call(c.token, 'POST', '/auth/verify-email/send');
+  check('a verified account is not sent codes', r.data?.status === 'verified', r.data);
 
   section('Security: what the server sends back');
   r = await call(a.token, 'GET', '/auth/me');

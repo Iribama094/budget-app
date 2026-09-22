@@ -157,11 +157,12 @@ export async function requireAuth(req: Request): Promise<AuthContext> {
  */
 async function alertNewDevice(userId: string, sessionId: string, deviceName: string, platform: string | null): Promise<void> {
   try {
-    const [row] = await sql<{ others: number; email: string | null; name: string | null }[]>`
+    const [row] = await sql<{ others: number; email: string | null; name: string | null; verified: boolean }[]>`
       select
         (select count(*)::int from public.device_sessions where user_id = ${userId} and session_id <> ${sessionId}) as others,
-        p.email, p.name
-      from public.profiles p where p.id = ${userId}
+        p.email, p.name,
+        (u.raw_app_meta_data ->> 'email_verified_at') is not null as verified
+      from public.profiles p join auth.users u on u.id = p.id where p.id = ${userId}
     `;
     const [signIns] = await sql<{ n: number }[]>`
       select count(*)::int as n from auth.sessions where user_id = ${userId}
@@ -178,7 +179,8 @@ async function alertNewDevice(userId: string, sessionId: string, deviceName: str
       dedupeKey: `new-device:${sessionId}`
     }).catch(() => undefined);
 
-    if (row.email) {
+    // Only to an address the account holder has proved is theirs, or this is a way to email strangers.
+    if (row.email && row.verified) {
       await sendEmail({
         to: row.email,
         subject: 'New sign-in to your BudgetFriendly account',

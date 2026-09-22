@@ -28,6 +28,7 @@ import { PrivacyCover } from './src/components/Common/PrivacyCover';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
+import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
 import { SplashScreen } from './src/screens/SplashScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { TransactionsScreen } from './src/screens/TransactionsScreen';
@@ -266,6 +267,15 @@ function Root() {
           <AuthStack.Screen name="Register" component={RegisterScreen} />
           <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         </AuthStack.Navigator>
+        {statusBar}
+      </>
+    );
+
+  // A new account proves its email address before anything else. Older accounts come back true and skip this.
+  if (user.emailVerified === false)
+    return (
+      <>
+        <VerifyEmailScreen />
         {statusBar}
       </>
     );
