@@ -14,10 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AlertTriangle, CalendarClock, Check, CircleCheck, Sparkles } from '../icons';
-import { useTheme } from '../contexts/ThemeContext';
-import { Amount, Card, Chip, HeroCard, IconTile, PrimaryButton, ProgressBar, SecondaryButton } from '../components/Common/ui';
-import { bucketColors } from '../theme/tokens';
+import { PrimaryButton, SecondaryButton } from '../components/Common/ui';
 import { fonts, type } from '../theme/typography';
 
 type Props = {
@@ -26,7 +23,6 @@ type Props = {
 };
 
 // Photos are bundled rather than fetched, so the first thing somebody sees never waits on their data.
-// The first three came with the original web intro; each slide has its own.
 const SLIDES = [
   {
     title: 'Money that lasts until payday',
@@ -50,40 +46,33 @@ const SLIDES = [
   }
 ] as const;
 
+const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
+
 const INK = '#0D2B26';
 const INK_2 = '#134A41';
 const ON_INK = '#EAF4F1';
 
+// How far down the screen the picture reaches. The green has taken it over well before this line, so the
+// number is where the photo stops being drawn, not where the eye sees it end.
+const PHOTO = 0.62;
+
 /**
- * First screens after the splash. The full-bleed brand backdrop, sweeping curve, animated copy and
- * pill-shaped dots come from the original intro; the floating cards use the current design system.
+ * First screens after the splash. Each slide's photo is the whole screen behind the words, and the green the
+ * rest of the screen is painted in climbs into it, so there is no edge, no corner and nothing floating on top.
  */
 export function OnboardingScreen({ onDone, onContinueToAuth }: Props) {
-  const { theme } = useTheme();
   const { width, height } = useWindowDimensions();
   const [index, setIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
+  const scrollX = useRef(new Animated.Value(0)).current;
   const textAnim = useRef(new Animated.Value(1)).current;
-  const pulse = useRef(new Animated.Value(1)).current;
   const isLast = index === SLIDES.length - 1;
-  const illoHeight = Math.min(360, Math.max(250, height * 0.42));
-  const light = bucketColors.light;
+  const photoH = Math.round(height * PHOTO);
 
   useEffect(() => {
     textAnim.setValue(0);
     Animated.timing(textAnim, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, [index, textAnim]);
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.07, duration: 900, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true })
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [pulse]);
 
   const goTo = (i: number) => {
     scrollRef.current?.scrollTo({ x: i * width, animated: true });
@@ -94,92 +83,42 @@ export function OnboardingScreen({ onDone, onContinueToAuth }: Props) {
 
   const toAuth = (mode: 'login' | 'register') => (onContinueToAuth ? onContinueToAuth(mode) : onDone());
 
-  const illustrations = [
-    <>
-      <HeroCard style={[styles.float, { left: 26, right: 52, top: 30, transform: [{ rotate: '-3deg' }] }]}>
-        <Text style={[type.eyebrow, { color: ON_INK, opacity: 0.72 }]}>Safe to spend today</Text>
-        <Amount value={6450} size="lg" color={ON_INK} style={{ marginVertical: 8 }} />
-        <ProgressBar value={0.44} marker={0.47} height={8} color="#8FD6C3" trackColor="rgba(255,255,255,0.14)" markerColor="#FFFFFF" />
-      </HeroCard>
-      <Card style={[styles.float, { left: 60, right: 24, bottom: 34, transform: [{ rotate: '2deg' }] }]}>
-        <View style={styles.row}>
-          <IconTile bg={theme.colors.brassSoft} size={36}>
-            <CalendarClock color={theme.colors.brass} size={18} />
-          </IconTile>
-          <View style={{ flex: 1 }}>
-            <Text style={[type.bodyStrong, { color: theme.colors.text }]}>12 days to payday</Text>
-            <Text style={[type.caption, { color: theme.colors.textMuted }]}>You’re on track</Text>
-          </View>
-          <Check color={theme.colors.success} size={18} strokeWidth={3} />
-        </View>
-      </Card>
-    </>,
-    <Card style={[styles.float, { left: 24, right: 24, top: 34, transform: [{ rotate: '-2deg' }] }]}>
-      <Text style={[type.eyebrow, { color: theme.colors.primary }]}>Your plan</Text>
-      <View style={styles.alloc}>
-        <View style={{ flex: 50, backgroundColor: light.Needs, borderRadius: 4 }} />
-        <View style={{ flex: 30, backgroundColor: light.Wants, borderRadius: 4 }} />
-        <View style={{ flex: 20, backgroundColor: light.Savings, borderRadius: 4 }} />
-      </View>
-      {[
-        ['Needs', 'Rent, food, transport, tithe', 150000, light.Needs],
-        ['Wants', 'Eating out, fun', 90000, light.Wants],
-        ['Savings', 'Emergency fund', 60000, light.Savings]
-      ].map(([name, desc, amt, color]) => (
-        <View key={name as string} style={[styles.row, { paddingVertical: 7 }]}>
-          <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: color as string }} />
-          <View style={{ flex: 1 }}>
-            <Text style={[type.bodyStrong, { color: theme.colors.text }]}>{name}</Text>
-            <Text style={[type.caption, { color: theme.colors.textMuted }]}>{desc}</Text>
-          </View>
-          <Amount value={amt as number} size="sm" />
-        </View>
-      ))}
-    </Card>,
-    <>
-      <Card style={[styles.float, { left: 24, right: 46, top: 36, transform: [{ rotate: '-3deg' }] }]}>
-        <View style={styles.row}>
-          <IconTile bg={theme.colors.brassSoft} size={36}>
-            <AlertTriangle color={theme.colors.brass} size={18} />
-          </IconTile>
-          <View style={{ flex: 1 }}>
-            <Text style={[type.bodyStrong, { color: theme.colors.text }]}>Transport is up 32%</Text>
-            <Text style={[type.caption, { color: theme.colors.textMuted }]}>₦18,200 vs ₦13,800 usually</Text>
-          </View>
-        </View>
-      </Card>
-      <Card style={[styles.float, { left: 52, right: 20, bottom: 40, transform: [{ rotate: '2deg' }] }]}>
-        <View style={styles.row}>
-          <IconTile bg={theme.colors.successSoft} size={36}>
-            <CircleCheck color={theme.colors.success} size={18} />
-          </IconTile>
-          <View style={{ flex: 1 }}>
-            <Text style={[type.bodyStrong, { color: theme.colors.text }]}>You kept 12% this month</Text>
-            <Chip tone="positive" label="Move it to a goal" icon={<Sparkles color={theme.colors.success} size={11} />} style={{ marginTop: 4 }} />
-          </View>
-        </View>
-      </Card>
-    </>,
-    <View style={styles.logoWrap}>
-      <Animated.View style={[styles.logoHalo, { transform: [{ scale: pulse }] }]}>
-        <View style={styles.logoInner}>
-          <Image source={require('../../assets/logo.png')} style={{ width: 84, height: 84 }} resizeMode="contain" />
-        </View>
-      </Animated.View>
-    </View>
-  ];
-
   return (
     <View style={styles.fill}>
-      <LinearGradient colors={[INK, INK_2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-      {/* The sweeping curve from the original intro, behind the copy. */}
-      <View pointerEvents="none" style={styles.swooshWrap}>
+      {/* The green the whole screen is painted in. It is still flat INK where the photo fades out, so the two
+          meet on the same colour and there is no seam to find. */}
+      <LinearGradient colors={[INK, INK, INK_2]} locations={[0, PHOTO, 1]} style={StyleSheet.absoluteFill} />
+
+      <View pointerEvents="none" style={[styles.backdrop, { height: photoH }]}>
+        {/* One photo per slide, cross fading with the swipe rather than sliding with it, so the backdrop feels
+            like one thing changing instead of four pages going by. */}
+        {SLIDES.map((slide, i) => (
+          <Animated.Image
+            key={slide.title}
+            source={slide.photo}
+            resizeMode="cover"
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                opacity: scrollX.interpolate({
+                  inputRange: [(i - 1) * width, i * width, (i + 1) * width],
+                  outputRange: [0, 1, 0],
+                  extrapolate: 'clamp'
+                })
+              }
+            ]}
+          />
+        ))}
+        {/* A light pull toward the brand green, so four photos shot in four different lights feel like one set. */}
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(19,74,65,0.16)' }]} />
+        {/* The blend. Clear at the top, brand green by the bottom of the picture. */}
         <LinearGradient
-          colors={['rgba(63,163,143,0.0)', 'rgba(63,163,143,0.22)', 'rgba(8,17,15,0.55)']}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={styles.swoosh}
+          colors={['rgba(13,43,38,0)', 'rgba(13,43,38,0.06)', 'rgba(13,43,38,0.30)', 'rgba(13,43,38,0.62)', 'rgba(13,43,38,0.90)', INK]}
+          locations={[0, 0.34, 0.54, 0.7, 0.85, 1]}
+          style={StyleSheet.absoluteFill}
         />
+        {/* Two of the photos are nearly white at the top, where the logo and Skip for now sit. */}
+        <LinearGradient colors={['rgba(8,17,15,0.62)', 'rgba(8,17,15,0)']} style={[styles.scrim, { height: Math.round(photoH * 0.2) }]} />
       </View>
 
       <SafeAreaView style={styles.fill}>
@@ -195,32 +134,21 @@ export function OnboardingScreen({ onDone, onContinueToAuth }: Props) {
           ) : null}
         </View>
 
-        <ScrollView
+        {/* The picture itself is what you swipe. The pages are empty because the photos live behind everything. */}
+        <AnimatedScrollView
           ref={scrollRef}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: true })}
           onMomentumScrollEnd={onMomentumEnd}
-          style={{ flexGrow: 0 }}
+          style={styles.fill}
         >
-          {SLIDES.map((slide, i) => (
-            <View key={slide.title} style={{ width, paddingHorizontal: 20 }}>
-              <View style={[styles.illo, { height: illoHeight }]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-                {/* The photo sits behind the cards and dissolves upward out of the backdrop, so there is no hard
-                    bottom edge between picture and page. */}
-                <View style={styles.photoWrap} pointerEvents="none">
-                  <Image source={slide.photo} style={styles.photo} resizeMode="cover" />
-                  <LinearGradient
-                    colors={['rgba(13,43,38,0.18)', 'rgba(13,43,38,0.10)', 'rgba(13,43,38,0.55)', INK]}
-                    locations={[0, 0.35, 0.72, 1]}
-                    style={StyleSheet.absoluteFill}
-                  />
-                </View>
-                {illustrations[i]}
-              </View>
-            </View>
+          {SLIDES.map((slide) => (
+            <View key={slide.title} style={{ width, height: '100%' }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
           ))}
-        </ScrollView>
+        </AnimatedScrollView>
 
         <View style={styles.copy}>
           <Animated.View style={{ opacity: textAnim, transform: [{ translateY: textAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] }}>
@@ -254,32 +182,14 @@ export function OnboardingScreen({ onDone, onContinueToAuth }: Props) {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  swooshWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' },
-  swoosh: {
-    position: 'absolute',
-    left: -90,
-    right: -90,
-    bottom: -150,
-    height: '62%',
-    borderTopLeftRadius: 240,
-    borderTopRightRadius: 340,
-    transform: [{ rotate: '-4deg' }]
-  },
+  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden' },
+  scrim: { position: 'absolute', top: 0, left: 0, right: 0 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 10 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  illo: { borderRadius: 28, overflow: 'visible' },
-  photoWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 28, overflow: 'hidden' },
-  photo: { width: '100%', height: '100%' },
-  float: { position: 'absolute' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  alloc: { flexDirection: 'row', gap: 3, height: 14, marginTop: 10, marginBottom: 6 },
-  logoWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  logoHalo: { width: 176, height: 176, borderRadius: 88, backgroundColor: 'rgba(143,214,195,0.12)', alignItems: 'center', justifyContent: 'center' },
-  logoInner: { width: 128, height: 128, borderRadius: 64, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
-  copy: { flex: 1, justifyContent: 'center', paddingHorizontal: 28 },
-  title: { color: ON_INK, textAlign: 'center', fontSize: 28, lineHeight: 34 },
-  subtitle: { color: 'rgba(234,244,241,0.82)', textAlign: 'center', fontSize: 16, lineHeight: 24, marginTop: 10 },
-  footer: { paddingHorizontal: 20, paddingBottom: 12 },
+  copy: { paddingHorizontal: 28, paddingTop: 6 },
+  title: { color: ON_INK, textAlign: 'center', fontSize: 30, lineHeight: 37 },
+  subtitle: { color: 'rgba(234,244,241,0.82)', textAlign: 'center', fontSize: 16, lineHeight: 24, marginTop: 12 },
+  footer: { paddingHorizontal: 20, paddingTop: 26, paddingBottom: 12 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 18 },
   dot: { height: 10, borderRadius: 999 },
   authRow: { flexDirection: 'row', gap: 10 }
