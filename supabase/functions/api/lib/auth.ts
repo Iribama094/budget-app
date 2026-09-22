@@ -65,7 +65,7 @@ function delegateMayDo(req: Request, role: 'view' | 'record'): boolean {
   const segments = new URL(req.url).pathname.split('/').filter(Boolean);
   const path = segments.slice(segments.indexOf('v1') + 1).join('/');
   // Never: staff tools, sign-in and security, delegation itself, the owner's devices and alerts.
-  if (/^(admin|auth|delegates|team|push-tokens|notifications|cron|account)(\/|$)/.test(path)) return false;
+  if (/^(admin|auth|delegates|team|join|push-tokens|notifications|cron|account)(\/|$)/.test(path)) return false;
   if (req.method === 'GET' || req.method === 'HEAD') return true;
   // "Record" helpers can add transactions, nothing more.
   return role === 'record' && req.method === 'POST' && /^transactions\/?$/.test(path);

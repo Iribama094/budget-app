@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Alert, Share, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
-import { acceptDelegate, getDelegates, inviteDelegate, removeDelegate, type ApiDelegates } from '../api/money';
+import { getDelegates, inviteDelegate, removeDelegate, type ApiDelegates } from '../api/money';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
 import { useActing } from '../contexts/ActingContext';
@@ -10,6 +10,7 @@ import { InlineError, ListRow, PrimaryButton, Screen, ScreenHeader, TextField } 
 import { AddLine, PlainHeader, PlainList } from '../components/Common/PlainList';
 import { ChoiceChip } from '../components/Plan/ChoiceChip';
 import { Sheet } from '../components/Business/parts';
+import { JoinCodeSheet } from '../components/Common/JoinCodeSheet';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 
@@ -30,7 +31,6 @@ export default function HelpersScreen() {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'view' | 'record'>('view');
   const [joining, setJoining] = useState(false);
-  const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -62,21 +62,6 @@ export default function HelpersScreen() {
       }
     } catch (e) {
       toast.show(e instanceof Error ? e.message : 'Could not send the invite', 'error');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const join = async () => {
-    setBusy(true);
-    try {
-      const res = await acceptDelegate(code.trim());
-      setJoining(false);
-      setCode('');
-      await load();
-      toast.show(`You can now help ${res.ownerName}.`, 'success');
-    } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'That code didn’t work', 'error');
     } finally {
       setBusy(false);
     }
@@ -128,6 +113,7 @@ export default function HelpersScreen() {
       </PlainList>
       <AddLine label="I have a code" onPress={() => setJoining(true)} />
 
+
       <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 24 }]}>
         Helpers use their own account. They can’t see your password, change your settings or add other helpers. Remove someone any time.
       </Text>
@@ -141,10 +127,7 @@ export default function HelpersScreen() {
         <PrimaryButton title="Send invite" onPress={invite} loading={busy} disabled={!/.+@.+\..+/.test(email.trim())} />
       </Sheet>
 
-      <Sheet visible={joining} onClose={() => setJoining(false)} title="Enter your code" subtitle="From the email or message they sent you.">
-        <TextField label="Code" value={code} onChangeText={(v) => setCode(v.toUpperCase())} autoCapitalize="characters" placeholder="e.g. K7M2QX9P" maxLength={12} />
-        <PrimaryButton title="Accept" onPress={join} loading={busy} disabled={code.trim().length < 6} />
-      </Sheet>
+      <JoinCodeSheet visible={joining} onClose={() => setJoining(false)} onJoined={load} />
     </Screen>
   );
 }

@@ -53,6 +53,38 @@ const shareMessage = (business: string, role: TeamRole, code: string) =>
   `2. Enter this code: ${code}\n\n` +
   `On sign up, tap "Have an invite code?". If you already use the app, it's in Settings, "Join a business". The code works for 14 days.`;
 
+/** The invite a code belongs to, whether or not it can still be used. Used by the one code box (routes/join.ts). */
+export async function findBusinessInvite(code: string) {
+  const clean = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const [invite] = clean ? await sql`select * from public.business_members where code = ${clean}` : [];
+  if (!invite || invite.acceptedAt || new Date(invite.expiresAt).getTime() < Date.now()) return null;
+  return invite;
+}
+
+/** Joining a business with a code. Shared by /v1/team/join and the one code box. */
+export async function joinBusinessWithCode(userId: string, code: string) {
+  // A confirmed email ties the account to a real person before it sees anyone's business.
+  if (await mustProveEmail(userId)) throw new HttpError(403, 'EMAIL_UNVERIFIED', 'Confirm your email address first, then enter the code.');
+  const invite = await findBusinessInvite(code);
+  if (!invite) badRequest('That code has been used, has run out, or doesn’t exist. Ask for a new one.', 'INVALID_CODE');
+  if (invite.ownerId === userId) badRequest('That’s a code for your own business. Share it with the person you added.');
+  try {
+    await sql`update public.business_members set member_id = ${userId}, accepted_at = now() where id = ${invite.id} and accepted_at is null`;
+  } catch (err) {
+    if (isUniqueViolation(err)) badRequest('You’re already part of this business.');
+    throw err;
+  }
+  const business = await businessNameOf(invite.ownerId);
+  await notifyUser(invite.ownerId, {
+    kind: 'shared',
+    title: `${invite.name} joined ${business}`,
+    body: `They can now work as ${ROLE_LABEL[invite.role as TeamRole]}. Everything they record shows their name.`,
+    spaceId: 'business',
+    data: { screen: 'Team' }
+  }).catch(() => undefined);
+  return { ownerId: invite.ownerId as string, businessName: business, role: invite.role as TeamRole, roleLabel: ROLE_LABEL[invite.role as TeamRole] };
+}
+
 export async function teamRoute(ctx: Ctx) {
   const auth = await requireAuth(ctx.req);
   // Teams belong to the person holding the phone, never to someone they're helping.
@@ -63,29 +95,7 @@ export async function teamRoute(ctx: Ctx) {
   if (sub === 'join') {
     if (ctx.method !== 'POST') methodNotAllowed(['POST']);
     const { code } = await body(ctx.req, z.object({ code: z.string().trim().min(6).max(12) }));
-    // A confirmed email ties the account to a real person before it sees anyone's business.
-    if (await mustProveEmail(me)) throw new HttpError(403, 'EMAIL_UNVERIFIED', 'Confirm your email address first, then enter the code.');
-    const clean = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const [invite] = await sql`select * from public.business_members where code = ${clean}`;
-    if (!invite || invite.acceptedAt || new Date(invite.expiresAt).getTime() < Date.now()) {
-      badRequest('That code has been used, has run out, or doesn’t exist. Ask for a new one.', 'INVALID_CODE');
-    }
-    if (invite.ownerId === me) badRequest('That’s a code for your own business. Share it with the person you added.');
-    try {
-      await sql`update public.business_members set member_id = ${me}, accepted_at = now() where id = ${invite.id} and accepted_at is null`;
-    } catch (err) {
-      if (isUniqueViolation(err)) badRequest('You’re already part of this business.');
-      throw err;
-    }
-    const business = await businessNameOf(invite.ownerId);
-    await notifyUser(invite.ownerId, {
-      kind: 'shared',
-      title: `${invite.name} joined ${business}`,
-      body: `They can now work as ${ROLE_LABEL[invite.role as TeamRole]}. Everything they record shows their name.`,
-      spaceId: 'business',
-      data: { screen: 'Team' }
-    }).catch(() => undefined);
-    return json(200, { ownerId: invite.ownerId, businessName: business, role: invite.role, roleLabel: ROLE_LABEL[invite.role as TeamRole] });
+    return json(200, await joinBusinessWithCode(me, code));
   }
 
   if (sub) {

@@ -58,6 +58,7 @@ import { adminWrappedPreview } from './routes/admin.ts';
 import { ensureTaxRules } from './lib/tax.ts';
 import { BODY_SPACE_PATHS, SELF_PATHS } from './lib/team.ts';
 import { teamRoute } from './routes/team.ts';
+import { joinRoute } from './routes/join.ts';
 import { sendTeamDigests } from './lib/teamDigest.ts';
 import { debtById, debtsIndex, fxRatesRoute, holdingById, holdingsIndex, moneyRoute, pricesRoute } from './routes/money.ts';
 import { delegatesRoute, propertiesRoute } from './routes/people.ts';
@@ -356,6 +357,8 @@ function route(parts: string[]): Handler | null {
   if (a === 'properties' && n <= 3) return propertiesRoute;
   // A business owner's team (lib/team.ts decides what each role may do).
   if (a === 'team' && n <= 2) return teamRoute;
+  // One box for any code: shared budget, helper invite or business team (routes/join.ts).
+  if (a === 'join' && n === 1) return joinRoute;
 
   return null;
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTeam } from '../../contexts/TeamContext';
+import { useCode } from '../../api/join';
 import { useToast } from '../Common/Toast';
 import { skipOnboarding } from '../../api/personal';
 import { takePendingInvite } from '../../lib/pendingInvite';
@@ -13,7 +14,7 @@ import { claimReferral } from '../../api/referrals';
  */
 export function PendingInvite() {
   const { user, refreshUser } = useAuth();
-  const { join, enter } = useTeam();
+  const { enter, refresh } = useTeam();
   const toast = useToast();
   const tried = useRef(false);
 
@@ -35,20 +36,28 @@ export function PendingInvite() {
           await skipOnboarding().catch(() => undefined);
           await refreshUser();
         }
-        const m = await join(code);
-        await enter(m.ownerId);
-        toast.show(`Welcome to ${m.name}. You’re in as ${m.roleLabel}.`, 'success', 5000);
+        // Any other kind of code: a business, a shared budget, or someone's money to help with.
+        const res = await useCode(code);
+        if (res.kind === 'business' && res.ownerId) {
+          await enter(res.ownerId);
+          toast.show(`Welcome to ${res.name}. You’re in as ${res.roleLabel}.`, 'success', 5000);
+        } else if (res.kind === 'helper') {
+          toast.show(`You can now help with ${res.name}. It’s in Profile, People who help.`, 'success', 5000);
+        } else {
+          toast.show(`You’ve joined ${res.name}. It’s in Budgets.`, 'success', 5000);
+        }
       } catch (e) {
         toast.show(
           e instanceof Error
-            ? `${e.message} You can enter it again later: a friend’s code in Profile, "Invite friends", or a business code in Settings, "Join a business".`
+            ? `${e.message} You can enter it again later: a friend’s code in Profile, "Invite friends", or any other code in Settings, "Join with a code".`
             : 'That code didn’t work.',
           'error',
           6000
         );
       }
+      void refresh();
     })();
-  }, [join, refreshUser, toast, user]);
+  }, [enter, refresh, refreshUser, toast, user]);
 
   return null;
 }

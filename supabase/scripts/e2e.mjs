@@ -572,8 +572,10 @@ try {
     check('invite a helper', r.status === 201 && typeof r.data.code === 'string', r);
     const code = r.data?.code;
     check('someone else cannot use the code', (await call(a.token, 'POST', '/delegates/accept', { code })).status === 400);
-    r = await call(b.token, 'POST', '/delegates/accept', { code });
-    check('helper accepts', r.status === 200 && r.data.ownerId === a.id, r);
+    r = await call(b.token, 'GET', `/join?code=${code}`);
+    check('the code box recognises a helper invite', r.status === 200 && r.data.found === true && r.data.kind === 'helper', r);
+    r = await call(b.token, 'POST', '/join', { code });
+    check('helper accepts through the one code box', r.status === 200 && r.data.kind === 'helper' && r.data.ownerId === a.id, r);
     r = await call(b.token, 'GET', '/money', undefined, { 'x-act-as': a.id });
     check('helper sees the owner’s money', r.status === 200 && r.data.totals.net === ownerNet, r.data?.totals);
     check('view helper cannot add spending', (await call(b.token, 'POST', '/transactions', { type: 'expense', amount: 1, category: 'Other', occurredAt: new Date().toISOString() }, { 'x-act-as': a.id })).status === 403);
@@ -602,6 +604,10 @@ try {
     const benCode = r.data?.code;
     const benMemberId = r.data?.member?.id;
     check('a code does nothing before it is used', (await call(b.token, 'GET', '/transactions?spaceId=business', undefined, asBen)).status === 403);
+    // One box for any code: it says what a code is for without using it up.
+    r = await call(b.token, 'GET', `/join?code=${benCode}`);
+    check('the code box recognises a business code', r.status === 200 && r.data.found === true && r.data.kind === 'business' && typeof r.data.name === 'string', r);
+    check('the code box knows nothing of a made-up code', (await call(b.token, 'GET', '/join?code=ZZZZZZZZ')).data?.found === false);
     r = await call(b.token, 'POST', '/team/join', { code: benCode });
     check('member joins with the code', r.status === 200 && r.data.ownerId === a.id && r.data.role === 'sales', r);
     check('the same code cannot be used twice', (await call(b.token, 'POST', '/team/join', { code: benCode })).status === 400);

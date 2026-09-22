@@ -158,7 +158,7 @@ export default function PendingTransactionsScreen() {
     const moved = items.filter((t) => t.match && !notMatched.has(t.id)).length;
     const settledNote = moved ? ` ${moved} look like transfers between your accounts or money given back, so they won’t count as spending or income.` : '';
     Alert.alert(
-      `Add all ${ids.length} to your budget?`,
+      `Looks right, add all ${ids.length}?`,
       dupes
         ? `Each one uses the category we suggested. ${dupes} of them look like transactions you already logged by hand, so you may want to ignore those first.${settledNote}`
         : `Each one uses the category we suggested. You can still change any of them afterwards in Transactions.${settledNote}`,
@@ -399,7 +399,9 @@ export default function PendingTransactionsScreen() {
         category,
         description,
         budgetId: draft?.budgetId ? String(draft.budgetId) : null,
-        budgetCategory: draft?.budgetId ? (draft?.budgetCategory ?? 'Needs') : null,
+        // Without a chosen budget the server uses the one covering that date, and the bucket comes from the
+        // category we suggested, so a one-tap confirm still lands in the right place.
+        budgetCategory: draft?.budgetId ? draft?.budgetCategory ?? 'Needs' : tx.suggestedBucket ?? null,
         miniBudgetId: draft?.budgetId && draft?.miniBudgetId ? String(draft.miniBudgetId) : null
       };
 
@@ -461,6 +463,15 @@ export default function PendingTransactionsScreen() {
     } finally {
       setActingId(null);
     }
+  };
+
+  /**
+   * One tap: take what we worked out. A line we think is a transfer between their own accounts, or money given
+   * back, settles as that; everything else is recorded with the category shown on the row.
+   */
+  const quickConfirm = (item: ApiImportedTransaction) => {
+    if (item.match && !notMatched.has(item.id)) return void settle(item, item.match.kind);
+    void handleReconcile(item.id, item);
   };
 
   const handleIgnore = async (id: string) => {
@@ -568,7 +579,7 @@ export default function PendingTransactionsScreen() {
                       accessibilityRole="button"
                       style={({ pressed }) => [pillStyle(theme, true), { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary, opacity: bulkBusy ? 0.6 : pressed ? 0.85 : 1 }]}
                     >
-                      <Text style={{ color: theme.colors.onPrimary, fontFamily: 'Figtree_700Bold', fontSize: 12 }}>Add all {items.length}</Text>
+                      <Text style={{ color: theme.colors.onPrimary, fontFamily: 'Figtree_700Bold', fontSize: 12 }}>Looks right, add all {items.length}</Text>
                     </Pressable>
                     <Pressable
                       onPress={() => {
@@ -788,11 +799,32 @@ export default function PendingTransactionsScreen() {
                     ) : null}
                   </View>
                 </View>
-                <View style={{ alignItems: 'flex-end' }}>
+                <View style={{ alignItems: 'flex-end', gap: 8 }}>
                   <Text style={{ color, fontFamily: 'Figtree_700Bold' }}>
                     {sign}
                     {formatMoney(item.amount, item.currency === 'NGN' ? '₦' : item.currency)}
                   </Text>
+                  {selecting ? null : (
+                    <Pressable
+                      onPress={() => quickConfirm(item)}
+                      disabled={acting}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Confirm ${item.merchant || item.description || 'transaction'}`}
+                      style={({ pressed }) => [
+                        {
+                          width: 44,
+                          height: 44,
+                          borderRadius: 22,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: theme.colors.primary,
+                          opacity: acting ? 0.5 : pressed ? 0.85 : 1
+                        }
+                      ]}
+                    >
+                      <CheckCircle2 color={theme.colors.onPrimary} size={22} />
+                    </Pressable>
+                  )}
                 </View>
                 </View>
               </Pressable>
@@ -1051,7 +1083,9 @@ export default function PendingTransactionsScreen() {
                 </View>
               ) : (
                 <View style={{ marginTop: 8 }}>
-                  <Text style={{ color: theme.colors.textMuted, fontSize: 12 }}>Tap to categorize and add.</Text>
+                  <Text style={{ color: theme.colors.textMuted, fontSize: 12 }}>
+                    {item.match && !notMatched.has(item.id) ? 'Tick to settle it. Tap the row if that’s wrong.' : 'Tick to add it as shown. Tap the row to change the category or budget.'}
+                  </Text>
                 </View>
               )}
             </Card>

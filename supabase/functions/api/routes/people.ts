@@ -28,6 +28,27 @@ const AcceptSchema = z.object({ code: z.string().trim().min(6).max(12) });
  * POST /v1/delegates/accept    accept an invite with its code
  * DELETE /v1/delegates/:id     remove a helper, or stop helping someone
  */
+/** The helper invite a code belongs to, if it can still be used. Used by the one code box (routes/join.ts). */
+export async function findHelperInvite(code: string) {
+  const clean = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const [invite] = clean ? await sql`select * from public.delegates where code = ${clean}` : [];
+  return !invite || invite.acceptedAt ? null : invite;
+}
+
+/** Accepting a helper invite. Shared by /v1/delegates/accept and the one code box. */
+export async function acceptHelperCode(userId: string, email: string | null, code: string) {
+  const invite = await findHelperInvite(code);
+  if (!invite) badRequest('That code was already used or doesn’t exist. Ask for a new one.', 'INVALID_CODE');
+  if (invite.ownerId === userId) badRequest('That’s your own invite.');
+  // The code alone isn't enough: it only works for the email it was sent to.
+  if (!email || email.toLowerCase() !== String(invite.email).toLowerCase()) {
+    throw new HttpError(403, 'FORBIDDEN', `This invite is for ${invite.email}. Sign in with that email to accept it.`);
+  }
+  await sql`update public.delegates set delegate_id = ${userId}, accepted_at = now() where id = ${invite.id}`;
+  const [owner] = await sql`select name, email from public.profiles where id = ${invite.ownerId}`;
+  return { ownerId: invite.ownerId as string, ownerName: (owner?.name ?? owner?.email ?? 'them') as string, role: invite.role as 'view' | 'record' };
+}
+
 export async function delegatesRoute(ctx: Ctx) {
   const auth = await requireAuth(ctx.req);
   if (auth.delegateRole) throw new HttpError(403, 'FORBIDDEN', 'Only the owner can change who helps with their money.');
@@ -37,16 +58,7 @@ export async function delegatesRoute(ctx: Ctx) {
   if (sub === 'accept') {
     if (ctx.method !== 'POST') methodNotAllowed(['POST']);
     const { code } = await body(ctx.req, AcceptSchema);
-    const [invite] = await sql`select * from public.delegates where code = ${code.toUpperCase().replace(/[^A-Z0-9]/g, '')}`;
-    if (!invite || invite.acceptedAt) badRequest('That code was already used or doesn’t exist. Ask for a new one.', 'INVALID_CODE');
-    if (invite.ownerId === userId) badRequest('That’s your own invite.');
-    // The code alone isn't enough: it only works for the email it was sent to.
-    if (!auth.email || auth.email.toLowerCase() !== String(invite.email).toLowerCase()) {
-      throw new HttpError(403, 'FORBIDDEN', `This invite is for ${invite.email}. Sign in with that email to accept it.`);
-    }
-    await sql`update public.delegates set delegate_id = ${userId}, accepted_at = now() where id = ${invite.id}`;
-    const [owner] = await sql`select name, email from public.profiles where id = ${invite.ownerId}`;
-    return json(200, { ownerId: invite.ownerId, ownerName: owner?.name ?? owner?.email ?? 'them', role: invite.role });
+    return json(200, await acceptHelperCode(userId, auth.email, code));
   }
 
   if (sub) {

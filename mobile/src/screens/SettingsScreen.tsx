@@ -51,7 +51,7 @@ import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
 import { useTeam } from '../contexts/TeamContext';
-import { JoinBusinessSheet } from '../components/Business/JoinBusinessSheet';
+import { JoinCodeSheet } from '../components/Common/JoinCodeSheet';
 import { isLite, setLite } from '../lib/lite';
 
 const ONBOARDING_KEY = 'bf_onboarding_done_v1';
@@ -320,7 +320,7 @@ export default function SettingsScreen() {
               onPress={() => nav.navigate('Main', { screen: 'Budget', params: { startNew: true, purpose: 'household' } })}
               chevron
             />
-            <ListRow icon={tile(Users)} title="Join a shared budget" subtitle="Use a code from someone you budget with" onPress={() => nav.navigate('ShareBudget')} chevron />
+            <ListRow icon={tile(Users)} title="Join with a code" subtitle="A shared budget, someone's money you help with, or a business" onPress={() => setJoining(true)} chevron />
           </ListCard>
         </>
       )}
@@ -333,9 +333,9 @@ export default function SettingsScreen() {
           subtitle={isBusiness ? 'Switch back to Personal from the top of Home' : spacesEnabled ? 'On · switch spaces from the top of Home' : 'Keep business money apart from personal'}
           right={<Switch value={spacesEnabled} onValueChange={setSpacesEnabled} {...switchColors} />}
         />
-        <ListRow icon={tile(UserPlus)} title="Join a business" subtitle="Got a code from a business you work with? Enter it here" onPress={() => setJoining(true)} chevron />
+        <ListRow icon={tile(UserPlus)} title="Join with a code" subtitle="A business you work in, a shared budget, or someone's money you help with" onPress={() => setJoining(true)} chevron />
       </ListCard>
-      <JoinBusinessSheet visible={joining} onClose={() => setJoining(false)} />
+      <JoinCodeSheet visible={joining} onClose={() => setJoining(false)} />
 
       {group('Reminders')}
       <ListCard>
