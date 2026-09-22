@@ -19,7 +19,9 @@ import type { Ctx } from '../index.ts';
  * The lookup is rate limited, since a code is the only thing standing between a stranger and somebody's money.
  */
 
-const CodeSchema = z.object({ code: z.string().trim().min(4).max(12) });
+// Codes come in different shapes (a friend's code carries their name, a business code doesn't), so we only
+// check it's short enough to be a code at all. Anything we don't recognise gets the same plain answer.
+const CodeSchema = z.object({ code: z.string().trim().min(4).max(24) });
 const clean = (code: string) => code.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
 export type CodeKind = 'business' | 'helper' | 'budget';
@@ -54,6 +56,17 @@ async function look(code: string): Promise<{ kind: CodeKind; name: string; detai
   return null;
 }
 
+/**
+ * A friend's invite code isn't a way in: it says who told them about us. It belongs in Invite friends, where
+ * the rules about who may claim what live, so here we only recognise it well enough to point the way.
+ */
+async function isFriendCode(code: string) {
+  const [row] = await sql`select 1 from public.profiles where referral_code = ${clean(code)} limit 1`;
+  return !!row;
+}
+
+const FRIEND_HINT = 'That’s a friend’s invite code. Enter it in Profile, Invite friends.';
+
 /** GET/POST /v1/join */
 export async function joinRoute(ctx: Ctx) {
   const { userId, email } = await requireAuth(ctx.req);
@@ -63,15 +76,19 @@ export async function joinRoute(ctx: Ctx) {
     if (clean(code).length < 4) badRequest('Enter the code you were sent.');
     await enforceRateLimit({ key: `code-look:${userId}`, limit: 20, windowSec: 15 * 60 });
     const found = await look(code);
-    if (!found) return json(200, { found: false });
+    if (!found) return json(200, { found: false, hint: (await isFriendCode(code)) ? FRIEND_HINT : undefined });
     return json(200, { found: true, ...found });
   }
 
   if (ctx.method !== 'POST') methodNotAllowed(['GET', 'POST']);
   const { code } = await body(ctx.req, CodeSchema);
+  if (clean(code).length < 4) badRequest('Enter the code you were sent.');
   await enforceRateLimit({ key: `code-use:${userId}`, limit: 10, windowSec: 15 * 60 });
   const found = await look(code);
-  if (!found) badRequest('That code has been used, has run out, or doesn’t exist. Ask for a new one.', 'INVALID_CODE');
+  if (!found) {
+    if (await isFriendCode(code)) badRequest(FRIEND_HINT, 'FRIEND_CODE');
+    badRequest('That code has been used, has run out, or doesn’t exist. Ask for a new one.', 'INVALID_CODE');
+  }
 
   if (found.kind === 'business') {
     const res = await joinBusinessWithCode(userId, code);

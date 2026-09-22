@@ -87,7 +87,7 @@ export function JoinCodeSheet({ visible, onClose, onJoined }: { visible: boolean
         autoCapitalize="characters"
         autoCorrect={false}
         placeholder="e.g. K7M2QX9P"
-        maxLength={12}
+        maxLength={16}
       />
       {ready ? (
         <View style={{ padding: 14, borderRadius: 14, backgroundColor: theme.colors.primarySoft, marginBottom: 16 }}>
@@ -96,7 +96,11 @@ export function JoinCodeSheet({ visible, onClose, onJoined }: { visible: boolean
         </View>
       ) : (
         <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: -6, marginBottom: 16 }]}>
-          {looking ? 'Checking that code…' : look && !look.found ? 'We don’t know that code. Check it, or ask for a new one.' : 'It could be a shared budget, help with someone’s money, or a business you work in. We’ll tell you which.'}
+          {looking
+            ? 'Checking that code…'
+            : look && !look.found
+              ? look.hint ?? 'We don’t know that code. Check it, or ask for a new one.'
+              : 'It could be a shared budget, help with someone’s money, or a business you work in. We’ll tell you which.'}
         </Text>
       )}
       <PrimaryButton title={ready ? `Join ${look!.name}` : 'Join'} onPress={join} loading={busy} disabled={!ready} />
