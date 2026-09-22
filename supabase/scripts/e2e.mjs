@@ -27,8 +27,24 @@ function check(name, cond, extra) {
 }
 const section = (s) => console.log(`\n${s}`);
 
+/**
+ * fetch, tried once more when the connection drops before any answer (a reused socket the other side had
+ * already closed). Any answer from the server, errors included, is returned as it came; only a dropped line
+ * is retried, so a flaky connection can't crash the run but can't hide a real failure either.
+ */
+const DROPPED = new Set(['UND_ERR_SOCKET', 'ECONNRESET', 'UND_ERR_CLOSED', 'EPIPE']);
+async function fetchOnce(url, init) {
+  try {
+    return await fetch(url, init);
+  } catch (err) {
+    if (!DROPPED.has(err?.cause?.code)) throw err;
+    console.log('  (connection dropped, trying once more)');
+    return fetch(url, init);
+  }
+}
+
 async function call(token, method, path, body, headers = {}) {
-  const res = await fetch(`${API}${path}`, {
+  const res = await fetchOnce(`${API}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
@@ -50,7 +66,7 @@ async function call(token, method, path, body, headers = {}) {
 }
 
 async function authApi(method, path, body, { key = PUB, token } = {}) {
-  const res = await fetch(`${BASE}/auth/v1${path}`, {
+  const res = await fetchOnce(`${BASE}/auth/v1${path}`, {
     method,
     headers: { apikey: key, 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : key === SECRET ? { Authorization: `Bearer ${SECRET}` } : {}) },
     body: body === undefined ? undefined : JSON.stringify(body)
