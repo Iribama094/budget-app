@@ -3,4 +3,4 @@ User-agent: *
 Allow: /
 Disallow: /joined.html
 
-Sitemap: https://budgetfriendly.ng/sitemap.xml
+Sitemap: https://budgetfriendly-waitlist.vercel.app/sitemap.xml
