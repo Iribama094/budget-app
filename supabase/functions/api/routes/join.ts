@@ -6,6 +6,7 @@ import { ROLE_LABEL, type TeamRole } from '../lib/team.ts';
 import { businessNameOf, findBusinessInvite, joinBusinessWithCode } from './team.ts';
 import { acceptHelperCode, findHelperInvite } from './people.ts';
 import { joinBudgetWithCode } from './budgets.ts';
+import { codeTaken } from '../lib/referral.ts';
 import { budgetLabel } from '../lib/budgets.ts';
 import type { Ctx } from '../index.ts';
 
@@ -59,11 +60,9 @@ async function look(code: string): Promise<{ kind: CodeKind; name: string; detai
 /**
  * A friend's invite code isn't a way in: it says who told them about us. It belongs in Invite friends, where
  * the rules about who may claim what live, so here we only recognise it well enough to point the way.
+ * codeTaken covers both a code from someone using the app and one handed out on the waitlist.
  */
-async function isFriendCode(code: string) {
-  const [row] = await sql`select 1 from public.profiles where referral_code = ${clean(code)} limit 1`;
-  return !!row;
-}
+const isFriendCode = (code: string) => codeTaken(clean(code));
 
 const FRIEND_HINT = 'That’s a friend’s invite code. Enter it in Profile, Invite friends.';
 
