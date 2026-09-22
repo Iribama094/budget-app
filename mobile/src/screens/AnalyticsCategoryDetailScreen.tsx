@@ -1,114 +1,50 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useMemo } from 'react';
+import { useRoute } from '@react-navigation/native';
 import { PieChart } from '../icons';
 
-import { Amount, EmptyState, HeroCard, InlineError, ListCard, ProgressBar, Screen, ScreenHeader, SectionHeader, Spinner } from '../components/Common/ui';
-import { useTheme } from '../contexts/ThemeContext';
-import { useAuth } from '../contexts/AuthContext';
-import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
-import { useSpace } from '../contexts/SpaceContext';
-import { getAnalyticsSummary, type AnalyticsSummary } from '../api/endpoints';
-import { categoryDotColor, currencySymbol, formatShortDate } from '../utils/format';
-import { type } from '../theme/typography';
-import { goBackOrHome } from '../navigation/goBack';
-import { errorMessage } from '../lib/errorMessage';
+import { AnalyticsBreakdown, byAmount, periodLabel, sumOf, useAnalyticsSummary, type AnalyticsRange } from '../components/Analytics/Breakdown';
+import { categoryDotColor } from '../utils/format';
 
-type RouteParams = {
-  range: { start: string; end: string };
-  timeframe?: 'daily' | 'weekly' | 'monthly';
-};
-
+/** Which categories the money went to, biggest first. */
 export default function AnalyticsCategoryDetailScreen() {
-  const nav = useNavigation<any>();
   const route = useRoute<any>();
-  const { theme } = useTheme();
-  const { user } = useAuth();
-  const { showAmounts } = useAmountVisibility();
-  const { spacesEnabled, activeSpaceId } = useSpace();
-  const glyph = currencySymbol(user?.currency);
-  const inkText = theme.colors.inkText;
+  const range = ((route.params ?? {}) as { range?: AnalyticsRange }).range;
 
-  const params = (route.params ?? {}) as RouteParams;
-  const range = params.range;
+  const { data, error, loading, reload } = useAnalyticsSummary(range);
 
-  const [data, setData] = useState<AnalyticsSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    if (!range?.start || !range?.end) return;
-    setError(null);
-    setIsLoading(true);
-    try {
-      const summary = await getAnalyticsSummary(range.start, range.end, spacesEnabled ? { spaceId: activeSpaceId } : undefined);
-      setData(summary);
-    } catch (e) {
-      setError(errorMessage(e, 'Failed to load analytics'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [activeSpaceId, range?.end, range?.start, spacesEnabled]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const items = useMemo(() => {
-    const byCat = data?.spendingByCategory ?? {};
-    return Object.entries(byCat)
-      .map(([category, amount]) => ({ category, amount: Number(amount) || 0 }))
-      .sort((a, b) => b.amount - a.amount);
+  const rows = useMemo(() => {
+    const items = byAmount(data?.spendingByCategory);
+    const total = sumOf(items);
+    return items.map(({ key, amount }) => ({
+      key,
+      label: key,
+      amount,
+      fill: total > 0 ? amount / total : 0,
+      color: categoryDotColor(key),
+      dot: true,
+      caption: `${Math.round(total > 0 ? (amount / total) * 100 : 0)}% of spending`
+    }));
   }, [data?.spendingByCategory]);
 
-  const total = useMemo(() => items.reduce((s, x) => s + x.amount, 0) || 0, [items]);
-  const top = items[0];
+  const total = sumOf(rows);
+  const top = rows[0];
 
   return (
-    <Screen bottomInset={48} onRefresh={load} refreshing={isLoading}>
-      <ScreenHeader title="Spending by category" subtitle={range ? `${formatShortDate(range.start)} – ${formatShortDate(range.end)}` : undefined} onBack={() => goBackOrHome(nav)} />
-
-      {error ? <InlineError message={error} /> : null}
-
-      <HeroCard style={{ marginTop: 8 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <PieChart color="#E2B65C" size={16} />
-          <Text style={[type.eyebrow, { color: inkText, opacity: 0.72 }]}>Total spending</Text>
-        </View>
-        <Amount value={total} currency={glyph} size="hero" color={inkText} hidden={!showAmounts} style={{ marginTop: 8 }} />
-        <Text style={[type.small, { color: inkText, opacity: 0.78 }]}>
-          {top && total > 0 ? `${top.category} carry the biggest share: ${Math.round((top.amount / total) * 100)}% of your spending.` : 'Where your money went this period.'}
-        </Text>
-      </HeroCard>
-
-      <SectionHeader title="Categories" />
-      {isLoading && !data ? (
-        <Spinner />
-      ) : items.length === 0 ? (
-        <EmptyState title="Nothing to show yet" body="No spending in this period. Log an expense and your breakdown will show here." />
-      ) : (
-        <ListCard>
-          {items.map(({ category, amount }) => {
-            const share = total > 0 ? amount / total : 0;
-            const dot = categoryDotColor(category);
-            return (
-              <View key={category} style={{ paddingVertical: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: dot }} />
-                  <Text numberOfLines={1} style={[type.bodyStrong, { color: theme.colors.text, flex: 1 }]}>
-                    {category}
-                  </Text>
-                  <Amount value={amount} currency={glyph} size="sm" hidden={!showAmounts} />
-                </View>
-                <View style={{ marginTop: 8 }}>
-                  <ProgressBar value={share} color={dot} />
-                </View>
-                <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 4 }]}>{Math.round(share * 100)}% of spending</Text>
-              </View>
-            );
-          })}
-        </ListCard>
-      )}
-    </Screen>
+    <AnalyticsBreakdown
+      title="Spending by category"
+      subtitle={periodLabel(range)}
+      icon={<PieChart color="#E2B65C" size={16} />}
+      heroLabel="Total spending"
+      heroTotal={total}
+      heroLine={top && total > 0 ? `${top.label} carry the biggest share: ${Math.round((top.amount / total) * 100)}% of your spending.` : 'Where your money went this period.'}
+      sectionTitle="Categories"
+      emptyTitle="Nothing to show yet"
+      emptyBody="No spending in this period. Log an expense and your breakdown will show here."
+      rows={rows}
+      loading={loading}
+      loaded={!!data}
+      error={error}
+      onRefresh={reload}
+    />
   );
 }

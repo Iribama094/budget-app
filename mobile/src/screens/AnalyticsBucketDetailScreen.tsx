@@ -1,123 +1,51 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useMemo } from 'react';
+import { useRoute } from '@react-navigation/native';
 import { Layers } from '../icons';
 
-import { bucketDisplayName } from '../theme/buckets';
-import { Amount, EmptyState, HeroCard, InlineError, ListCard, ProgressBar, Screen, ScreenHeader, SectionHeader, Spinner } from '../components/Common/ui';
-import { useTheme } from '../contexts/ThemeContext';
-import { useAuth } from '../contexts/AuthContext';
-import { useAmountVisibility } from '../contexts/AmountVisibilityContext';
+import { AnalyticsBreakdown, byAmount, periodLabel, sumOf, useAnalyticsSummary, type AnalyticsRange } from '../components/Analytics/Breakdown';
 import { useSpace } from '../contexts/SpaceContext';
-import { getAnalyticsSummary, type AnalyticsSummary } from '../api/endpoints';
-import { currencySymbol, formatShortDate } from '../utils/format';
-import { type } from '../theme/typography';
-import { goBackOrHome } from '../navigation/goBack';
-import { errorMessage } from '../lib/errorMessage';
+import { bucketDisplayName } from '../theme/buckets';
 
-type RouteParams = {
-  range: { start: string; end: string };
-  timeframe?: 'daily' | 'weekly' | 'monthly';
-};
-
+/** Spending split into Needs, Wants and Savings, for the period Analytics was showing. */
 export default function AnalyticsBucketDetailScreen() {
-  const nav = useNavigation<any>();
   const route = useRoute<any>();
-  const { theme } = useTheme();
-  const { user } = useAuth();
-  const { showAmounts } = useAmountVisibility();
   const { spacesEnabled, activeSpaceId, activeSpace } = useSpace();
-  const glyph = currencySymbol(user?.currency);
-  const inkText = theme.colors.inkText;
-
+  const range = ((route.params ?? {}) as { range?: AnalyticsRange }).range;
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
-  const bucketLabel = useCallback(
-    (key: string) => {
-      return bucketDisplayName(key, isBusiness);
-    },
-    [isBusiness]
-  );
 
-  const params = (route.params ?? {}) as RouteParams;
-  const range = params.range;
+  const { data, error, loading, reload } = useAnalyticsSummary(range);
 
-  const [data, setData] = useState<AnalyticsSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const rows = useMemo(() => {
+    const items = byAmount(data?.spendingByBucket);
+    const total = sumOf(items);
+    return items.map(({ key, amount }) => ({
+      key,
+      label: bucketDisplayName(key, isBusiness),
+      amount,
+      fill: total > 0 ? amount / total : 0,
+      caption: `${Math.round(total > 0 ? (amount / total) * 100 : 0)}% of spending`
+    }));
+  }, [data?.spendingByBucket, isBusiness]);
 
-  const load = useCallback(async () => {
-    if (!range?.start || !range?.end) return;
-    setError(null);
-    setIsLoading(true);
-    try {
-      const summary = await getAnalyticsSummary(range.start, range.end, spacesEnabled ? { spaceId: activeSpaceId } : undefined);
-      setData(summary);
-    } catch (e) {
-      setError(errorMessage(e, 'Failed to load analytics'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [activeSpaceId, range?.end, range?.start, spacesEnabled]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const items = useMemo(() => {
-    const byBucket = data?.spendingByBucket ?? {};
-    return Object.entries(byBucket)
-      .map(([bucket, amount]) => ({ bucket, amount: Number(amount) || 0 }))
-      .sort((a, b) => b.amount - a.amount);
-  }, [data?.spendingByBucket]);
-
-  const total = useMemo(() => items.reduce((s, x) => s + x.amount, 0) || 0, [items]);
-  const periodLabel = range ? `${formatShortDate(range.start)} – ${formatShortDate(range.end)}` : undefined;
+  const period = periodLabel(range);
 
   return (
-    <Screen bottomInset={48} onRefresh={load} refreshing={isLoading}>
-      <ScreenHeader
-        title="Spending by bucket"
-        subtitle={spacesEnabled ? [activeSpace?.name ?? 'Personal', periodLabel].filter(Boolean).join(' · ') : periodLabel}
-        onBack={() => goBackOrHome(nav)}
-      />
-
-      {error ? <InlineError message={error} /> : null}
-
-      <HeroCard style={{ marginTop: 8 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Layers color="#E2B65C" size={16} />
-          <Text style={[type.eyebrow, { color: inkText, opacity: 0.72 }]}>Total spending</Text>
-        </View>
-        <Amount value={total} currency={glyph} size="hero" color={inkText} hidden={!showAmounts} style={{ marginTop: 8 }} />
-        <Text style={[type.small, { color: inkText, opacity: 0.78 }]}>How your spending lines up with your plan.</Text>
-      </HeroCard>
-
-      <SectionHeader title="Buckets" info="Needs are what you must pay (rent, food, transport). Wants make life nicer but can wait. Savings is money you put away first. Each category belongs to one bucket; change it in Settings, Categories." />
-      {isLoading && !data ? (
-        <Spinner />
-      ) : items.length === 0 ? (
-        <EmptyState title="Nothing to show yet" body="No bucket spending in this period. Once you log expenses, we go sort them here." />
-      ) : (
-        <ListCard>
-          {items.map(({ bucket, amount }) => {
-            const share = total > 0 ? amount / total : 0;
-            return (
-              <View key={bucket} style={{ paddingVertical: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Text numberOfLines={1} style={[type.bodyStrong, { color: theme.colors.text, flex: 1 }]}>
-                    {bucketLabel(bucket)}
-                  </Text>
-                  <Amount value={amount} currency={glyph} size="sm" hidden={!showAmounts} />
-                </View>
-                <View style={{ marginTop: 8 }}>
-                  <ProgressBar value={share} />
-                </View>
-                <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 4 }]}>{Math.round(share * 100)}% of spending</Text>
-              </View>
-            );
-          })}
-        </ListCard>
-      )}
-    </Screen>
+    <AnalyticsBreakdown
+      title="Spending by bucket"
+      subtitle={spacesEnabled ? [activeSpace?.name ?? 'Personal', period].filter(Boolean).join(' · ') : period}
+      icon={<Layers color="#E2B65C" size={16} />}
+      heroLabel="Total spending"
+      heroTotal={sumOf(rows)}
+      heroLine="How your spending lines up with your plan."
+      sectionTitle="Buckets"
+      sectionInfo="Needs are what you must pay (rent, food, transport). Wants make life nicer but can wait. Savings is money you put away first. Each category belongs to one bucket; change it in Settings, Categories."
+      emptyTitle="Nothing to show yet"
+      emptyBody="No bucket spending in this period. Once you log expenses, we go sort them here."
+      rows={rows}
+      loading={loading}
+      loaded={!!data}
+      error={error}
+      onRefresh={reload}
+    />
   );
 }

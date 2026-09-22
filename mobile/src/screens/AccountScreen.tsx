@@ -8,8 +8,10 @@ export default function AccountScreen() {
   const nav = useNavigation<any>();
 
   useEffect(() => {
-    // Redirect to Profile directly: the list view was removed per design
-    nav.navigate('Profile');
+    // The list this screen used to show was replaced by Profile. It takes Profile's place in the stack rather
+    // than sitting under it, so going back from Profile lands on whatever opened it, not on this blank screen.
+    if (typeof nav.replace === 'function') nav.replace('Profile');
+    else nav.navigate('Profile');
   }, [nav]);
 
   return <View style={{ flex: 1, backgroundColor: theme.colors.background }} />;
