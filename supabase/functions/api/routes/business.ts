@@ -100,7 +100,7 @@ const InvoiceSchema = z.object({
 /** GET/POST /v1/invoices?status=open|paid|all */
 export async function invoicesIndex(ctx: Ctx) {
   if (ctx.method !== 'GET' && ctx.method !== 'POST') methodNotAllowed(['GET', 'POST']);
-  const { userId } = await requireAuth(ctx.req);
+  const { userId, actorId } = await requireAuth(ctx.req);
   const today = todayIso();
 
   if (ctx.method === 'POST') {
@@ -124,9 +124,10 @@ export async function invoicesIndex(ctx: Ctx) {
     });
     const [row] = await sql`
       insert into public.invoices
-        (user_id, number, customer_id, customer_name, customer_phone, customer_email, issue_date, due_date, items, subtotal, vat_rate, vat_amount, total, notes)
+        (user_id, number, customer_id, customer_name, customer_phone, customer_email, issue_date, due_date, items, subtotal, vat_rate, vat_amount, total, notes, created_by)
       values (${userId}, ${number}, ${customerId}, ${input.customerName}, ${input.customerPhone ?? null}, ${input.customerEmail || null}, ${issueDate}::date, ${input.dueDate}::date,
-              ${sql.json(input.items)}, ${totals.subtotal}, ${vatRate}, ${totals.vatAmount}, ${totals.total}, ${input.notes ?? null})
+              ${sql.json(input.items)}, ${totals.subtotal}, ${vatRate}, ${totals.vatAmount}, ${totals.total}, ${input.notes ?? null},
+              ${actorId !== userId ? actorId : null})
       returning *
     `;
     return json(201, { invoice: toApiInvoice(row, today) });
@@ -289,15 +290,15 @@ const BillSchema = z.object({
 /** GET/POST /v1/bills?status=open|paid|all */
 export async function billsIndex(ctx: Ctx) {
   if (ctx.method !== 'GET' && ctx.method !== 'POST') methodNotAllowed(['GET', 'POST']);
-  const { userId } = await requireAuth(ctx.req);
+  const { userId, actorId } = await requireAuth(ctx.req);
   const today = todayIso();
 
   if (ctx.method === 'POST') {
     const input = await body(ctx.req, BillSchema);
     const [row] = await sql`
-      insert into public.supplier_bills (user_id, supplier_name, description, category, amount, bill_date, due_date, notes)
+      insert into public.supplier_bills (user_id, supplier_name, description, category, amount, bill_date, due_date, notes, created_by)
       values (${userId}, ${input.supplierName}, ${input.description ?? ''}, ${input.category ?? 'Stock & supplies'}, ${input.amount},
-              ${input.billDate ?? today}::date, ${input.dueDate}::date, ${input.notes ?? null})
+              ${input.billDate ?? today}::date, ${input.dueDate}::date, ${input.notes ?? null}, ${actorId !== userId ? actorId : null})
       returning *
     `;
     return json(201, { bill: toApiBill(row, today) });

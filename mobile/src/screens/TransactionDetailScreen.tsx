@@ -27,6 +27,7 @@ import {
 } from '../api/endpoints';
 import { goBackOrHome } from '../navigation/goBack';
 import { RefundRow } from '../components/Transactions/RefundRow';
+import { useTeam } from '../contexts/TeamContext';
 
 
 
@@ -80,6 +81,7 @@ export default function TransactionDetailScreen() {
   const currency = user?.currency ?? '₦';
 
   const isBusiness = spacesEnabled && activeSpaceId === 'business';
+  const { active: teamBusiness } = useTeam();
   const bucketLabel = useCallback(
     (key: string) => {
       return bucketDisplayName(key, isBusiness);
@@ -635,9 +637,12 @@ export default function TransactionDetailScreen() {
                   disabled={isSaving}
                 />
               </View>
-              <View style={{ flex: 1 }}>
-                <SecondaryButton title={isEditing ? 'Cancel' : 'Delete'} onPress={isEditing ? () => { setIsEditing(false); void load(); } : confirmDelete} />
-              </View>
+              {/* On someone else's team, only the owner deletes. */}
+              {isEditing || !(isBusiness && teamBusiness) ? (
+                <View style={{ flex: 1 }}>
+                  <SecondaryButton title={isEditing ? 'Cancel' : 'Delete'} onPress={isEditing ? () => { setIsEditing(false); void load(); } : confirmDelete} />
+                </View>
+              ) : null}
             </View>
             {!isEditing && tx ? (
               <RefundRow

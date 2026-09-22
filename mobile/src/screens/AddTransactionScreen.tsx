@@ -27,6 +27,7 @@ import { getPlan, suggestCategory, type ApiPlan } from '../api/personal';
 import { getRates } from '../api/money';
 import { ChoiceChip } from '../components/Plan/ChoiceChip';
 import { useT } from '../lib/i18n';
+import { useTeam } from '../contexts/TeamContext';
 import { BUCKETS, bucketDisplayName, normalizeBucket, type Bucket } from '../theme/buckets';
 import { guessIconKey, iconForKey } from '../lib/categoryIcons';
 import { currencySymbol, formatNumberInput, formatShortDate, toIsoDate, toIsoDateTime } from '../utils/format';
@@ -44,6 +45,13 @@ export function AddTransactionScreen() {
   const voiceAnchorRef = useTourAnchor('addtx.voice');
   const { saveTransaction } = useSync();
   const t = useT();
+  // Working in someone else's business: Sales record only sales and Purchases only costs, and the Save button
+  // names the business so nothing lands in the wrong one.
+  const { role: teamRole, active: teamBusiness } = useTeam();
+  const lockedType = spacesEnabled && activeSpaceId === 'business' ? (teamRole === 'sales' ? 'income' : teamRole === 'purchases' ? 'expense' : null) : null;
+  useEffect(() => {
+    if (lockedType) setType(lockedType);
+  }, [lockedType]);
 
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [applyToBudget, setApplyToBudget] = useState(true);
@@ -574,6 +582,7 @@ export function AddTransactionScreen() {
         <IconButton accessibilityLabel="Close" onPress={() => goBackOrHome(nav)}>
           <X color={theme.colors.text} size={20} />
         </IconButton>
+        {lockedType ? null : (
         <SegmentedControl
           options={[
             { key: 'expense', label: t('Expense') },
@@ -594,6 +603,7 @@ export function AddTransactionScreen() {
           }}
           style={{ width: 200 }}
         />
+        )}
         <View ref={voiceAnchorRef} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <IconButton
             accessibilityLabel={voice.state === 'recording' ? 'Stop and use what I said' : 'Say it instead of typing'}
@@ -873,7 +883,12 @@ export function AddTransactionScreen() {
 
       <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom }}>
         {blocker && (amount || category) ? <Text style={[typo.caption, { color: theme.colors.textMuted, textAlign: 'center', marginBottom: 6 }]}>{blocker}</Text> : null}
-        <PrimaryButton title={type === 'expense' ? 'Save expense' : 'Save income'} onPress={submit} disabled={!canSubmit} loading={isSaving} />
+        <PrimaryButton
+          title={spacesEnabled && activeSpaceId === 'business' && teamBusiness ? `Save to ${teamBusiness.name}` : type === 'expense' ? 'Save expense' : 'Save income'}
+          onPress={submit}
+          disabled={!canSubmit}
+          loading={isSaving}
+        />
       </KeyboardStickyView>
 
       <Modal transparent visible={showDatePicker} animationType="fade" onRequestClose={() => setShowDatePicker(false)}>

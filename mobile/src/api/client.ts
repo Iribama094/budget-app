@@ -194,6 +194,15 @@ async function refreshAccessToken(): Promise<string | null> {
  * checks every request against the owner's grant; this only says which owner to ask about.
  */
 let actingAs: string | null = null;
+
+/**
+ * The business this phone is working in, when it's someone else's (the person is on their team). Only set
+ * while the Business space is showing; the server checks the person's role on every request.
+ */
+let businessOwner: string | null = null;
+export function setBusinessOwner(ownerId: string | null) {
+  businessOwner = ownerId;
+}
 export function setActingAs(ownerId: string | null) {
   actingAs = ownerId;
 }
@@ -771,6 +780,7 @@ export async function apiFetch(path: string, init?: RequestInit & { skipAuth?: b
     if (token) headers.set('Authorization', `Bearer ${token}`);
     // Sign-in and delegation are always about the person holding the phone.
     if (actingAs && !/\/v1\/(auth|delegates|push-tokens)(\/|$|\?)/.test(url)) headers.set('X-Act-As', actingAs);
+    else if (businessOwner) headers.set('X-Business', businessOwner);
     return fetch(url, { ...init, headers });
   };
 

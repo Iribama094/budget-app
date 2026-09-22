@@ -11,6 +11,8 @@ import { useConfig } from '../contexts/ConfigContext';
 import { Amount, Card, IconTile, ListCard, ListRow, PrimaryButton, Screen, ScreenHeader } from '../components/Common/ui';
 import { PlanSplit } from '../components/Plan/PlanSplit';
 import { BusinessProfile } from '../components/Profile/BusinessProfile';
+import { MemberProfile } from '../components/Profile/MemberProfile';
+import { useTeam } from '../contexts/TeamContext';
 import { getMoney } from '../api/money';
 import { useActing } from '../contexts/ActingContext';
 import { formatAmount } from '../components/Common/ui';
@@ -42,6 +44,7 @@ export function ProfileScreen() {
   const [plan, setPlan] = useState<ApiPlan | null>(null);
   const [netWorth, setNetWorth] = useState<number | null>(null);
   const { acting } = useActing();
+  const { active: teamBusiness } = useTeam();
 
   useFocusEffect(
     useCallback(() => {
@@ -78,7 +81,7 @@ export function ProfileScreen() {
     ]);
   };
 
-  if (isBusiness) return <BusinessProfile onLogout={confirmLogout} />;
+  if (isBusiness) return teamBusiness ? <MemberProfile onLogout={confirmLogout} /> : <BusinessProfile onLogout={confirmLogout} />;
 
   return (
     <Screen bottomInset={48}>

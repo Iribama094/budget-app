@@ -1,7 +1,9 @@
 import { encodeBase64Url, decodeBase64Url } from 'jsr:@std/encoding@1.0.10/base64url';
 import { iso, isUniqueViolation, isUuid, sql } from '../lib/db.ts';
 import { requireAuth } from '../lib/auth.ts';
-import { badRequest, body, json, methodNotAllowed, noContent, notFound, spaceParam, z } from '../lib/http.ts';
+import { recorderNames } from '../lib/teamRecords.ts';
+import { teamTransactionType } from '../lib/team.ts';
+import { badRequest, body, HttpError, json, methodNotAllowed, noContent, notFound, spaceParam, z } from '../lib/http.ts';
 import { parseQueryDate } from '../lib/dates.ts';
 import { budgetMemberIds, bumpBucket, bumpBudget, findVisibleBudget } from '../lib/budgets.ts';
 import { afterTransactionCreated } from '../lib/effects.ts';
@@ -44,7 +46,7 @@ const PatchSchema = z
   })
   .strict();
 
-export function toApiTransaction(t: any, opts: { full?: boolean } = { full: true }) {
+export function toApiTransaction(t: any, opts: { full?: boolean; names?: Map<string, string> } = { full: true }) {
   return {
     id: t.id,
     ...(opts.full ? { userId: t.userId } : {}),
@@ -60,6 +62,9 @@ export function toApiTransaction(t: any, opts: { full?: boolean } = { full: true
     fxCurrency: t.fxCurrency ?? null,
     fxAmount: t.fxAmount == null ? null : Number(t.fxAmount),
     fxRate: t.fxRate == null ? null : Number(t.fxRate),
+    // Someone on the business's team recorded it; null means the owner did.
+    createdBy: t.createdBy ?? null,
+    recordedBy: t.createdBy ? opts.names?.get(t.createdBy) ?? null : null,
     ...(opts.full ? { recurringId: t.recurringId ?? null, clientId: t.clientId ?? null } : {}),
     occurredAt: iso(t.occurredAt),
     createdAt: iso(t.createdAt),
@@ -86,11 +91,16 @@ const has = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k)
 /** GET/POST /v1/transactions */
 export async function transactionsIndex(ctx: Ctx) {
   if (ctx.method !== 'GET' && ctx.method !== 'POST') methodNotAllowed(['GET', 'POST']);
-  const { userId } = await requireAuth(ctx.req);
+  const { userId, actorId, teamRole } = await requireAuth(ctx.req);
+  // Sales record only money in and Purchases only money out; they see the same way (lib/team.ts).
+  const onlyType = teamTransactionType(teamRole);
 
   if (ctx.method === 'POST') {
     const input = await body(ctx.req, CreateSchema);
     const space = input.spaceId ?? 'personal';
+    if (onlyType && input.type !== onlyType) {
+      throw new HttpError(403, 'FORBIDDEN', onlyType === 'income' ? 'Your role records sales only.' : 'Your role records costs only.');
+    }
 
     if (input.clientId) {
       const [existing] = await sql`select * from public.transactions where user_id = ${userId} and client_id = ${input.clientId}`;
@@ -103,11 +113,12 @@ export async function transactionsIndex(ctx: Ctx) {
       [tx] = await sql`
         insert into public.transactions
           (user_id, space_id, type, amount, category, description, budget_id, budget_category, mini_budget_id, client_id, occurred_at, vat_amount,
-           fx_currency, fx_amount, fx_rate)
+           fx_currency, fx_amount, fx_rate, created_by)
         values (${userId}, ${space}, ${input.type}, ${input.amount}, ${input.category}, ${input.description},
                 ${input.budgetId ?? null}, ${input.budgetCategory ?? null}, ${input.miniBudgetId ?? input.miniBudget ?? null},
                 ${input.clientId ?? null}, ${new Date(input.occurredAt)}, ${space === 'business' && input.type === 'expense' ? input.vatAmount ?? 0 : 0},
-                ${input.fx?.currency.toUpperCase() ?? null}, ${input.fx?.amount ?? null}, ${input.fx?.rate ?? null})
+                ${input.fx?.currency.toUpperCase() ?? null}, ${input.fx?.amount ?? null}, ${input.fx?.rate ?? null},
+                ${actorId !== userId ? actorId : null})
         returning *
       `;
     } catch (err) {
@@ -132,7 +143,9 @@ export async function transactionsIndex(ctx: Ctx) {
 
   const q = ctx.query;
   const limit = Math.max(1, Math.min(200, Number(q.get('limit') ?? 50) || 50));
-  const type = q.get('type');
+  const asked = q.get('type');
+  if (onlyType && asked && asked !== onlyType) return json(200, { items: [], nextCursor: null });
+  const type = onlyType ?? asked;
   const category = q.get('category');
   const budgetId = q.get('budgetId');
   const space = spaceParam(q.get('spaceId'));
@@ -166,8 +179,9 @@ export async function transactionsIndex(ctx: Ctx) {
   `;
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
+  const names = await recorderNames(userId, page.map((t) => t.createdBy));
   return json(200, {
-    items: page.map((t) => toApiTransaction(t)),
+    items: page.map((t) => toApiTransaction(t, { full: true, names })),
     nextCursor: hasMore ? encodeCursor(page[page.length - 1] as any) : null
   });
 }
@@ -175,17 +189,27 @@ export async function transactionsIndex(ctx: Ctx) {
 /** GET/PATCH/DELETE /v1/transactions/:id */
 export async function transactionById(ctx: Ctx) {
   if (!['GET', 'PATCH', 'DELETE'].includes(ctx.method)) methodNotAllowed(['GET', 'PATCH', 'DELETE']);
-  const { userId } = await requireAuth(ctx.req);
+  const { userId, actorId, teamRole } = await requireAuth(ctx.req);
   const id = ctx.parts[1];
   if (!isUuid(id)) notFound('Transaction not found');
   const space = spaceParam(ctx.query.get('spaceId'));
 
   const [existing] = await sql`select * from public.transactions where id = ${id} and user_id = ${userId} ${space ? sql`and space_id = ${space}` : sql``}`;
   if (!existing) notFound('Transaction not found');
+  // Sales can't open a cost, nor Purchases a sale.
+  const onlyType = teamTransactionType(teamRole);
+  if (onlyType && existing.type !== onlyType) notFound('Transaction not found');
   const txSpace = existing.spaceId ?? 'personal';
   const ownBudget = sql`b.user_id = ${userId} and b.space_id = ${txSpace}`;
 
-  if (ctx.method === 'GET') return json(200, { transaction: toApiTransaction(existing, { full: false }) });
+  if (ctx.method === 'GET') {
+    const names = await recorderNames(userId, [existing.createdBy]);
+    return json(200, { transaction: toApiTransaction(existing, { full: false, names }) });
+  }
+  // Sales and Purchases correct only what they recorded themselves. Managers can correct anything.
+  if (teamRole && teamRole !== 'manager' && existing.createdBy !== actorId) {
+    throw new HttpError(403, 'FORBIDDEN', 'You can only change what you recorded. Ask the owner to change this one.');
+  }
 
   if (ctx.method === 'DELETE') {
     await sql`delete from public.transactions where id = ${id} and user_id = ${userId}`;

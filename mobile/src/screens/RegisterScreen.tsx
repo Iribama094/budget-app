@@ -9,6 +9,7 @@ import { fonts, type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 
 import { MIN_PASSWORD, PASSWORD_HINT, passwordProblem } from '../lib/passwordRules';
+import { savePendingInvite } from '../lib/pendingInvite';
 
 export function RegisterScreen() {
   const auth = useAuth();
@@ -24,6 +25,9 @@ export function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Someone joining a business they work in: the owner sent them a code.
+  const [hasCode, setHasCode] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
 
   const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
   const emailLooksValid = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail), [normalizedEmail]);
@@ -34,6 +38,7 @@ export function RegisterScreen() {
     setError(null);
     setIsSubmitting(true);
     try {
+      if (hasCode && inviteCode.trim().length >= 6) await savePendingInvite(inviteCode);
       await auth.register(normalizedEmail, password, name.trim() ? name.trim() : undefined);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Check your connection and try again.');
@@ -116,6 +121,23 @@ export function RegisterScreen() {
           </Pressable>
         }
       />
+
+      {hasCode ? (
+        <TextField
+          label="Invite code"
+          value={inviteCode}
+          onChangeText={(v) => setInviteCode(v.toUpperCase())}
+          autoCapitalize="characters"
+          placeholder="e.g. K7M2QX9P"
+          maxLength={12}
+          editable={!isSubmitting}
+          hint="From the business owner. You’ll join once your email is confirmed."
+        />
+      ) : (
+        <Pressable onPress={() => setHasCode(true)} hitSlop={8} accessibilityRole="button" style={{ marginBottom: 14 }}>
+          <Text style={[type.smallStrong, { color: theme.colors.primary }]}>Have an invite code from a business?</Text>
+        </Pressable>
+      )}
 
       <PrimaryButton title="Create account" onPress={submit} disabled={!canSubmit} loading={isSubmitting} style={{ marginTop: 8 }} />
 

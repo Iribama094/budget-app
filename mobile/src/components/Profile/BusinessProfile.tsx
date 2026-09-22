@@ -147,6 +147,7 @@ export function BusinessProfile({ onLogout }: { onLogout: () => void }) {
           chevron
         />
         <ListRow icon={bizTile(Users)} title="Staff & payroll" subtitle={s ? `${s.staffCount} on payroll` : 'Salaries and PAYE'} onPress={() => nav.navigate('Payroll')} chevron />
+        <ListRow icon={bizTile(UserRound)} title="Your team" subtitle="People who record and manage with their own login" onPress={() => nav.navigate('Team')} chevron />
         <ListRow icon={bizTile(Home)} title="Properties" subtitle="Rent, tenants and when it’s due" onPress={() => nav.navigate('Properties')} chevron />
         <ListRow
           icon={bizTile(Landmark)}

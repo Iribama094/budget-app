@@ -115,6 +115,9 @@ export type ApiTransaction = {
   fxCurrency?: string | null;
   fxAmount?: number | null;
   fxRate?: number | null;
+  /** Someone on the business's team recorded it (null means the owner), and what the owner calls them. */
+  createdBy?: string | null;
+  recordedBy?: string | null;
   occurredAt: string;
   createdAt: string;
   updatedAt: string;

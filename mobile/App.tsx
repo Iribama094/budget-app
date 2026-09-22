@@ -84,6 +84,10 @@ import HelpersScreen from './src/screens/HelpersScreen';
 import PropertiesScreen from './src/screens/PropertiesScreen';
 import PricesScreen from './src/screens/PricesScreen';
 import { ActingProvider, useActing } from './src/contexts/ActingContext';
+import { TeamProvider, useTeam } from './src/contexts/TeamContext';
+import TeamScreen from './src/screens/TeamScreen';
+import YourBusinessesScreen from './src/screens/YourBusinessesScreen';
+import { PendingInvite } from './src/components/Business/PendingInvite';
 import { ActingBanner } from './src/components/Common/ActingBanner';
 
 const Tab = createBottomTabNavigator();
@@ -183,6 +187,8 @@ function AuthedStack() {
       <Stack.Screen name="Helpers" component={HelpersScreen} />
       <Stack.Screen name="Properties" component={PropertiesScreen} />
       <Stack.Screen name="Prices" component={PricesScreen} />
+      <Stack.Screen name="Team" component={TeamScreen} />
+      <Stack.Screen name="YourBusinesses" component={YourBusinessesScreen} />
     </Stack.Navigator>
   );
 }
@@ -191,6 +197,7 @@ function Root() {
   const { user, isLoading, isLocked, lastUser } = useAuth();
   const { theme } = useTheme();
   const { acting, stop } = useActing();
+  const { active: activeBusiness } = useTeam();
 
   const [onboardingDone, setOnboardingDone] = React.useState<boolean | null>(null);
   const [sessionOnboardingComplete, setSessionOnboardingComplete] = React.useState(false);
@@ -283,8 +290,9 @@ function Root() {
   return (
     <View style={{ flex: 1 }}>
       <ActingBanner onLeave={stop} />
+      <PendingInvite />
       {/* A fresh stack for each person's money, so nothing from one shows in the other. */}
-      <AuthedStack key={acting?.ownerId ?? 'me'} />
+      <AuthedStack key={acting?.ownerId ?? activeBusiness?.ownerId ?? 'me'} />
       {statusBar}
     </View>
   );
@@ -318,6 +326,7 @@ export default function App() {
                     <AuthProvider>
                       <ToastProvider>
                         <ActingProvider>
+                        <TeamProvider>
                         <ConfigProvider>
                         <CategoriesProvider>
                         <SyncProvider>
@@ -342,6 +351,7 @@ export default function App() {
                         </SyncProvider>
                         </CategoriesProvider>
                         </ConfigProvider>
+                        </TeamProvider>
                         </ActingProvider>
                       </ToastProvider>
                     </AuthProvider>

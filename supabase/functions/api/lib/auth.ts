@@ -3,6 +3,7 @@ import { sql } from './db.ts';
 import { HttpError } from './http.ts';
 import { sendEmail } from './email.ts';
 import { notifyUser } from './notify.ts';
+import { apiPath, ROLE_LABEL, SELF_PATHS, teamMayDo, type TeamRole } from './team.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 
@@ -52,6 +53,8 @@ export type AuthContext = {
   token: string;
   actorId: string;
   delegateRole: 'view' | 'record' | null;
+  /** Set when a team member works in someone else's business (X-Business). userId is then the owner's. */
+  teamRole: TeamRole | null;
   /** 'aal2' once the session has passed a second factor. Staff tools refuse anything less. */
   aal: 'aal1' | 'aal2';
 };
@@ -62,7 +65,7 @@ function delegateMayDo(req: Request, role: 'view' | 'record'): boolean {
   const segments = new URL(req.url).pathname.split('/').filter(Boolean);
   const path = segments.slice(segments.indexOf('v1') + 1).join('/');
   // Never: staff tools, sign-in and security, delegation itself, the owner's devices and alerts.
-  if (/^(admin|auth|delegates|push-tokens|notifications|cron|account)(\/|$)/.test(path)) return false;
+  if (/^(admin|auth|delegates|team|push-tokens|notifications|cron|account)(\/|$)/.test(path)) return false;
   if (req.method === 'GET' || req.method === 'HEAD') return true;
   // "Record" helpers can add transactions, nothing more.
   return role === 'record' && req.method === 'POST' && /^transactions\/?$/.test(path);
@@ -135,7 +138,23 @@ export async function requireAuth(req: Request): Promise<AuthContext> {
   const email = typeof claims.email === 'string' ? claims.email : null;
   const aal = claims.aal === 'aal2' ? 'aal2' : 'aal1';
   const actAs = (req.headers.get('x-act-as') ?? '').trim();
-  if (!actAs || actAs === userId) return { userId, sessionId, email, token, actorId: userId, delegateRole: null, aal };
+  const business = (req.headers.get('x-business') ?? '').trim();
+  const path = apiPath(req.url);
+
+  // A team member in someone else's business. Their own profile, alerts and sign-in stay theirs (SELF_PATHS).
+  if (business && business !== userId && !SELF_PATHS.test(path)) {
+    if (actAs) throw new HttpError(400, 'BAD_REQUEST', 'Pick one: helping someone, or working in a business.');
+    const [member] = await sql<{ role: TeamRole }[]>`
+      select role from public.business_members where owner_id = ${business} and member_id = ${userId} and accepted_at is not null
+    `;
+    if (!member) throw new HttpError(403, 'FORBIDDEN', 'You’re no longer part of this business.');
+    if (!teamMayDo(member.role, req.method, path)) {
+      throw new HttpError(403, 'FORBIDDEN', `Your role (${ROLE_LABEL[member.role]}) can’t do this. Ask the owner if you need it.`);
+    }
+    return { userId: business, sessionId, email: null, token, actorId: userId, delegateRole: null, teamRole: member.role, aal };
+  }
+
+  if (!actAs || actAs === userId) return { userId, sessionId, email, token, actorId: userId, delegateRole: null, teamRole: null, aal };
 
   const [grant] = await sql<{ role: 'view' | 'record' }[]>`
     select role from public.delegates where owner_id = ${actAs} and delegate_id = ${userId} and accepted_at is not null
@@ -144,7 +163,7 @@ export async function requireAuth(req: Request): Promise<AuthContext> {
   if (!delegateMayDo(req, grant.role)) {
     throw new HttpError(403, 'FORBIDDEN', grant.role === 'view' ? 'You can look, but only they can change things.' : 'You can add transactions, but only they can change anything else.');
   }
-  return { userId: actAs, sessionId, email: null, token, actorId: userId, delegateRole: grant.role, aal };
+  return { userId: actAs, sessionId, email: null, token, actorId: userId, delegateRole: grant.role, teamRole: null, aal };
 }
 
 /**

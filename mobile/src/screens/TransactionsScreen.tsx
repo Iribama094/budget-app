@@ -349,6 +349,7 @@ export function TransactionsScreen() {
                     </Text>
                     <Text numberOfLines={1} style={[type.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>
                       {item.category} · {formatRelativeDay(item.occurredAt, new Date(item.occurredAt))}
+                      {item.recordedBy ? ` · by ${item.recordedBy}` : ''}
                     </Text>
                   </View>
                   <Amount

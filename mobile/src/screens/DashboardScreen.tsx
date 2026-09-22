@@ -48,6 +48,8 @@ import { useNudges } from '../contexts/NudgesContext';
 import { FirstWeekChecklist } from '../components/Home/FirstWeekChecklist';
 import { InsightCards } from '../components/Home/InsightCards';
 import { BusinessHome } from '../components/Home/BusinessHome';
+import { TeamHome } from '../components/Home/TeamHome';
+import { useTeam } from '../contexts/TeamContext';
 import { PendingSavingsCard } from '../components/Home/PendingSavingsCard';
 import { ShortfallCard } from '../components/Home/ShortfallCard';
 import { usePlan } from '../lib/usePlan';
@@ -69,6 +71,7 @@ export function DashboardScreen() {
   const { user, refreshUser } = useAuth();
   const { theme } = useTheme();
   const { spacesEnabled, activeSpaceId, activeSpace } = useSpace();
+  const { role: teamRole } = useTeam();
   const { isTourActive } = useTour();
   const { seen, markSeen } = useNudges();
   const [summaryRangeKey, setSummaryRangeKey] = useState<'today' | 'week' | 'month'>('month');
@@ -538,7 +541,10 @@ export function DashboardScreen() {
   }, [currentBudget, glyph, isLoading, pace, showAmounts]);
 
   // The Business space has its own home: profit, costs, cash runway and tax set-aside.
-  if (spacesEnabled && activeSpaceId === 'business') return <BusinessHome />;
+  if (spacesEnabled && activeSpaceId === 'business') {
+    // Sales, Purchases and HR on someone else's team get a Home that is just their job.
+    return teamRole === 'sales' || teamRole === 'purchases' || teamRole === 'hr' ? <TeamHome /> : <BusinessHome />;
+  }
 
   return (
     <Screen onRefresh={handleRefresh} refreshing={isLoading}>

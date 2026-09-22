@@ -320,6 +320,17 @@ export default function PayrollScreen() {
               </ListCard>
             ) : null}
             <PrimaryButton title="Save" onPress={saveStaff} loading={busy} />
+            {draft.id && !home ? (
+              <SecondaryButton
+                title="Give them app access"
+                onPress={() => {
+                  const d = draft;
+                  setDraft(null);
+                  nav.navigate('Team', { name: d.name, title: d.role, staffId: d.id });
+                }}
+                style={{ marginTop: 10 }}
+              />
+            ) : null}
             {draft.id ? <SecondaryButton title="Remove" onPress={remove} style={{ marginTop: 10 }} /> : null}
           </>
         ) : null}

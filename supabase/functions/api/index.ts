@@ -56,6 +56,9 @@ import { adminContent, adminSeedQuotes } from './routes/adminContent.ts';
 import { adminTaxRules, adminTaxVersion } from './routes/adminTax.ts';
 import { adminWrappedPreview } from './routes/admin.ts';
 import { ensureTaxRules } from './lib/tax.ts';
+import { BODY_SPACE_PATHS, SELF_PATHS } from './lib/team.ts';
+import { teamRoute } from './routes/team.ts';
+import { sendTeamDigests } from './lib/teamDigest.ts';
 import { debtById, debtsIndex, fxRatesRoute, holdingById, holdingsIndex, moneyRoute, pricesRoute } from './routes/money.ts';
 import { delegatesRoute, propertiesRoute } from './routes/people.ts';
 import { sendMoneyReminders } from './lib/reminders.ts';
@@ -70,6 +73,28 @@ export type Ctx = {
 };
 
 type Handler = (ctx: Ctx) => Response | Promise<Response>;
+
+/**
+ * For requests with X-Business (a team member in someone's business): spaceId=business in the query, and in the
+ * body of routes whose body picks a space. Whether they may make the request at all is decided in requireAuth.
+ */
+async function inBusinessSpace(req: Request, url: URL, path: string): Promise<Request> {
+  if (!req.headers.get('x-business') || SELF_PATHS.test(path)) return req;
+  url.searchParams.set('spaceId', 'business');
+  let body: BodyInit | undefined;
+  if (req.method === 'POST' && BODY_SPACE_PATHS.test(path)) {
+    const text = await req.text();
+    try {
+      const parsed = text ? JSON.parse(text) : {};
+      body = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? JSON.stringify({ ...parsed, spaceId: 'business' }) : text;
+    } catch {
+      body = text;
+    }
+  } else if (req.method !== 'GET' && req.method !== 'HEAD') {
+    body = await req.arrayBuffer();
+  }
+  return new Request(url.toString(), { method: req.method, headers: req.headers, body });
+}
 
 /** Compares in constant time, so how long a wrong guess takes says nothing about how close it was. */
 function sameSecret(given: string, expected: string): boolean {
@@ -94,6 +119,7 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
   summary.recurring = await runAllDueRecurring(today);
   summary.billReminders = await sendBillReminders(today);
   summary.money = await sendMoneyReminders(today);
+  summary.team = await sendTeamDigests(today);
   summary.business = await sendBusinessReminders(today);
   summary.shared = { ...(await sendSharedDigests(today)), periodEnding: await sendPeriodEndingReminders(today) };
 
@@ -323,6 +349,8 @@ function route(parts: string[]): Handler | null {
   if (a === 'debts' && (n === 2 || (n === 3 && c === 'payments'))) return debtById;
   if (a === 'delegates' && n <= 2) return delegatesRoute;
   if (a === 'properties' && n <= 3) return propertiesRoute;
+  // A business owner's team (lib/team.ts decides what each role may do).
+  if (a === 'team' && n <= 2) return teamRoute;
 
   return null;
 }
@@ -343,7 +371,9 @@ Deno.serve(async (req) => {
   if (!handler) return errorResponse(404, 'NOT_FOUND', 'Route not found');
 
   try {
-    return await handler({ req, method: req.method.toUpperCase(), parts, query: url.searchParams });
+    // A team member's request is always about the business: never the owner's personal space (lib/team.ts).
+    const teamReq = await inBusinessSpace(req, url, parts.join('/'));
+    return await handler({ req: teamReq, method: req.method.toUpperCase(), parts, query: url.searchParams });
   } catch (err) {
     if (err instanceof HttpError) return errorResponse(err.status, err.code, err.message, err.details, err.headers);
     console.error('[api] unexpected error', req.method, url.pathname, err);

@@ -546,6 +546,62 @@ try {
     check('removed helper loses access at once', (await call(b.token, 'GET', '/money', undefined, { 'x-act-as': a.id })).status === 403);
   }
 
+  section('Business team');
+  // Needs migration 20260922140000_business_team and the API that goes with it; skips until both are live.
+  const teamProbe = await call(a.token, 'GET', '/team');
+  if (teamProbe.status !== 200) {
+    console.log('  skip  not live yet (GET /team answered', teamProbe.status + ')');
+  } else {
+    const asBen = { 'x-business': a.id };
+    const now = new Date().toISOString();
+    r = await call(a.token, 'POST', '/transactions', { type: 'income', amount: 25000, category: 'Sales', description: 'Owner sale', occurredAt: now, spaceId: 'business' });
+    const ownerSaleId = r.data?.transaction?.id;
+    await call(a.token, 'POST', '/transactions', { type: 'expense', amount: 9000, category: 'Rent', description: 'Owner cost', occurredAt: now, spaceId: 'business' });
+    await call(a.token, 'POST', '/transactions', { type: 'expense', amount: 4000, category: 'Food', description: 'Owner personal lunch', occurredAt: now, spaceId: 'personal' });
+
+    r = await call(a.token, 'POST', '/team', { name: 'Ben', role: 'sales' });
+    check('owner adds someone as Sales and gets a code', r.status === 201 && typeof r.data.code === 'string' && r.data.message.includes(r.data.code), r);
+    const benCode = r.data?.code;
+    const benMemberId = r.data?.member?.id;
+    check('a code does nothing before it is used', (await call(b.token, 'GET', '/transactions?spaceId=business', undefined, asBen)).status === 403);
+    r = await call(b.token, 'POST', '/team/join', { code: benCode });
+    check('member joins with the code', r.status === 200 && r.data.ownerId === a.id && r.data.role === 'sales', r);
+    check('the same code cannot be used twice', (await call(b.token, 'POST', '/team/join', { code: benCode })).status === 400);
+    r = await call(b.token, 'GET', '/team');
+    check('member sees the business they joined', r.status === 200 && r.data.businesses.some((x) => x.ownerId === a.id && x.role === 'sales'), r.data);
+
+    r = await call(b.token, 'GET', '/transactions', undefined, asBen);
+    check('Sales sees only money in, only in the business', r.status === 200 && r.data.items.length > 0 && r.data.items.every((t) => t.type === 'income' && t.spaceId === 'business'), r.data?.items?.map((t) => [t.type, t.spaceId]));
+    r = await call(b.token, 'GET', '/transactions?spaceId=personal', undefined, asBen);
+    check('asking for personal still gets the business only', r.status === 200 && r.data.items.every((t) => t.spaceId === 'business' && t.description !== 'Owner personal lunch'), r.data?.items?.map((t) => t.description));
+    check('Sales cannot record a cost', (await call(b.token, 'POST', '/transactions', { type: 'expense', amount: 100, category: 'Rent', occurredAt: now }, asBen)).status === 403);
+    r = await call(b.token, 'POST', '/transactions', { type: 'income', amount: 7000, category: 'Sales', description: 'Ben sale', occurredAt: now }, asBen);
+    check('Sales records a sale into the business', r.status === 201 && r.data.transaction.spaceId === 'business' && r.data.transaction.createdBy === b.id, r);
+    const benSaleId = r.data?.transaction?.id;
+    r = await call(a.token, 'GET', '/transactions?spaceId=business&type=income');
+    check('owner sees who recorded it', r.data?.items?.some((t) => t.id === benSaleId && t.recordedBy === 'Ben'), r.data?.items?.map((t) => t.recordedBy));
+    check('Sales corrects their own entry', (await call(b.token, 'PATCH', `/transactions/${benSaleId}`, { amount: 7500 }, asBen)).status === 200);
+    check('Sales cannot change the owner’s entry', (await call(b.token, 'PATCH', `/transactions/${ownerSaleId}`, { amount: 1 }, asBen)).status === 403);
+    check('nobody on the team can delete', (await call(b.token, 'DELETE', `/transactions/${benSaleId}`, undefined, asBen)).status === 403);
+    check('Sales cannot see profit', (await call(b.token, 'GET', '/business/summary', undefined, asBen)).status === 403);
+    check('Sales cannot see payroll', (await call(b.token, 'GET', '/payroll', undefined, asBen)).status === 403);
+    check('the team never reaches personal budgets or goals', (await call(b.token, 'GET', '/goals', undefined, asBen)).status === 403 && (await call(b.token, 'GET', '/money?spaceId=personal', undefined, asBen)).status === 403);
+    check('the team cannot touch bank connections', (await call(b.token, 'GET', '/bank-links', undefined, asBen)).status === 403);
+    r = await call(b.token, 'GET', '/auth/me', undefined, asBen);
+    check('their own profile stays their own', r.status === 200 && r.data.user.email === B.email, r.data?.user?.email);
+
+    r = await call(a.token, 'PATCH', `/team/${benMemberId}`, { role: 'accountant' });
+    check('owner changes the role', r.status === 200 && r.data.member.role === 'accountant', r);
+    check('Accountant sees the whole picture', (await call(b.token, 'GET', '/business/summary', undefined, asBen)).status === 200);
+    r = await call(b.token, 'GET', '/transactions', undefined, asBen);
+    check('Accountant sees money in and out', r.status === 200 && r.data.items.some((t) => t.type === 'expense') && r.data.items.some((t) => t.type === 'income'), r.data?.items?.length);
+    check('Accountant changes nothing', (await call(b.token, 'POST', '/transactions', { type: 'income', amount: 1, category: 'Sales', occurredAt: now }, asBen)).status === 403);
+    check('a member cannot change roles', (await call(b.token, 'PATCH', `/team/${benMemberId}`, { role: 'manager' })).status === 403);
+
+    check('owner removes them', (await call(a.token, 'DELETE', `/team/${benMemberId}`)).status === 204);
+    check('removed member loses access at once', (await call(b.token, 'GET', '/transactions', undefined, asBen)).status === 403);
+  }
+
   section('Security: one account cannot reach another');
   // Everything here belongs to one person. The other is signed in and knows the ids, which is the realistic
   // attack: ids leak through screenshots, shared links and logs. Every attempt must look like nothing is there.

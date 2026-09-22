@@ -151,6 +151,8 @@ export function toApiInvoice(r: any, today = todayIso()) {
   return {
     id: r.id,
     number: r.number,
+    // A team member who raised it; null means the owner.
+    createdBy: r.createdBy ?? null,
     customerName: r.customerName,
     customerPhone: r.customerPhone ?? null,
     customerEmail: r.customerEmail ?? null,
@@ -183,6 +185,7 @@ export function toApiBill(r: any, today = todayIso()) {
   return {
     id: r.id,
     kind: r.kind,
+    createdBy: r.createdBy ?? null,
     supplierName: r.supplierName,
     description: r.description,
     category: r.category,

@@ -4,6 +4,8 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Wallet, BarChart3, Target, Plus } from '../../icons';
 import { useT } from '../../lib/i18n';
+import { useTeam } from '../../contexts/TeamContext';
+import { useSpace } from '../../contexts/SpaceContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { fonts } from '../../theme/typography';
 
@@ -18,6 +20,10 @@ const META: Record<string, { label: string; Icon: typeof Home }> = {
 export function AppTabBar({ state, navigation, descriptors }: BottomTabBarProps) {
   const { theme } = useTheme();
   const t = useT();
+  const { role } = useTeam();
+  const { activeSpaceId } = useSpace();
+  // Sales, Purchases and HR in someone else's business see only their Home; the rest isn't theirs to open.
+  const focusedRole = activeSpaceId === 'business' && (role === 'sales' || role === 'purchases' || role === 'hr') ? role : null;
   const insets = useSafeAreaInsets();
   const mid = Math.ceil(state.routes.length / 2);
 
@@ -50,6 +56,27 @@ export function AppTabBar({ state, navigation, descriptors }: BottomTabBarProps)
       </Pressable>
     );
   };
+
+  if (focusedRole) {
+    const home = state.routes.findIndex((r) => r.name === 'Dashboard');
+    return (
+      <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10), backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>
+        {home >= 0 ? renderTab(state.routes[home], home) : null}
+        {focusedRole !== 'hr' ? (
+          <View style={styles.tab}>
+            <Pressable
+              onPress={() => (navigation as any).navigate('AddTransaction', { type: focusedRole === 'sales' ? 'income' : 'expense' })}
+              accessibilityRole="button"
+              accessibilityLabel={focusedRole === 'sales' ? 'Record a sale' : 'Record a cost'}
+              style={({ pressed }) => [styles.fab, { backgroundColor: theme.colors.primary, borderColor: theme.colors.background, transform: [{ scale: pressed ? 0.94 : 1 }] }]}
+            >
+              <Plus color={theme.colors.onPrimary} size={26} strokeWidth={2.4} />
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10), backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>

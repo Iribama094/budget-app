@@ -50,6 +50,8 @@ import { getDailyReminder, setDailyReminder, type DailyReminder } from '../lib/n
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { useTeam } from '../contexts/TeamContext';
+import { JoinBusinessSheet } from '../components/Business/JoinBusinessSheet';
 import { isLite, setLite } from '../lib/lite';
 
 const ONBOARDING_KEY = 'bf_onboarding_done_v1';
@@ -123,6 +125,19 @@ export default function SettingsScreen() {
     }
   };
   const [lite, setLiteState] = useState(isLite());
+
+  // Teams: which business "Business" means is picked here, and only when there's more than one.
+  const { active: teamBusiness, canChoose, team } = useTeam();
+  const [joining, setJoining] = useState(false);
+  const businessesRow = canChoose ? (
+    <ListRow
+      icon={tile(Building2)}
+      title="Your businesses"
+      subtitle={`Working in ${teamBusiness?.name ?? team?.own.name ?? 'your business'} · tap to switch`}
+      onPress={() => nav.navigate('YourBusinesses')}
+      chevron
+    />
+  ) : null;
 
   const switchColors = { trackColor: { true: theme.colors.primary, false: theme.colors.border }, thumbColor: '#FFFFFF', ios_backgroundColor: theme.colors.border };
   const BioIcon = biometric.kind === 'fingerprint' ? Fingerprint : ScanFace;
@@ -206,11 +221,20 @@ export default function SettingsScreen() {
     <Screen bottomInset={48}>
       <ScreenHeader title="Settings" subtitle={subtitle} onBack={() => goBackOrHome(nav)} />
 
-      {isBusiness ? (
+      {isBusiness && teamBusiness ? (
+        <>
+          {group('This business')}
+          <ListCard>
+            {businessesRow ?? <ListRow icon={tile(Building2)} title={teamBusiness.name} subtitle={`You work here as ${teamBusiness.roleLabel}`} />}
+          </ListCard>
+        </>
+      ) : isBusiness ? (
         <>
           {group('Your business')}
           <GuideAnchor id="settings.list">
           <ListCard>
+            {businessesRow}
+            <ListRow icon={tile(Users)} title="Your team" subtitle="People who record and manage with their own login" onPress={() => nav.navigate('Team')} chevron />
             <ListRow
               icon={tile(Building2)}
               title="Business details"
@@ -306,7 +330,9 @@ export default function SettingsScreen() {
           subtitle={isBusiness ? 'Switch back to Personal from the top of Home' : spacesEnabled ? 'On · switch spaces from the top of Home' : 'Keep business money apart from personal'}
           right={<Switch value={spacesEnabled} onValueChange={setSpacesEnabled} {...switchColors} />}
         />
+        <ListRow icon={tile(UserPlus)} title="Join a business" subtitle="Got a code from a business you work with? Enter it here" onPress={() => setJoining(true)} chevron />
       </ListCard>
+      <JoinBusinessSheet visible={joining} onClose={() => setJoining(false)} />
 
       {group('Reminders')}
       <ListCard>

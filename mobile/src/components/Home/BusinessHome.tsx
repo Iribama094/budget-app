@@ -43,6 +43,7 @@ import { currencySymbol, formatRelativeDay, formatShortDate, toIsoDateTime } fro
 import { fonts, type } from '../../theme/typography';
 import { GuideAnchor } from '../Common/GuideAnchor';
 import { useConfig } from '../../contexts/ConfigContext';
+import { useTeam } from '../../contexts/TeamContext';
 
 const LOOK = SPACE_LOOK.business;
 
@@ -52,6 +53,8 @@ export function BusinessHome() {
   const { user, refreshUser } = useAuth();
   const { theme } = useTheme();
   const wrapped = useConfig().wrappedFor('business');
+  // A manager or accountant in someone else's business: the name at the top says whose it is.
+  const { active: teamBusiness } = useTeam();
   const { showAmounts, toggleShowAmounts } = useAmountVisibility();
   const { hasUnreadNotifications } = useNotificationBadges();
   const glyph = currencySymbol(user?.currency);
@@ -135,7 +138,7 @@ export function BusinessHome() {
         </Pressable>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={1} style={[type.bodyStrong, { color: theme.colors.text, fontSize: 16 }]}>
-            {title}
+            {teamBusiness ? `${teamBusiness.name} · ${teamBusiness.roleLabel}` : title}
           </Text>
           <View style={{ marginTop: 4 }}>
             <SpaceSwitcher compact />

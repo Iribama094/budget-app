@@ -26,7 +26,8 @@ export type Insight = {
     | 'bill_up'
     | 'price_alert'
     | 'steady_pay'
-    | 'family';
+    | 'family'
+    | 'team';
   tone: 'positive' | 'neutral' | 'warning';
   title: string;
   body: string;
@@ -54,7 +55,7 @@ export async function computeInsights(userId: string, space: Space = 'personal',
   const [[profile], txs, categories, recurring, [{ goals }], dismissed] = await Promise.all([
     sql`select currency from public.profiles where id = ${userId}`,
     sql`
-      select type, amount, category, budget_category, description, recurring_id, occurred_at from public.transactions
+      select type, amount, category, budget_category, description, recurring_id, occurred_at, created_by from public.transactions
       where user_id = ${userId} and space_id = ${space} and occurred_at >= ${since}
       order by occurred_at desc limit 4000
     `,
@@ -425,6 +426,67 @@ export async function computeInsights(userId: string, space: Space = 'personal',
           title: `Your costs rose ${Math.round(costUp * 100)}%, your sales ${salesUp > 0 ? `only ${Math.round(salesUp * 100)}%` : 'didn’t'}`,
           body: 'When what you buy gets dearer, your prices may need to follow, or each sale earns you less. Check what rose in Reports.',
           action: { label: 'See your costs', screen: 'BusinessReports' }
+        });
+      }
+    }
+  }
+
+  // 13. A business with a team: the two things an owner can't see from a distance.
+  if (space === 'business' && txs.some((t) => t.createdBy)) {
+    const members = await sql<{ memberId: string; name: string }[]>`
+      select member_id, name from public.business_members where owner_id = ${userId} and accepted_at is not null
+    `;
+    const nameOf = new Map(members.map((m) => [m.memberId, m.name]));
+
+    // The same cost twice within a day, one of them from the team: probably logged twice.
+    const recentCosts = expenses.filter((t) => ageDays(t.occurredAt) < 3);
+    for (const a of recentCosts) {
+      const twin = recentCosts.find(
+        (b) =>
+          b !== a &&
+          Number(b.amount) === Number(a.amount) &&
+          String(b.description).trim().toLowerCase() === String(a.description).trim().toLowerCase() &&
+          Math.abs(new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime()) <= DAY_MS &&
+          (a.createdBy || b.createdBy)
+      );
+      if (twin) {
+        const who = [a.createdBy, twin.createdBy].map((id) => (id ? nameOf.get(id) ?? 'someone' : 'you')).join(' and ');
+        out.push({
+          key: `team_twice:${a.description}:${Number(a.amount)}:${new Date(a.occurredAt).toISOString().slice(0, 10)}`,
+          kind: 'team',
+          tone: 'warning',
+          title: `${String(a.description || a.category).slice(0, 40)} may be recorded twice`,
+          body: `${money(Number(a.amount))} was recorded twice within a day, by ${who}. If it was paid once, delete one of them.`,
+          action: { label: 'Check it', screen: 'Transactions' }
+        });
+        break;
+      }
+    }
+
+    // One person's sales well below their own usual: worth a friendly question, never an accusation.
+    for (const m of members) {
+      const sales = txs.filter((t) => t.type === 'income' && t.createdBy === m.memberId);
+      const perDay = (from: number, to: number) => {
+        const days = new Map<string, number>();
+        for (const t of sales) {
+          const d = ageDays(t.occurredAt);
+          if (d >= from && d < to) {
+            const key = new Date(t.occurredAt).toISOString().slice(0, 10);
+            days.set(key, (days.get(key) ?? 0) + Number(t.amount));
+          }
+        }
+        return days.size >= 3 ? [...days.values()].reduce((s, v) => s + v, 0) / days.size : null;
+      };
+      const now = perDay(0, 7);
+      const usual = perDay(7, 35);
+      if (now != null && usual != null && usual >= 5000 && now < usual * 0.7) {
+        out.push({
+          key: `team_sales:${m.memberId}:${today.slice(0, 8)}${Math.floor(Number(today.slice(8)) / 7)}`,
+          kind: 'team',
+          tone: 'neutral',
+          title: `Sales recorded by ${m.name} are ${Math.round((1 - now / usual) * 100)}% below their usual`,
+          body: `About ${money(now)} on the days they recorded sales this week, against ${money(usual)} before. It may be a quiet week; worth a quick chat.`,
+          action: { label: 'See their sales', screen: 'Transactions' }
         });
       }
     }
