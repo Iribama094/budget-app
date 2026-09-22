@@ -48,6 +48,7 @@ How the system is built, how data is protected, and how to change and ship it sa
 - Errors come back as `{ error: { code, message } }`. Unexpected errors are logged server-side and return `SERVER_ERROR` with no detail.
 - Responses carry `Cache-Control: no-store`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`.
 - Database columns come back camelCased (`postgres.camel`).
+- One job, one function: the accept logic lives in `joinBusinessWithCode` (`routes/team.ts`) and `acceptHelperCode` (`routes/people.ts`), called by both the older routes and `/v1/join`, so each kind of code has a single path.
 - The full route list is in [backend-api.md](backend-api.md) and [openapi.yaml](openapi.yaml).
 
 ## Security model
@@ -61,7 +62,8 @@ How the system is built, how data is protected, and how to change and ship it sa
 | Password change: current password checked in the database, 5 tries per 15 minutes, push and email notice | `routes/account.ts` `changePassword` |
 | Forgot password: 6-digit code by email, rate limited per IP and email, same answer for unknown emails | `routes/account.ts` `forgotPassword` |
 | Email confirmation: 6-digit code, stored hashed, 15 minutes, 5 tries; proof kept in `app_metadata.email_verified_at`, which only the server can write; cleared by trigger if the email changes; stands aside while `BREVO_API_KEY` is unset | `lib/verify.ts`, migration `20260922105206` |
-| Helpers (delegates) acting for someone: only reads, or adding transactions for "record"; never admin, auth, sessions, delegation or account routes | `lib/auth.ts` `delegateMayDo` |
+| Helpers (delegates) acting for someone: only reads, or adding transactions for "record"; never admin, auth, sessions, delegation, team, join or account routes, so a helper cannot attach somebody else's account to anything | `lib/auth.ts` `delegateMayDo` |
+| Joining with a code: `GET /v1/join?code=` answers `{ found: false }` without saying why, and `POST` gives one `INVALID_CODE` message for used, expired and made-up codes alike, so codes cannot be fished for. Expiry is part of the lookup. Acting inside somebody else's business still joins on your own account (`SELF_PATHS`) | `routes/join.ts`, `lib/team.ts` |
 | Staff: matched on `admin_users.user_id` (never email), MFA (TOTP, `aal2`) required on every `/admin` route, role checked per area | `lib/admin.ts` `requireAdmin` |
 
 ### Data

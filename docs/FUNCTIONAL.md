@@ -35,6 +35,7 @@ BudgetFriendly is not a bank. It never holds, sends or debits money. Bank links 
 | **Flux** | An AI money coach that answers from the person's own budget. Direct questions get 3 to 5 sentences, with an offer of more detail |
 | **Money Wrapped** | An animated look back at the first half of the year or the whole year. Only visible when staff have certified it ready (see below) |
 | **Sharing** | Share a household budget with a partner or family by invite code; each keeps their own budget too |
+| **Joining with a code** | One box takes any code: a shared budget, a helper invite or a business team. A code that is wrong, used or expired gives the same answer whichever kind it was, so nobody can fish for codes that exist. A friend's referral code is the one exception: it says where that kind belongs |
 | **Helpers** | Let a trusted person see (view) or add transactions to (record) your money. They can never change settings, security or anything else |
 | **Invite friends** | One short code per person, from Profile. A friend enters it at sign-up (or within 30 days, from the same screen). People who joined the waitlist keep their waitlist code, so friends they brought before launch still count. A friend counts once they confirm their email and record something, and the inviter is told the next morning. No reward is attached yet |
 | **Notifications** | Alerts, bill reminders, insights, a weekly summary, and a daily nudge to log spending, each switchable in Settings |
