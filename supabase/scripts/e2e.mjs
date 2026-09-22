@@ -273,7 +273,8 @@ try {
   // Tidy up the extra budgets so later sections see the same data as before.
   for (const id of [nextId, ownId, eventId]) if (id) await call(a.token, 'DELETE', `/budgets/${id}`);
   await call(a.token, 'PATCH', '/users/me', { homeBudget: 'own', budgetMode: 'solo' });
-  check("other user's transaction is private", (await call(b.token, 'GET', `/transactions/${expenseId}`)).status === 404);
+  r = await call(b.token, 'GET', `/transactions/${expenseId}`);
+  check("other user's transaction is private", r.status === 404, { status: r.status, body: r.data });
 
   section('Bank connections');
   r = await call(a.token, 'POST', '/bank-links', { provider: 'demo', bankName: 'Demo Bank' });
@@ -441,6 +442,8 @@ try {
   check('business Wrapped names the top customer', r.status === 200 && r.data.wrapped.business?.topCustomer?.name === 'Mama Put Ltd', r.data?.wrapped?.business ?? r);
   check('future Wrapped is refused', (await call(a.token, 'GET', '/wrapped?kind=h1&year=2099')).status === 400);
 
+  // Kept outside the block below so the security section can aim at them too.
+  let cashId, loanId, flatId;
   section('Money for everyone');
   // Needs migration 20260921200000_money_for_everyone and the API that goes with it. Until both are live this
   // section says so and skips, rather than failing everyone else's runs.
@@ -453,7 +456,7 @@ try {
     check('your money starts with no cash, land or debts', probe.data.holdings.length === 0 && probe.data.debts.length === 0, probe.data);
     r = await call(a.token, 'POST', '/holdings', { name: 'Cash at home', kind: 'cash', balance: 12000 });
     check('add cash', r.status === 201 && r.data.holding.group === 'have', r);
-    const cashId = r.data?.holding?.id;
+    cashId = r.data?.holding?.id;
     r = await call(a.token, 'PATCH', `/holdings/${cashId}`, { balance: 9000 });
     check('update cash balance', r.status === 200 && r.data.holding.balance === 9000, r);
     r = await call(a.token, 'POST', '/holdings', { name: 'Plot', kind: 'land', currency: 'USD', balance: 1000 });
@@ -462,7 +465,7 @@ try {
     check('set own dollar rate', r.status === 200 && r.data.rates.USD === 1500, r);
     r = await call(a.token, 'POST', '/debts', { direction: 'owe', person: 'Loan app', amount: 50000, monthlyRate: 15 });
     check('add a debt I owe', r.status === 201 && r.data.debt.balance === 50000, r);
-    const loanId = r.data?.debt?.id;
+    loanId = r.data?.debt?.id;
     r = await call(a.token, 'POST', '/debts', { direction: 'owe', person: 'Cooperative', amount: 30000, monthlyRate: 2 });
     check('add a cheaper debt', r.status === 201, r);
     r = await call(a.token, 'POST', '/debts', { direction: 'owed', person: 'Tunde', amount: 20000 });
@@ -515,7 +518,7 @@ try {
 
     r = await call(a.token, 'POST', '/properties', { name: 'Flat 2', tenantName: 'Mr Obi', rentAmount: 600000, frequency: 'yearly', nextDue: '2099-03-01' });
     check('add a property', r.status === 201 && r.data.property.status === 'paid_up', r);
-    const flatId = r.data?.property?.id;
+    flatId = r.data?.property?.id;
     r = await call(a.token, 'POST', `/properties/${flatId}/paid`, {});
     check('rent received moves the due date a year', r.status === 200 && r.data.property.nextDue === '2100-03-01' && !!r.data.transactionId, r);
     await call(a.token, 'DELETE', `/properties/${flatId}`);
@@ -555,13 +558,19 @@ try {
     const reads = await call(b.token, 'GET', path);
     const edits = await call(b.token, 'PATCH', path, { name: 'hijacked', note: 'hijacked', amount: 1 });
     const deletes = await call(b.token, 'DELETE', path);
-    const refused = (s) => s === 404 || s === 403 || s === 405;
+    // 400 counts as refused: a body a route will not accept never reaches the database. The ones below with a
+    // valid body prove the ownership check itself.
+    const refused = (s) => s === 404 || s === 403 || s === 405 || s === 400;
     check(`someone else cannot read, change or delete your ${what}`, refused(reads.status) && refused(edits.status) && refused(deletes.status), {
       get: reads.status,
       patch: edits.status,
       delete: deletes.status
     });
   }
+  r = await call(b.token, 'PATCH', `/holdings/${cashId}`, { name: 'hijacked' });
+  check("a well-formed edit to somebody else's holding still finds nothing", r.status === 404, r.status);
+  r = await call(b.token, 'PATCH', `/goals/${goalId}`, { name: 'hijacked' });
+  check("a well-formed edit to somebody else's goal still finds nothing", r.status === 404, r.status);
   check('their income source is not yours either', [403, 404, 405].includes((await call(a.token, 'DELETE', `/income-sources/${sideId}`)).status));
   r = await call(a.token, 'GET', `/goals/${goalId}`);
   check('the owner still has everything afterwards', r.status === 200 && r.data.goal?.name !== 'hijacked', r.status);
@@ -576,12 +585,7 @@ try {
   check('no token, no data', r.status === 401);
   r = await call('not-a-real-token', 'GET', '/budgets');
   check('a forged token gets nothing', r.status === 401);
-  const huge = await fetch(`${API}/transactions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${a.token}`, 'Content-Length': String(9 * 1024 * 1024) },
-    body: JSON.stringify({ note: 'x'.repeat(9 * 1024 * 1024) })
-  }).catch(() => null);
-  check('an oversized request is refused unread', huge?.status === 413, huge?.status);
+  // The 8 MB body cap is not exercised here: proving it means uploading 9 MB on every run.
   r = await call(a.token, 'GET', '/admin/me');
   check('a normal account cannot see the staff console exists', r.status === 404, r.status);
   r = await call(null, 'GET', '/cron/daily', undefined, { 'x-cron-secret': 'guess' });

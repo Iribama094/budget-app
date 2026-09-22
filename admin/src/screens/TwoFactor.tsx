@@ -40,6 +40,9 @@ export function TwoFactor({ onVerified, onCancel }: { onVerified: () => void; on
       }
       const { data: enrolled, error: enrollError } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
+        // Named explicitly: without it the project's site address is used, and when that is unset the QR
+        // code cannot be made at all.
+        issuer: 'BudgetFriendly',
         friendlyName: `Staff console ${new Date().toISOString().slice(0, 10)}`
       });
       if (enrollError || !enrolled) {
