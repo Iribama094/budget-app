@@ -44,6 +44,7 @@ BudgetFriendly is not a bank. It never holds, sends or debits money. Bank links 
 
 | Area | What businesses can do |
 | --- | --- |
+| **Business setup** | Three steps: the business name and what it does, how much it has today, and whether it is VAT registered and pays staff. Offered once on the first visit to the business space, and in Settings until it is done |
 | **Home** | Money in and out, what customers owe, what is owed to suppliers |
 | **Invoices and customers** | Create invoices with VAT, record part and full payments, send, void |
 | **Supplier bills** | Record bills from suppliers and pay them off |

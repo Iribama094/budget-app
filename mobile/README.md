@@ -34,6 +34,7 @@ npx tsc --noEmit
 - **Icons**: import them from `src/icons.ts`, not `lucide-react-native`. Importing the package directly pulls all ~1,670 icons into the development bundle. Add a line to `src/icons.ts` when a screen needs a new one.
 - **Sign-in session** is stored in the keystore through `src/lib/secureSessionStorage.ts`. Do not point supabase-js at AsyncStorage.
 - **Passwords**: every password field uses `src/lib/passwordRules.ts`.
+- **Sheets and modals**: import `Modal` from `src/components/Common/AppModal`, not `react-native`, so screen tips never open over an open sheet (that can freeze an iPhone). To close a sheet and then navigate, use `src/lib/afterSheetCloses.ts`.
 - **Going back**: use `goBackOrHome` from `src/navigation/goBack.ts`, not `navigation.goBack()`, so a screen opened from a notification never dead-ends.
 - **Push notifications** need an EAS project ID in `app.json` (`expo.extra.eas.projectId`), which does not exist yet. Until then, no push token is requested.
 - **Installable builds** (APK, TestFlight) need EAS, which is not set up yet. See [docs/READINESS.md](../docs/READINESS.md).

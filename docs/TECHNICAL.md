@@ -34,6 +34,12 @@ How the system is built, how data is protected, and how to change and ship it sa
 | Staff console | Vite, React, TypeScript, supabase-js for auth | `admin/src/App.tsx` |
 | Marketing site | Vite, React | `src/` |
 
+### Phone app conventions
+
+- **Sheets and modals**: import `Modal` from `mobile/src/components/Common/AppModal`, never from `react-native`. It keeps screen tips from opening over an open sheet, which can freeze an iPhone.
+- **Closing a sheet, then navigating**: use `mobile/src/lib/afterSheetCloses.ts`, so the next screen opens only once the sheet has gone.
+- **Icons** come from `mobile/src/icons.ts`, **going back** uses `goBackOrHome`, **passwords** use `lib/passwordRules.ts`, and the **session** is stored through `lib/secureSessionStorage.ts`. See [mobile/README.md](../mobile/README.md).
+
 ### API conventions
 
 - Routes live under `/v1/<area>/...` and are dispatched in `index.ts` to handlers in `routes/`. Shared logic is in `lib/`.
