@@ -57,6 +57,8 @@ export type Overview = {
   waitlist: { total: number; today: number; invited: number };
   /** Friends brought in with each code: `app` signed up in the app, `waitlist` joined the waitlist. */
   topReferrers: Array<{ code: string; name: string; app: number; waitlist: number }>;
+  /** Today's calls to each service we pay for, against the ceiling it is allowed. */
+  usage: Array<{ service: string; used: number; cap: number; what: string }>;
 };
 
 export type StaffRow = Admin & { createdAt: string; lastSeenAt: string | null; disabledAt: string | null };

@@ -1,6 +1,7 @@
 import { requireAuth } from '../lib/auth.ts';
 import { body, HttpError, json, methodNotAllowed, z } from '../lib/http.ts';
 import { enforceRateLimit } from '../lib/rateLimit.ts';
+import { enforceBurst, enforceQuota, requireDailyCap } from '../lib/limits.ts';
 import type { Ctx } from '../index.ts';
 
 const GROQ_TRANSCRIBE_URL = 'https://api.groq.com/openai/v1/audio/transcriptions';
@@ -8,7 +9,7 @@ const MAX_BYTES = 8 * 1024 * 1024;
 
 const Schema = z.object({
   /** base64 audio, without a data: prefix */
-  audio: z.string().min(100).max(12_000_000),
+  audio: z.string().min(100).max(5_500_000),
   mimeType: z.string().max(80).optional(),
   language: z.string().max(10).optional()
 });
@@ -54,7 +55,15 @@ export async function voiceTranscribe(ctx: Ctx) {
   if (ctx.method !== 'POST') methodNotAllowed(['POST']);
   const { userId } = await requireAuth(ctx.req);
   const input = await body(ctx.req, Schema, 'Record a short voice note first');
+  enforceBurst(`voice:${userId}`, 8, 60);
   await enforceRateLimit({ key: `voice:${userId}`, limit: 60, windowSec: 60 * 60 });
+  await enforceQuota({
+    key: `voice-day:${userId}`,
+    limit: 200,
+    windowSec: 24 * 60 * 60,
+    message: 'That is a lot of voice notes for one day. Type this one in, and voice is back tomorrow.'
+  });
+  await requireDailyCap('voice');
   const text = await transcribe(input.audio, input.mimeType ?? 'audio/m4a', input.language ?? 'en');
   return json(200, { text });
 }

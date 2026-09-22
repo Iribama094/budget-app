@@ -1,4 +1,5 @@
 import { iso, isUuid, sql } from '../lib/db.ts';
+import { enforceBurst, enforceQuota, requireDailyCap } from '../lib/limits.ts';
 import { requireAuth } from '../lib/auth.ts';
 import { badRequest, body, HttpError, json, methodNotAllowed, notFound, spaceParam, z } from '../lib/http.ts';
 import { exchangeCode, getAccount, MonoError, monoConfigured, syncBankLink, unlinkAccount, type BankLinkRow } from '../lib/bank.ts';
@@ -196,6 +197,14 @@ export async function bankSync(ctx: Ctx) {
   if (!link) notFound('Bank connection not found');
   if (link.provider !== 'mono') return json(200, { imported: 0, live: false });
   if (!monoConfigured()) throw new HttpError(501, 'NOT_CONFIGURED', 'Live bank connections are not set up on this server yet.');
+  enforceBurst(`bank-sync:${userId}`, 3, 60);
+  await enforceQuota({
+    key: `bank-sync-day:${userId}`,
+    limit: 40,
+    windowSec: 24 * 60 * 60,
+    message: 'This account has been refreshed plenty today. It refreshes itself every morning, and you can try again tomorrow.'
+  });
+  await requireDailyCap('bankSync');
   try {
     const { imported } = await syncBankLink(link);
     return json(200, { imported, live: true });

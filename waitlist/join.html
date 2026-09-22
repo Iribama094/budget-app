@@ -80,6 +80,7 @@
 
           <p class="form-error" id="error" role="alert" hidden></p>
           <button class="btn" type="submit" id="submit">Join the waitlist</button>
+          <div id="robot" style="margin-bottom: 14px"></div>
           <p class="small-print">We’ll never share your details. No spam, ever. By joining you agree to our <a href="terms.html">terms</a> and <a href="privacy.html">privacy policy</a>.</p>
         </form>
       </div>
@@ -105,6 +106,23 @@
       const form = $("join"), error = $("error"), submit = $("submit");
       const fail = (message) => { error.textContent = message; error.hidden = false; };
 
+      // The "not a robot" box, only when a site key is set. Without one the page is exactly as it was.
+      let captchaToken = "";
+      if (window.BF_TURNSTILE_SITE_KEY) {
+        window.onTurnstile = (token) => { captchaToken = token; };
+        const widget = document.createElement("div");
+        widget.className = "cf-turnstile";
+        widget.dataset.sitekey = window.BF_TURNSTILE_SITE_KEY;
+        widget.dataset.callback = "onTurnstile";
+        widget.dataset.theme = "light";
+        $("robot").appendChild(widget);
+        const script = document.createElement("script");
+        script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      }
+
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         error.hidden = true;
@@ -113,7 +131,12 @@
           return;
         }
         const data = new FormData(form);
+        if (window.BF_TURNSTILE_SITE_KEY && !captchaToken) {
+          fail("Tick the box that says you are not a robot, then try again.");
+          return;
+        }
         const payload = {
+          captcha: captchaToken || undefined,
           firstName: data.get("name"),
           email: data.get("email"),
           phone: data.get("phone") || null,

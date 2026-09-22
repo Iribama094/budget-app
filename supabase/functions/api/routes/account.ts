@@ -5,6 +5,8 @@ import { DEFAULT_NOTIFICATION_PREFS, getNotificationPrefs, notifyUser } from '..
 import { enforceRateLimit } from '../lib/rateLimit.ts';
 import { sendEmail } from '../lib/email.ts';
 import { checkVerificationCode, isEmailVerified, mustProveEmail, sendVerificationCode } from '../lib/verify.ts';
+import { enforceBurst } from '../lib/limits.ts';
+import { requireHuman } from '../lib/captcha.ts';
 import type { Ctx } from '../index.ts';
 
 export function toApiUser(p: any, _opts: { withTax?: boolean } = {}) {
@@ -145,7 +147,7 @@ export async function usersMe(ctx: Ctx) {
   return json(200, { user: toApiUser(p, { withTax: true }) });
 }
 
-const ForgotSchema = z.object({ email: z.string().email() });
+const ForgotSchema = z.object({ email: z.string().email(), captcha: z.string().max(3000).optional() });
 
 /**
  * POST /v1/auth/forgot-password — emails a 6-digit reset code. The app confirms it with Supabase Auth
@@ -154,10 +156,12 @@ const ForgotSchema = z.object({ email: z.string().email() });
  */
 export async function forgotPassword(ctx: Ctx) {
   if (ctx.method !== 'POST') methodNotAllowed(['POST']);
-  const { email: raw } = await body(ctx.req, ForgotSchema, 'Enter a valid email address');
+  const { email: raw, captcha } = await body(ctx.req, ForgotSchema, 'Enter a valid email address');
   const email = raw.trim().toLowerCase();
   const ip = (ctx.req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown';
+  enforceBurst(`forgot:ip:${ip}`, 3, 60);
   await enforceRateLimit({ key: `forgot:ip:${ip}`, limit: 20, windowSec: 60 * 60 });
+  await requireHuman(captcha, ip);
   await enforceRateLimit({ key: `forgot:email:${email}`, limit: 5, windowSec: 60 * 60 });
 
   const okBody: Record<string, unknown> = { ok: true };

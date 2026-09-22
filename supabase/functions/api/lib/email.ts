@@ -1,3 +1,5 @@
+import { withinDailyCap } from './limits.ts';
+
 const BREVO_URL = 'https://api.brevo.com/v3/smtp/email';
 
 /** Brevo wants the sender name and address as separate fields, so split "Name <a@b.com>". */
@@ -22,6 +24,12 @@ export function emailConfigured(): boolean {
 
 export async function sendEmail(message: { to: string; subject: string; text: string; html?: string }): Promise<boolean> {
   const apiKey = Deno.env.get('BREVO_API_KEY');
+  // The provider's free allowance is a day's worth of messages. Past the ceiling we stop sending rather than
+  // start paying, and the line in the log says why nothing went out.
+  if (apiKey && !(await withinDailyCap('email'))) {
+    console.error('[email] not sent, daily ceiling reached:', message.subject);
+    return false;
+  }
   const from = Deno.env.get('EMAIL_FROM') || 'BudgetFriendly <no-reply@budgetfriendly.app>';
   if (!apiKey) {
     console.warn('[email] BREVO_API_KEY is not set; email not sent:', message.subject);

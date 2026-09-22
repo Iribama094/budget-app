@@ -1,5 +1,6 @@
 import { sql } from './lib/db.ts';
 import { CORS_HEADERS, errorResponse, HttpError, json, SECURITY_HEADERS } from './lib/http.ts';
+import { enforceGlobalRate } from './lib/limits.ts';
 import { todayIso } from './lib/dates.ts';
 import { runAllDueRecurring, sendBillReminders } from './lib/recurring.ts';
 import { monoConfigured, syncBankLink, type BankLinkRow } from './lib/bank.ts';
@@ -379,6 +380,8 @@ Deno.serve(async (req) => {
   if (!handler) return errorResponse(404, 'NOT_FOUND', 'Route not found');
 
   try {
+    // Before any database work: one caller cannot flood the whole app.
+    enforceGlobalRate(req, parts.join('/'));
     // A team member's request is always about the business: never the owner's personal space (lib/team.ts).
     const teamReq = await inBusinessSpace(req, url, parts.join('/'));
     return await handler({ req: teamReq, method: req.method.toUpperCase(), parts, query: url.searchParams });

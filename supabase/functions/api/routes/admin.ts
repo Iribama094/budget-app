@@ -2,6 +2,7 @@ import { sql } from '../lib/db.ts';
 import { badRequest, body, json, methodNotAllowed, notFound, z } from '../lib/http.ts';
 import { audit, listFlags, listWrappedPeriods, requireAdmin } from '../lib/admin.ts';
 import { todayIso } from '../lib/dates.ts';
+import { usageToday } from '../lib/limits.ts';
 import { computeWrapped, periodBounds } from '../lib/wrapped.ts';
 import type { Ctx } from '../index.ts';
 
@@ -62,7 +63,9 @@ export async function adminOverview(ctx: Ctx) {
     wrappedWaiting: wrapped?.waiting ?? 0,
     notifications: jobs,
     waitlist: { total: waitlist?.total ?? 0, today: waitlist?.today ?? 0, invited: waitlist?.invited ?? 0 },
-    topReferrers: referrers
+    topReferrers: referrers,
+    // What today has cost so far, against the ceiling each paid service is allowed.
+    usage: await usageToday()
   });
 }
 

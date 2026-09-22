@@ -7,6 +7,7 @@ import { parseEntryIntent } from '../lib/entry.ts';
 import { currencyFor, formatMoney } from '../lib/notify.ts';
 import { todayIso } from '../lib/dates.ts';
 import { enforceRateLimit } from '../lib/rateLimit.ts';
+import { enforceBurst, enforceQuota, requireDailyCap } from '../lib/limits.ts';
 import type { Ctx } from '../index.ts';
 
 /** GET /v1/insights?spaceId= — personal suggestions learned from the person's own data. */
@@ -43,7 +44,16 @@ export async function assistantChat(ctx: Ctx) {
   if (ctx.method !== 'POST') methodNotAllowed(['POST']);
   const { userId } = await requireAuth(ctx.req);
   const input = await body(ctx.req, ChatSchema, 'Type a question for Flux');
+  // Three layers: a burst nobody types by hand, a day's worth per person, and the whole app's ceiling.
+  enforceBurst(`assistant:${userId}`, 6, 60);
   await enforceRateLimit({ key: `assistant:${userId}`, limit: 40, windowSec: 60 * 60 });
+  await enforceQuota({
+    key: `assistant-day:${userId}`,
+    limit: 120,
+    windowSec: 24 * 60 * 60,
+    message: 'You have asked Flux a lot today. It will be back tomorrow, and the rest of the app still works.'
+  });
+  await requireDailyCap('assistant');
 
   // "I spent 5k on fuel" is something to record, not a question. The app shows it for confirmation;
   // nothing is saved until the person taps Save.

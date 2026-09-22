@@ -715,6 +715,37 @@ try {
   r = await call(c.token, 'POST', '/auth/verify-email/send');
   check('a verified account is not sent codes', r.data?.status === 'verified', r.data);
 
+  section('Limits, quotas and ceilings');
+  const D = { email: `bf.e2e.d.${stamp}@example.com`, password: 'Passw0rd-D-1', name: 'Dele Test' };
+  const d = await createUser(D);
+  // Five sends an hour is the quota on this endpoint, so the sixth has to be refused, with something the
+  // app can show and a Retry-After the caller can obey.
+  let limited = null;
+  for (let i = 0; i < 8 && !limited; i++) {
+    const r = await call(d.token, 'POST', '/auth/verify-email/send');
+    if (r.status === 429) limited = r;
+  }
+  check('asking too often is refused', limited !== null, 'never hit the limit in 8 tries');
+  check('the refusal says when to come back', !!limited && /try again in/i.test(limited.data?.error?.message ?? ''), limited?.data?.error);
+  check('the refusal is a 429, not a 500', limited?.status === 429, limited?.status);
+  r = await call(d.token, 'GET', '/auth/me');
+  check('one endpoint hitting its limit does not lock the account out', r.status === 200, r.status);
+
+  // The public waitlist has a tighter burst, since nobody joins three times in a minute by hand.
+  let publicLimited = null;
+  for (let i = 0; i < 6 && !publicLimited; i++) {
+    // `company` is the hidden trap field, so these count against the limit but are never saved. The real
+    // waitlist stays clean even though this runs against the live project.
+    const r = await call(null, 'POST', '/waitlist', {
+      firstName: 'Burst',
+      email: `bf.burst.${stamp}.${i}@example.com`,
+      useFor: 'personal',
+      company: 'end to end check'
+    });
+    if (r.status === 429) publicLimited = r;
+  }
+  check('a burst of public sign-ups is stopped', publicLimited?.status === 429, publicLimited?.status ?? 'never limited');
+
   section('Security: what the server sends back');
   r = await call(a.token, 'GET', '/auth/me');
   check('answers about money are never cached', r.headers.get('cache-control') === 'no-store', r.headers.get('cache-control'));

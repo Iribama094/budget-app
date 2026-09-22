@@ -130,6 +130,38 @@ export function Overview({ onGoToWrapped }: { onGoToWrapped: () => void }) {
       </div>
 
       <div className="card">
+        <div className="spread">
+          <h2>Today's usage</h2>
+          <span className="muted">Resets at midnight UTC</span>
+        </div>
+        <p className="muted" style={{ marginTop: 6 }}>
+          What the app has spent today on the services it pays for. When one reaches its ceiling that feature pauses until tomorrow and says so
+          politely; nothing else is affected. Raise a ceiling with its setting (for example CAP_EMAIL_DAY) without a release.
+        </p>
+        <div style={{ marginTop: 8 }}>
+          {!data ? <p className="muted" style={{ paddingTop: 12 }}>Loading...</p> : null}
+          {data?.usage.map((u) => {
+            const share = u.cap > 0 ? Math.min(100, Math.round((u.used / u.cap) * 100)) : 0;
+            const tone = share >= 90 ? 'bad' : share >= 70 ? 'wait' : 'on';
+            return (
+              <div className="row" key={u.service}>
+                <div className="grow">
+                  <p className="name" style={{ textTransform: 'capitalize' }}>{u.what}</p>
+                  <p className="meta">
+                    {u.used.toLocaleString()} of {u.cap.toLocaleString()} today
+                  </p>
+                </div>
+                <div style={{ width: 180, height: 8, borderRadius: 999, background: 'var(--line-soft)', overflow: 'hidden' }}>
+                  <div style={{ width: `${share}%`, height: '100%', background: share >= 90 ? 'var(--red)' : share >= 70 ? 'var(--brass)' : 'var(--teal)' }} />
+                </div>
+                <span className={`chip ${tone}`}>{share}%</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="card">
         <h2>Where to look next</h2>
         <p className="muted" style={{ marginTop: 6 }}>
           The console covers what the team changes. For logs, slow queries and errors, the Supabase dashboard is still the right place, and this page
