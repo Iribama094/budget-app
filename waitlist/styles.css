@@ -235,3 +235,19 @@ fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: colu
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
 .form-error { margin: 0; padding: 12px 14px; border-radius: 14px; background: #f8e1de; color: #a63a2f; font-weight: 600; font-size: 15px; }
 .btn:disabled { opacity: 0.6; cursor: default; }
+
+/* Privacy, terms and the not-found page: plain reading pages, narrow enough to follow. */
+.legal { max-width: 68ch; }
+.legal h1 { font-family: Sora, sans-serif; font-size: 34px; letter-spacing: -0.5px; margin: 0 0 8px; }
+.legal h2 { font-family: Sora, sans-serif; font-size: 21px; letter-spacing: -0.3px; margin: 34px 0 10px; }
+.legal h3 { font-size: 16px; font-weight: 700; margin: 22px 0 8px; }
+.legal p, .legal li { font-size: 16px; line-height: 27px; color: var(--text); }
+.legal p { margin: 0 0 14px; }
+.legal ul { margin: 0 0 16px; padding-left: 22px; }
+.legal li { margin-bottom: 8px; }
+.legal .lede { color: var(--muted); margin-bottom: 26px; }
+.legal a { color: var(--primary); }
+.foot a { color: inherit; }
+.missing { text-align: center; padding: 72px 0 40px; }
+.missing h1 { font-family: Sora, sans-serif; font-size: 40px; letter-spacing: -0.6px; margin-bottom: 10px; }
+.missing p { color: var(--muted); font-size: 17px; line-height: 27px; max-width: 46ch; margin: 0 auto 26px; }

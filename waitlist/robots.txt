@@ -1,0 +1,6 @@
+# The waitlist site is meant to be found.
+User-agent: *
+Allow: /
+Disallow: /joined.html
+
+Sitemap: https://budgetfriendly.ng/sitemap.xml
