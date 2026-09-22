@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { Plus } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -14,6 +14,7 @@ import { fonts, type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
+import { useScreenData } from '../hooks/useScreenData';
 
 type Filter = 'open' | 'paid' | 'all';
 
@@ -28,29 +29,10 @@ export default function InvoicesScreen() {
   const inkText = theme.colors.inkText;
 
   const [filter, setFilter] = useState<Filter>('open');
-  const [items, setItems] = useState<Invoice[]>([]);
-  const [totals, setTotals] = useState({ owed: 0, overdue: 0, overdueCount: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, error, loading, reload: load } = useScreenData(() => listInvoices('all'), [], { fallback: 'Could not load invoices' });
+  const items = data?.items ?? [];
+  const totals = data?.totals ?? { owed: 0, overdue: 0, overdueCount: 0 };
 
-  const load = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await listInvoices('all');
-      setItems(res.items);
-      setTotals(res.totals);
-    } catch (e) {
-      setError(errorMessage(e, 'Could not load invoices'));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load])
-  );
 
   const shown = items.filter((i) => (filter === 'all' ? true : filter === 'paid' ? i.status === 'paid' : ['unpaid', 'part_paid', 'draft'].includes(i.status)));
   const newInvoice = () => nav.navigate('InvoiceEdit');

@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { Landmark, Plus, Receipt } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -17,6 +17,7 @@ import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
 import { confirmDestructive } from '../lib/confirm';
+import { useScreenData } from '../hooks/useScreenData';
 
 type Filter = 'open' | 'paid' | 'all';
 const CATEGORIES = ['Stock & supplies', 'Rent', 'Utilities', 'Transport & logistics', 'Marketing', 'Equipment', 'Professional fees', 'Other'];
@@ -36,34 +37,16 @@ export default function BillsScreen() {
   const inkText = theme.colors.inkText;
 
   const [filter, setFilter] = useState<Filter>('open');
-  const [items, setItems] = useState<SupplierBill[]>([]);
-  const [totals, setTotals] = useState({ owe: 0, dueThisWeek: 0, overdueCount: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [selected, setSelected] = useState<SupplierBill | null>(null);
   const [payAmount, setPayAmount] = useState('');
   const [payDate, setPayDate] = useState(todayIso());
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await listBills('all');
-      setItems(res.items);
-      setTotals(res.totals);
-    } catch (e) {
-      setError(errorMessage(e, 'Could not load bills'));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data, error, loading, reload: load } = useScreenData(() => listBills('all'), [], { fallback: 'Could not load bills' });
+  const items = data?.items ?? [];
+  const totals = data?.totals ?? { owe: 0, dueThisWeek: 0, overdueCount: 0 };
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load])
-  );
 
   const shown = items.filter((b) => (filter === 'all' ? true : filter === 'paid' ? b.status === 'paid' : b.status === 'unpaid' || b.status === 'part_paid'));
 

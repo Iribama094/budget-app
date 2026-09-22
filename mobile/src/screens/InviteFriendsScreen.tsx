@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { Pressable, Share, Text, View } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 
 import { claimReferral, getReferrals, type ApiReferrals } from '../api/referrals';
@@ -13,6 +13,7 @@ import { Copy, Share2 } from '../icons';
 import { fonts, type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
+import { useScreenData } from '../hooks/useScreenData';
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -21,26 +22,12 @@ export default function InviteFriendsScreen() {
   const nav = useNavigation<any>();
   const { theme } = useTheme();
   const toast = useToast();
-  const [data, setData] = useState<ApiReferrals | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [entering, setEntering] = useState(false);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      setError(null);
-      setData(await getReferrals());
-    } catch (e) {
-      setError(errorMessage(e, 'Could not load this'));
-    }
-  }, []);
+  const { data, error, reload: load } = useScreenData(getReferrals);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load])
-  );
 
   const share = () => {
     if (data) void Share.share({ message: data.message });

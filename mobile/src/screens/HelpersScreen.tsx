@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { Share, Text, View } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 
 import { getDelegates, inviteDelegate, removeDelegate, type ApiDelegates } from '../api/money';
 import { useTheme } from '../contexts/ThemeContext';
@@ -15,6 +15,7 @@ import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
 import { confirmDestructive } from '../lib/confirm';
+import { useScreenData } from '../hooks/useScreenData';
 
 const ROLE: Record<'view' | 'record', string> = { view: 'Can see', record: 'Can see and add spending' };
 
@@ -27,28 +28,14 @@ export default function HelpersScreen() {
   const { theme } = useTheme();
   const toast = useToast();
   const { start } = useActing();
-  const [data, setData] = useState<ApiDelegates | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'view' | 'record'>('view');
   const [joining, setJoining] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      setError(null);
-      setData(await getDelegates());
-    } catch (e) {
-      setError(errorMessage(e, 'Could not load this'));
-    }
-  }, []);
+  const { data, error, reload: load } = useScreenData(getDelegates);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load])
-  );
 
   const invite = async () => {
     setBusy(true);

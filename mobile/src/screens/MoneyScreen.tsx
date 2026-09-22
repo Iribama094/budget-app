@@ -1,6 +1,6 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 
 import { getMoney, getRates, type ApiDebt, type ApiHolding, type ApiMoney, type ApiRates } from '../api/money';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,6 +17,7 @@ import { goBackOrHome } from '../navigation/goBack';
 import { useT } from '../lib/i18n';
 import { afterSheetCloses } from '../lib/afterSheetCloses';
 import { errorMessage } from '../lib/errorMessage';
+import { useScreenData } from '../hooks/useScreenData';
 
 const kindLabel = (k: string) => [...HAVE_KINDS, ...OWN_KINDS].find((x) => x.key === k)?.label.replace(/ \(.*\)$/, '') ?? k;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -36,35 +37,21 @@ export default function MoneyScreen() {
   const glyph = currencySymbol(user?.currency);
   const spaceId = spacesEnabled ? activeSpaceId : undefined;
 
-  const [data, setData] = useState<ApiMoney | null>(null);
-  const [rates, setRatesState] = useState<ApiRates | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [holdingSheet, setHoldingSheet] = useState<{ group: 'have' | 'own'; holding: ApiHolding | null } | null>(null);
   const [debtSheet, setDebtSheet] = useState<{ direction: 'owe' | 'owed'; debt: ApiDebt | null } | null>(null);
   const [paying, setPaying] = useState<ApiDebt | null>(null);
   const [ratesOpen, setRatesOpen] = useState(false);
   const t = useT();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [money, r] = await Promise.all([getMoney(spaceId), getRates().catch(() => null)]);
-      setData(money);
-      setRatesState(r);
-    } catch (e) {
-      setError(errorMessage(e, 'Could not load your money'));
-    } finally {
-      setLoading(false);
-    }
-  }, [spaceId]);
+  // Rates are a nice-to-have beside the money itself, so a failure there leaves the rest on screen.
+  const loaded = useScreenData(async () => {
+    const [money, rates] = await Promise.all([getMoney(spaceId), getRates().catch(() => null)]);
+    return { money, rates };
+  }, [spaceId], { fallback: 'Could not load your money' });
+  const { error, loading, reload: load } = loaded;
+  const data = loaded.data?.money ?? null;
+  const rates = loaded.data?.rates ?? null;
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load])
-  );
 
   const money = (n: number, currency?: string) => (hide ? '••••' : currency && data && currency !== data.home ? `${currency} ${n.toLocaleString('en-NG')}` : formatAmount(n, glyph));
   const have = data?.holdings.filter((h) => h.group === 'have') ?? [];

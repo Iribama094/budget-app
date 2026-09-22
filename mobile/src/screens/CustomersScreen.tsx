@@ -1,6 +1,6 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { MessageCircle, Plus, UserRound } from '../icons';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -14,6 +14,7 @@ import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
 import { confirmDestructive } from '../lib/confirm';
+import { useScreenData } from '../hooks/useScreenData';
 
 const initials = (name: string) =>
   name
@@ -32,9 +33,6 @@ export default function CustomersScreen() {
   const toast = useToast();
   const glyph = currencySymbol(user?.currency);
 
-  const [items, setItems] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [name, setName] = useState('');
@@ -42,23 +40,9 @@ export default function CustomersScreen() {
   const [email, setEmail] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setItems(await listCustomers());
-    } catch (e) {
-      setError(errorMessage(e, 'Could not load your customers'));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data, error, loading, reload: load } = useScreenData(listCustomers, [], { fallback: 'Could not load your customers' });
+  const items = data ?? [];
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load])
-  );
 
   const totals = useMemo(
     () => ({

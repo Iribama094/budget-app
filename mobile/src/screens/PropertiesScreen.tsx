@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { Text, View } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 
 import { deleteProperty, listProperties, recordRent, saveProperty, type ApiProperty } from '../api/money';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,6 +15,7 @@ import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
 import { confirmDestructive } from '../lib/confirm';
+import { useScreenData } from '../hooks/useScreenData';
 
 const FREQ = { monthly: 'a month', quarterly: 'a quarter', yearly: 'a year' } as const;
 
@@ -25,33 +26,14 @@ export default function PropertiesScreen() {
   const { theme } = useTheme();
   const toast = useToast();
   const glyph = currencySymbol(user?.currency);
-  const [items, setItems] = useState<ApiProperty[]>([]);
-  const [rentThisYear, setRentThisYear] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState<ApiProperty | 'new' | null>(null);
   const [form, setForm] = useState({ name: '', tenantName: '', tenantPhone: '', rent: '', frequency: 'yearly' as ApiProperty['frequency'], nextDue: '' });
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      setError(null);
-      const res = await listProperties();
-      setItems(res.items);
-      setRentThisYear(res.rentThisYear);
-    } catch (e) {
-      setError(errorMessage(e, 'Could not load your properties'));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data, error, loading, reload: load } = useScreenData(listProperties, [], { fallback: 'Could not load your properties' });
+  const items = data?.items ?? [];
+  const rentThisYear = data?.rentThisYear ?? 0;
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load])
-  );
 
   const edit = (p: ApiProperty | 'new') => {
     const x = p === 'new' ? null : p;

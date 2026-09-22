@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { Smartphone } from '../icons';
 
 import { listSessions, revokeOtherSessions, revokeSession, type ApiSession } from '../api/features';
@@ -13,6 +13,7 @@ import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
 import { confirmDestructive } from '../lib/confirm';
+import { useScreenData } from '../hooks/useScreenData';
 
 function timeAgo(iso: string): string {
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -28,28 +29,11 @@ export default function DevicesScreen() {
   const nav = useNavigation<any>();
   const { theme } = useTheme();
   const toast = useToast();
-  const [items, setItems] = useState<ApiSession[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setItems(await listSessions());
-    } catch (e) {
-      setError(errorMessage(e, 'Could not load your devices.'));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data, setData, error, setError, loading, reload: load } = useScreenData(listSessions, [], { fallback: 'Could not load your devices.' });
+  const items = data ?? [];
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load])
-  );
 
   const others = items.filter((s) => !s.current);
 
@@ -61,7 +45,7 @@ export default function DevicesScreen() {
       onConfirm: async () => {
         try {
           await revokeSession(s.id);
-          setItems((list) => list.filter((x) => x.id !== s.id));
+          setData((list) => (list ?? []).filter((x) => x.id !== s.id));
           toast.show('Device signed out', 'success');
         } catch (e) {
           setError(errorMessage(e, 'Could not sign that device out.'));

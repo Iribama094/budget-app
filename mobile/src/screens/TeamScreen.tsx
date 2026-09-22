@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 import { addTeamMember, getTeam, removeTeamMember, ROLES, suggestRole, updateTeamMember, type TeamMember, type TeamRole } from '../api/team';
 import { useTheme } from '../contexts/ThemeContext';
@@ -12,6 +12,7 @@ import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
 import { confirmDestructive } from '../lib/confirm';
+import { useScreenData } from '../hooks/useScreenData';
 
 /** One role per person, each explained in a line. No grid of switches. */
 function RolePicker({ value, onChange }: { value: TeamRole; onChange: (r: TeamRole) => void }) {
@@ -46,8 +47,6 @@ export default function TeamScreen() {
   const route = useRoute<any>();
   const { theme } = useTheme();
   const toast = useToast();
-  const [members, setMembers] = useState<TeamMember[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [role, setRole] = useState<TeamRole>('sales');
@@ -55,20 +54,8 @@ export default function TeamScreen() {
   const [open, setOpen] = useState<TeamMember | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      setError(null);
-      setMembers((await getTeam()).members);
-    } catch (e) {
-      setError(errorMessage(e, 'Could not load your team'));
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load])
-  );
+  const { data, error, reload: load } = useScreenData(async () => (await getTeam()).members, [], { fallback: 'Could not load your team' });
+  const members = data ?? [];
 
   // Opened from Payroll's "Give them app access": the person and a role guessed from their job title.
   useEffect(() => {

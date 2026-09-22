@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import React from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 
 import { getPrices, type ApiPrices } from '../api/money';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,6 +12,7 @@ import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { errorMessage } from '../lib/errorMessage';
+import { useScreenData } from '../hooks/useScreenData';
 
 const pct = (n: number) => `${n >= 0 ? '+' : '−'}${Math.abs(Math.round(n * 100))}%`;
 
@@ -26,23 +27,10 @@ export default function PricesScreen() {
   const { theme } = useTheme();
   const { spacesEnabled, activeSpaceId } = useSpace();
   const glyph = currencySymbol(user?.currency);
-  const [data, setData] = useState<ApiPrices | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data, error, reload: load } = useScreenData(() => getPrices(spacesEnabled ? activeSpaceId : undefined), [activeSpaceId, spacesEnabled], {
+    fallback: 'Could not work this out'
+  });
 
-  const load = useCallback(async () => {
-    try {
-      setError(null);
-      setData(await getPrices(spacesEnabled ? activeSpaceId : undefined));
-    } catch (e) {
-      setError(errorMessage(e, 'Could not work this out'));
-    }
-  }, [activeSpaceId, spacesEnabled]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load])
-  );
 
   const lc = data?.livingCost ?? null;
   return (

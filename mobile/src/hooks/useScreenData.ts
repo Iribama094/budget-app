@@ -54,16 +54,24 @@ export function useScreenData<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fallback]);
 
-  // On the way back to the screen, and whenever what it depends on changes.
+  // Coming back to the screen. This deliberately does not depend on `deps`: a change there is handled below,
+  // so whichever happens, the screen loads once and not twice.
   useFocusEffect(
     useCallback(() => {
       if (onFocus) void reload();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [reload, onFocus, ...deps])
+    }, [reload, onFocus])
   );
 
+  // A change in what the screen depends on: the space someone switched to, an id, a filter. The first run is
+  // skipped, because mounting already loaded (or is about to, on focus).
+  const mounted = useRef(false);
   useEffect(() => {
-    if (!onFocus) void reload();
+    if (mounted.current) void reload();
+    else {
+      mounted.current = true;
+      // Nothing reloads this one on focus, so the first load happens here.
+      if (!onFocus) void reload();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
