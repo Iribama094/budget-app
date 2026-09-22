@@ -1,25 +1,27 @@
-# Budget-Friendly (Mobile)
+# BudgetFriendly (mobile)
+
+The phone app, built with Expo and React Native.
 
 ## Setup
 
-1. Install dependencies:
-   - `npm install`
+```bash
+npm install
+npm run start
+```
 
-2. Configure the backend base URL:
-   - Copy `.env.example` to `.env`
-   - Set `EXPO_PUBLIC_API_BASE_URL` to your backend base URL (no trailing `/v1`)
+No `.env` is needed. The app is preconfigured for the BudgetFriendly Supabase project in `src/config.ts`, and signs people in through Supabase Auth and calls the `api` Edge Function under `/v1/*`.
 
-   Examples:
-   - Deployed backend (Vercel): `https://your-deployment.vercel.app`
-   - Local `vercel dev`:
-     - Android emulator: `http://10.0.2.2:3000`
-     - iOS simulator: `http://localhost:3000`
-     - Physical device: `http://<YOUR_LAN_IP>:3000`
+To change that, copy `.env.example` to `.env` and set:
 
-3. Start Expo:
-   - `npm run start`
+| Variable | When to set it |
+| --- | --- |
+| `EXPO_PUBLIC_SUPABASE_URL` | Only to point the app at a different Supabase project |
+| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Same, the publishable key for that project |
+| `EXPO_PUBLIC_MONO_PUBLIC_KEY` | Live bank connections. `test_pk_...` in sandbox, `live_pk_...` once approved. The secret key goes on the server, never here |
+
+Anything starting `EXPO_PUBLIC_` is built into the app and visible to anyone who has it, so never put a secret there.
 
 ## Notes
 
-- The mobile app calls the backend under `/v1/*`.
-- If `EXPO_PUBLIC_API_BASE_URL` is empty, login and data loading will fail.
+- Push notifications, Face ID and home-screen widgets need a development or store build; they don't work in Expo Go. See "Features that need extra setup" in [../DEPLOY.md](../DEPLOY.md).
+- Testing on an iPhone from a Mac: [TESTING_ON_MAC.md](TESTING_ON_MAC.md).

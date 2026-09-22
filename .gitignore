@@ -44,3 +44,6 @@ Thumbs.db
 .env.supabase.local
 supabase/.temp/
 supabase/.branches/
+
+# /brag launch video output
+brag-output*/

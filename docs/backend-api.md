@@ -1,3 +1,5 @@
+> **Historical.** This is the original design note from before the backend moved to Supabase. The live API is the `api` Edge Function in `supabase/functions/api`; see [DEPLOY.md](../DEPLOY.md). Kept for the reasoning behind the data model.
+
 # BudgetFriendly backend (multi-user) – API rundown
 
 This app is currently **frontend-only** and stores data in `localStorage` via `src/utils/dataManager.ts`:
