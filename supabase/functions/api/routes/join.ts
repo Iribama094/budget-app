@@ -7,7 +7,7 @@ import { businessNameOf, findBusinessInvite, joinBusinessWithCode } from './team
 import { acceptHelperCode, findHelperInvite } from './people.ts';
 import { joinBudgetWithCode } from './budgets.ts';
 import { codeTaken } from '../lib/referral.ts';
-import { budgetLabel } from '../lib/budgets.ts';
+import { budgetLabel, toApiBudget } from '../lib/budgets.ts';
 import type { Ctx } from '../index.ts';
 
 /*
@@ -98,5 +98,6 @@ export async function joinRoute(ctx: Ctx) {
     return json(200, { kind: 'helper', name: `${res.ownerName}’s money`, ownerId: res.ownerId, role: res.role });
   }
   const budget = await joinBudgetWithCode(userId, code);
-  return json(200, { kind: 'budget', name: budgetLabel(budget.name), budgetId: budget.id });
+  // The whole budget, not just its id: the app decides what Home shows next and needs to know what it joined.
+  return json(200, { kind: 'budget', name: budgetLabel(budget.name), budgetId: budget.id, budget: toApiBudget(budget, userId) });
 }

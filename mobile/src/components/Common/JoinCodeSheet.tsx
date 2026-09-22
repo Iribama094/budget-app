@@ -8,6 +8,8 @@ import { useToast } from './Toast';
 import { PrimaryButton, TextField } from './ui';
 import { Sheet } from '../Business/parts';
 import { afterSheetCloses } from '../../lib/afterSheetCloses';
+import { settleJoinedBudget } from '../../lib/joinedBudget';
+import { useAuth } from '../../contexts/AuthContext';
 import { type } from '../../theme/typography';
 
 /**
@@ -19,6 +21,7 @@ export function JoinCodeSheet({ visible, onClose, onJoined }: { visible: boolean
   const { theme } = useTheme();
   const toast = useToast();
   const { enter, refresh } = useTeam();
+  const { refreshUser } = useAuth();
   const [code, setCode] = useState('');
   const [look, setLook] = useState<CodeLook | null>(null);
   const [looking, setLooking] = useState(false);
@@ -63,9 +66,16 @@ export function JoinCodeSheet({ visible, onClose, onJoined }: { visible: boolean
           toast.show(`You’re in ${res.name} as ${res.roleLabel}. Everything you record goes to ${res.name}.`, 'success', 5000);
         } else if (res.kind === 'helper') {
           toast.show(`You can now help with ${res.name}. It’s in Profile, People who help.`, 'success', 5000);
+        } else if (res.budget) {
+          // Same settling as the Share budget screen: whoever has no budget of their own sees the shared one on
+          // Home, and whoever already has one is asked which Home should show.
+          void settleJoinedBudget(res.budget, {
+            refreshUser,
+            announce: (label) => toast.show(`You’ve joined ${label}. It’s in Budgets.`, 'success', 4000),
+            go: (budgetId) => nav.navigate('BudgetDetail', { budgetId })
+          });
         } else {
           toast.show(`You’ve joined ${res.name}. It’s in Budgets.`, 'success', 4000);
-          if (res.budgetId) nav.navigate('BudgetDetail', { budgetId: res.budgetId });
         }
         void refresh();
         onJoined?.();

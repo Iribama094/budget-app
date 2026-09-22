@@ -5,7 +5,7 @@ import * as Clipboard from 'expo-clipboard';
 import { CalendarSync, Copy, Share2, Users } from '../icons';
 
 import { acceptBudgetInvite, createBudgetInvite, listBudgetMembers, removeBudgetMember, type ApiBudgetMember } from '../api/features';
-import { listBudgets, patchMe, type ApiBudget } from '../api/endpoints';
+import { patchMe, type ApiBudget } from '../api/endpoints';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../components/Common/Toast';
@@ -14,6 +14,7 @@ import { formatShortDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { settleJoinedBudget } from '../lib/joinedBudget';
 
 const cleanCode = (t: string) => t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 const labelOf = (name: string) => name.replace(/^My Budget \((.*)\)$/, '$1');
@@ -125,38 +126,9 @@ export default function ShareBudgetScreen() {
     );
   };
 
-  /** After joining: someone with their own budget chooses what Home shows; someone without one sees the shared budget. */
-  const settleHome = async (joined: ApiBudget) => {
-    const own = await listBudgets({ spaceId: 'personal' })
-      .then((r) => (r.items ?? []).some((b) => b.role !== 'member' && (b.purpose ?? 'personal') === 'personal'))
-      .catch(() => false);
-    const label = labelOf(joined.name);
-    if (!own) {
-      await patchMe({ homeBudget: 'shared', budgetMode: 'shared' }).catch(() => undefined);
-      await refreshUser().catch(() => undefined);
-      nav.replace('BudgetDetail', { budgetId: joined.id });
-      return;
-    }
-    await patchMe({ budgetMode: 'both' }).catch(() => undefined);
-    Alert.alert(`You joined ${label} 🎉`, 'You now have your own budget and a shared one. Which should Home show? Both are always in Budgets.', [
-      {
-        text: 'Keep mine',
-        onPress: async () => {
-          await patchMe({ homeBudget: 'own' }).catch(() => undefined);
-          await refreshUser().catch(() => undefined);
-          nav.replace('BudgetDetail', { budgetId: joined.id });
-        }
-      },
-      {
-        text: 'Show shared',
-        onPress: async () => {
-          await patchMe({ homeBudget: 'shared' }).catch(() => undefined);
-          await refreshUser().catch(() => undefined);
-          nav.replace('BudgetDetail', { budgetId: joined.id });
-        }
-      }
-    ]);
-  };
+  /** Lives in lib/joinedBudget so joining from the code box in Settings settles Home the same way. */
+  const settleHome = (joined: ApiBudget) =>
+    settleJoinedBudget(joined, { refreshUser, go: (budgetId) => nav.replace('BudgetDetail', { budgetId }) });
 
   const join = async () => {
     setJoining(true);
