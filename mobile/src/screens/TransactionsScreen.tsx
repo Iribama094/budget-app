@@ -18,6 +18,7 @@ import { Amount, Card, EmptyState, IconButton, InlineError, Screen, ScreenHeader
 import { currencySymbol, dayKey, formatDayHeader, formatRelativeDay, monthName, toIsoDateTime } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 const UNDO_MS = 5000;
 const MAX_PAGES = 10;
@@ -72,7 +73,7 @@ export function TransactionsScreen() {
       all.sort((a, b) => (Date.parse(b.occurredAt) || 0) - (Date.parse(a.occurredAt) || 0));
       setItems(all);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load transactions. Pull down to try again.');
+      setError(errorMessage(e, 'Could not load transactions. Pull down to try again.'));
     } finally {
       setIsLoading(false);
     }
@@ -92,7 +93,7 @@ export function TransactionsScreen() {
         else await deleteTransaction(tx.id);
         setItems((prev) => prev.filter((x) => x.id !== tx.id));
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Could not delete that transaction.');
+        setError(errorMessage(e, 'Could not delete that transaction.'));
       } finally {
         setHidden((h) => {
           const next = new Set(h);

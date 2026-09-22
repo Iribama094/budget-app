@@ -11,6 +11,7 @@ import { afterSheetCloses } from '../../lib/afterSheetCloses';
 import { settleJoinedBudget } from '../../lib/joinedBudget';
 import { useAuth } from '../../contexts/AuthContext';
 import { type } from '../../theme/typography';
+import { errorMessage } from '../../lib/errorMessage';
 
 /**
  * One box for any code: a shared budget, help with someone's money, or a business you work in. Nobody should
@@ -81,7 +82,7 @@ export function JoinCodeSheet({ visible, onClose, onJoined }: { visible: boolean
         onJoined?.();
       });
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'That code didn’t work', 'error');
+      toast.show(errorMessage(e, 'That code didn’t work'), 'error');
     } finally {
       setBusy(false);
     }

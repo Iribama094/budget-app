@@ -15,6 +15,7 @@ import { currencySymbol, formatShortDate, toIsoDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 type RangeKey = 'month' | 'last' | 'quarter' | 'half' | 'year';
 const RANGES: Array<{ key: RangeKey; label: string }> = [
@@ -65,7 +66,7 @@ export default function BusinessReportsScreen() {
     setError(null);
     getBusinessReport(from, to)
       .then((r) => !cancelled && setReport(r))
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not build the report'))
+      .catch((e) => !cancelled && setError(errorMessage(e, 'Could not build the report')))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -78,7 +79,7 @@ export default function BusinessReportsScreen() {
     try {
       await shareReportPdf(report, glyph);
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not create the PDF', 'error');
+      toast.show(errorMessage(e, 'Could not create the PDF'), 'error');
     } finally {
       setSharing(false);
     }

@@ -8,6 +8,7 @@ import { ChoiceChip } from '../Plan/ChoiceChip';
 import { DateChoice, MoneyField, Sheet, moneyText, parseMoney } from '../Business/parts';
 import { formatShortDate } from '../../utils/format';
 import { type } from '../../theme/typography';
+import { errorMessage } from '../../lib/errorMessage';
 
 export const HAVE_KINDS: Array<{ key: HoldingKind; label: string }> = [
   { key: 'cash', label: 'Cash' },
@@ -73,7 +74,7 @@ export function HoldingSheet({
       onSaved();
       onClose();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not save that', 'error');
+      toast.show(errorMessage(e, 'Could not save that'), 'error');
     } finally {
       setBusy(false);
     }
@@ -171,7 +172,7 @@ export function DebtSheet({
       onSaved();
       onClose();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not save that', 'error');
+      toast.show(errorMessage(e, 'Could not save that'), 'error');
     } finally {
       setBusy(false);
     }
@@ -256,7 +257,7 @@ export function PayDebtSheet({ visible, onClose, debt, glyph, onSaved, onEdit }:
       onSaved();
       onClose();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not record that', 'error');
+      toast.show(errorMessage(e, 'Could not record that'), 'error');
     } finally {
       setBusy(false);
     }
@@ -302,7 +303,7 @@ export function RatesSheet({ visible, onClose, currencies, rates, own, onSaved }
       onSaved();
       onClose();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not save the rates', 'error');
+      toast.show(errorMessage(e, 'Could not save the rates'), 'error');
     } finally {
       setBusy(false);
     }

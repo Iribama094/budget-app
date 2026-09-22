@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { errorMessage } from './errorMessage';
 
 /**
  * Delete now, with a few seconds to change your mind. The item disappears straight away on every screen that
@@ -28,7 +29,7 @@ export function deleteWithUndo({ id, message, commit, toast }: { id: string; mes
     commit().catch((e) => {
       hidden.delete(id);
       emit();
-      toast.show(e instanceof Error ? e.message : 'Could not delete that. It’s back in your list.', 'error');
+      toast.show(errorMessage(e, 'Could not delete that. It’s back in your list.'), 'error');
     });
   }, UNDO_MS);
   toast.show(message, 'info', UNDO_MS, {

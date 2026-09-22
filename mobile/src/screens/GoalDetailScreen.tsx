@@ -36,6 +36,7 @@ import { useSpace } from '../contexts/SpaceContext';
 import { currencySymbol, formatNumberInput, formatShortDate } from '../utils/format';
 import { type as typo } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 const AUTO_SAVE_OPTIONS = [5, 10, 15, 20, 30];
 
@@ -87,7 +88,7 @@ export default function GoalDetailScreen() {
       const g = spacesEnabled ? await getGoalInSpace(goalId, activeSpaceId) : await getGoal(goalId);
       setGoal(g);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load goal');
+      setError(errorMessage(e, 'Failed to load goal'));
     } finally {
       setIsLoading(false);
     }
@@ -108,7 +109,7 @@ export default function GoalDetailScreen() {
       setGoal(updated);
       toast.show(percent ? `We go remind you to move ${percent}% of each income to ${goal.name} 🔔` : 'Auto-save reminder turned off', 'success');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not update auto-save');
+      setError(errorMessage(e, 'Could not update auto-save'));
     } finally {
       setIsSaving(false);
     }
@@ -169,7 +170,7 @@ export default function GoalDetailScreen() {
       setIsEditing(false);
       toast.show('Goal updated ✅', 'success');
     } catch (e) {
-      setEditError(e instanceof Error ? e.message : 'Failed to save goal');
+      setEditError(errorMessage(e, 'Failed to save goal'));
     } finally {
       setIsSaving(false);
     }
@@ -213,7 +214,7 @@ export default function GoalDetailScreen() {
         4000
       );
     } catch (e) {
-      setAddError(e instanceof Error ? e.message : 'Could not add money to this goal');
+      setAddError(errorMessage(e, 'Could not add money to this goal'));
     } finally {
       setIsSaving(false);
     }
@@ -233,7 +234,7 @@ export default function GoalDetailScreen() {
             toast.show('Goal deleted');
             goBackOrHome(nav);
           } catch (e) {
-            setError(e instanceof Error ? e.message : 'Failed to delete goal');
+            setError(errorMessage(e, 'Failed to delete goal'));
           }
         }
       }
@@ -298,7 +299,7 @@ export default function GoalDetailScreen() {
             toast.show(`${formatAmount(amount, goalGlyph)} paid to you. Steady as you go 👌`, 'success');
             await load();
           } catch (e) {
-            toast.show(e instanceof Error ? e.message : 'Could not do that', 'error');
+            toast.show(errorMessage(e, 'Could not do that'), 'error');
           } finally {
             setPaying(false);
           }

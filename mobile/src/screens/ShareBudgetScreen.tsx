@@ -15,6 +15,7 @@ import { fonts, type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
 import { settleJoinedBudget } from '../lib/joinedBudget';
+import { errorMessage } from '../lib/errorMessage';
 
 const cleanCode = (t: string) => t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 const labelOf = (name: string) => name.replace(/^My Budget \((.*)\)$/, '$1');
@@ -58,7 +59,7 @@ export default function ShareBudgetScreen() {
       setMembers(res.items);
       setPurpose(res.purpose ?? 'personal');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load who shares this budget.');
+      setError(errorMessage(e, 'Could not load who shares this budget.'));
     } finally {
       setLoading(false);
     }
@@ -78,7 +79,7 @@ export default function ShareBudgetScreen() {
       setInvite(await createBudgetInvite(budgetId));
       if (purpose === 'personal') setPurpose('household');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not create an invite code.');
+      setError(errorMessage(e, 'Could not create an invite code.'));
     } finally {
       setCreating(false);
     }
@@ -118,7 +119,7 @@ export default function ShareBudgetScreen() {
                 await load();
               }
             } catch (e) {
-              setError(e instanceof Error ? e.message : 'Could not update members.');
+              setError(errorMessage(e, 'Could not update members.'));
             }
           }
         }
@@ -138,7 +139,7 @@ export default function ShareBudgetScreen() {
       toast.show(`You joined ${labelOf(budget.name)}`, 'success');
       await settleHome(budget);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That code didn’t work.');
+      setError(errorMessage(e, 'That code didn’t work.'));
     } finally {
       setJoining(false);
     }

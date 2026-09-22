@@ -18,6 +18,7 @@ import { useTour, useTourAnchor } from '../contexts/TourContext';
 import { useNudges } from '../contexts/NudgesContext';
 import { NudgeTooltip } from '../components/Common/NudgeTooltip';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { errorMessage } from '../lib/errorMessage';
 
 export function AnalyticsScreen() {
   const { user } = useAuth();
@@ -177,7 +178,7 @@ export function AnalyticsScreen() {
         setCurrentBudgetSpent(0);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load analytics');
+      setError(errorMessage(e, 'Failed to load analytics'));
     } finally {
       setIsLoading(false);
     }

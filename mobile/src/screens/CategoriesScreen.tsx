@@ -18,6 +18,7 @@ import { CATEGORY_ICONS, ICON_CHOICES, guessIconKey } from '../lib/categoryIcons
 import { BUCKETS, bucketDescription, bucketDisplayName, type Bucket } from '../theme/buckets';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 type Draft = { id: string | null; name: string; type: 'income' | 'expense'; bucket: Bucket; icon: string; hidden: boolean; iconTouched: boolean };
 
@@ -86,7 +87,7 @@ export default function CategoriesScreen() {
       }
       setDraft(null);
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not save that category', 'error');
+      toast.show(errorMessage(e, 'Could not save that category'), 'error');
     } finally {
       setSaving(false);
     }
@@ -105,7 +106,7 @@ export default function CategoriesScreen() {
             await remove(id);
             setDraft(null);
           } catch (e) {
-            toast.show(e instanceof Error ? e.message : 'Could not delete', 'error');
+            toast.show(errorMessage(e, 'Could not delete'), 'error');
           }
         }
       }

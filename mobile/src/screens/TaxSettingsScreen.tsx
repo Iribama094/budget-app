@@ -15,6 +15,7 @@ import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { useSpace } from '../contexts/SpaceContext';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 /** Nigeria Tax Act 2025: rent relief is 20% of annual rent, capped at ₦500,000. */
 const RENT_RELIEF_RATE = 0.2;
@@ -174,7 +175,7 @@ export default function TaxSettingsScreen() {
           setRulesMeta({ country: String(rule?.country ?? country), brackets, bracketsArr });
         } catch (e) {
           setRulesMeta(null);
-          setRulesError(e instanceof Error ? e.message : 'Could not load tax rules');
+          setRulesError(errorMessage(e, 'Could not load tax rules'));
         } finally {
           setRulesLoading(false);
         }
@@ -258,7 +259,7 @@ export default function TaxSettingsScreen() {
           }
         } catch (e) {
           setTaxPreview(null);
-          setTaxPreviewError(e instanceof Error ? e.message : 'Could not load tax estimate');
+          setTaxPreviewError(errorMessage(e, 'Could not load tax estimate'));
         } finally {
           setTaxPreviewLoading(false);
         }
@@ -297,7 +298,7 @@ export default function TaxSettingsScreen() {
       await refreshUser();
       toast.show('Tax settings saved ✅', 'success');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Failed to save tax settings', 'error');
+      toast.show(errorMessage(e, 'Failed to save tax settings'), 'error');
     } finally {
       setIsSavingTax(false);
     }

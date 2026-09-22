@@ -16,6 +16,7 @@ import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
 import { afterSheetCloses } from '../lib/afterSheetCloses';
+import { errorMessage } from '../lib/errorMessage';
 
 type Draft = { id: string | null; name: string; role: string; gross: string; active: boolean; pension: boolean; nhf: boolean };
 
@@ -54,7 +55,7 @@ export default function PayrollScreen() {
     try {
       await sharePayslipPdf(line, run, business, user?.name || 'My business', glyph);
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not create the payslip', 'error');
+      toast.show(errorMessage(e, 'Could not create the payslip'), 'error');
     }
   };
 
@@ -63,7 +64,7 @@ export default function PayrollScreen() {
     try {
       await sendOnWhatsApp(null, text);
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not open WhatsApp', 'error');
+      toast.show(errorMessage(e, 'Could not open WhatsApp'), 'error');
     }
   };
 
@@ -80,7 +81,7 @@ export default function PayrollScreen() {
           .then(setBusiness)
           .catch(() => undefined);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load payroll');
+      setError(errorMessage(e, 'Could not load payroll'));
     } finally {
       setLoading(false);
     }
@@ -105,7 +106,7 @@ export default function PayrollScreen() {
     try {
       await fn();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Something went wrong', 'error');
+      toast.show(errorMessage(e, 'Something went wrong'), 'error');
     } finally {
       setBusy(false);
     }

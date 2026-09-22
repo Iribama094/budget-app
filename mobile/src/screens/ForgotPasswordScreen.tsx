@@ -8,6 +8,7 @@ import { Chip, IconButton, InlineError, PrimaryButton, Screen, TextButton, TextF
 import { fonts, type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { MIN_PASSWORD, PASSWORD_HINT, passwordProblem } from '../lib/passwordRules';
+import { errorMessage } from '../lib/errorMessage';
 
 const CODE_LENGTH = 6;
 const RESEND_SECONDS = 60;
@@ -51,7 +52,7 @@ export default function ForgotPasswordScreen() {
       setCooldown(RESEND_SECONDS);
       setTimeout(() => codeRef.current?.focus(), 350);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not send the code. Check your connection and try again.');
+      setError(errorMessage(e, 'Could not send the code. Check your connection and try again.'));
     } finally {
       setBusy(false);
     }
@@ -64,7 +65,7 @@ export default function ForgotPasswordScreen() {
       // On success the auth stack unmounts and the app opens signed in.
       await auth.resetPassword(normalizedEmail, code, password);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not reset your password. Try again.');
+      setError(errorMessage(e, 'Could not reset your password. Try again.'));
       setBusy(false);
     }
   };

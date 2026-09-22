@@ -20,6 +20,7 @@ import { tokens } from '../theme/tokens';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
 import { MoveMoneySheet } from '../components/Budget/MoveMoneySheet';
+import { errorMessage } from '../lib/errorMessage';
 
 function parseIsoDateLocal(value?: string | null) {
   if (!value) return null;
@@ -180,7 +181,7 @@ export default function BudgetDetailScreen() {
       setSpentByPerson(byPerson);
       setPeople(b.isShared ? (await listBudgetMembers(budgetId).catch(() => ({ items: [] as ApiBudgetMember[] }))).items : []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load budget');
+      setError(errorMessage(e, 'Failed to load budget'));
     } finally {
       setIsLoading(false);
     }
@@ -200,7 +201,7 @@ export default function BudgetDetailScreen() {
             toast.show('Budget deleted');
             goBackOrHome(nav);
           } catch (e) {
-            toast.show(e instanceof Error ? e.message : 'Failed to delete budget');
+            toast.show(errorMessage(e, 'Failed to delete budget'));
           }
         }
       }
@@ -238,7 +239,7 @@ export default function BudgetDetailScreen() {
       await refreshUser();
       toast.show('Home now shows this budget 🏠', 'success');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not change Home', 'error');
+      toast.show(errorMessage(e, 'Could not change Home'), 'error');
     }
   };
 
@@ -261,7 +262,7 @@ export default function BudgetDetailScreen() {
       );
       nav.replace('BudgetDetail', { budgetId: r.budget.id });
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not start the next budget', 'error');
+      toast.show(errorMessage(e, 'Could not start the next budget'), 'error');
     } finally {
       setStartingNext(false);
     }
@@ -639,7 +640,7 @@ export default function BudgetDetailScreen() {
                     setLastTaxLabel(label);
                     toast.show(`Estimated tax for ${label}: ${periodTax.toLocaleString()}`, 'success');
                   } catch (e) {
-                    const msg = e instanceof Error ? e.message : 'Estimate failed';
+                    const msg = errorMessage(e, 'Estimate failed');
                     toast.show(msg, 'error');
                   } finally {
                     setIsEstimating(false);

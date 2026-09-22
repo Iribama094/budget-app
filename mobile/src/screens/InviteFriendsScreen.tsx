@@ -12,6 +12,7 @@ import { Sheet } from '../components/Business/parts';
 import { Copy, Share2 } from '../icons';
 import { fonts, type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -31,7 +32,7 @@ export default function InviteFriendsScreen() {
       setError(null);
       setData(await getReferrals());
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load this');
+      setError(errorMessage(e, 'Could not load this'));
     }
   }, []);
 
@@ -59,7 +60,7 @@ export default function InviteFriendsScreen() {
       await load();
       toast.show(`Thanks. ${res.invitedBy} invited you.`, 'success');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'That code didn’t work', 'error');
+      toast.show(errorMessage(e, 'That code didn’t work'), 'error');
     } finally {
       setBusy(false);
     }

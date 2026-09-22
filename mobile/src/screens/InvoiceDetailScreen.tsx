@@ -14,6 +14,7 @@ import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 export default function InvoiceDetailScreen() {
   const nav = useNavigation<any>();
@@ -49,7 +50,7 @@ export default function InvoiceDetailScreen() {
       setPayments(res.payments);
       setBusiness(res.business);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load this invoice');
+      setError(errorMessage(e, 'Could not load this invoice'));
     }
   }, [id]);
 
@@ -77,7 +78,7 @@ export default function InvoiceDetailScreen() {
     try {
       await fn();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Something went wrong', 'error');
+      toast.show(errorMessage(e, 'Something went wrong'), 'error');
     } finally {
       setBusy(null);
     }

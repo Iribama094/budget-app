@@ -53,6 +53,7 @@ import { goBackOrHome } from '../navigation/goBack';
 import { useTeam } from '../contexts/TeamContext';
 import { JoinCodeSheet } from '../components/Common/JoinCodeSheet';
 import { isLite, setLite } from '../lib/lite';
+import { errorMessage } from '../lib/errorMessage';
 
 const ONBOARDING_KEY = 'bf_onboarding_done_v1';
 
@@ -164,7 +165,7 @@ export default function SettingsScreen() {
       await refreshUser();
       toast.show(next === 'shared' ? 'Home now shows your shared budget 🏠' : 'Home now shows your own budget', 'success');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not change that', 'error');
+      toast.show(errorMessage(e, 'Could not change that'), 'error');
     }
   };
 

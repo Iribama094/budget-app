@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { apiFetch } from '../api/client';
+import { errorMessage } from './errorMessage';
 
 const KEY = 'bf_offline_tx_queue_v1';
 
@@ -102,7 +103,7 @@ export function flushQueue(): Promise<FlushResult> {
           break;
         }
         rejected++;
-        keep.push({ ...item, attempts: item.attempts + 1, lastError: err instanceof Error ? err.message : 'The server rejected this transaction' });
+        keep.push({ ...item, attempts: item.attempts + 1, lastError: errorMessage(err, 'The server rejected this transaction') });
       }
     }
 

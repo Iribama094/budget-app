@@ -6,6 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { IconTile, InlineError, PrimaryButton, Screen, TextButton, TextField } from '../components/Common/ui';
 import { confirmEmailCode, sendEmailCode } from '../api/endpoints';
 import { type } from '../theme/typography';
+import { errorMessage } from '../lib/errorMessage';
 
 const RESEND_SECONDS = 60;
 
@@ -37,7 +38,7 @@ export function VerifyEmailScreen() {
       setNote(res.status === 'sent' ? `We sent a code to ${user?.email}.` : `A code is already on its way to ${user?.email}.`);
       setCooldown(RESEND_SECONDS);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not send the code. Check your connection.');
+      setError(errorMessage(e, 'Could not send the code. Check your connection.'));
     }
   };
 
@@ -60,7 +61,7 @@ export function VerifyEmailScreen() {
       await confirmEmailCode(code);
       await refreshUser();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That did not work. Try again.');
+      setError(errorMessage(e, 'That did not work. Try again.'));
       setCode('');
       inputRef.current?.focus();
     } finally {

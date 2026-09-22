@@ -11,6 +11,7 @@ import { formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 function timeAgo(iso: string): string {
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -37,7 +38,7 @@ export default function DevicesScreen() {
     try {
       setItems(await listSessions());
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load your devices.');
+      setError(errorMessage(e, 'Could not load your devices.'));
     } finally {
       setLoading(false);
     }
@@ -63,7 +64,7 @@ export default function DevicesScreen() {
             setItems((list) => list.filter((x) => x.id !== s.id));
             toast.show('Device signed out', 'success');
           } catch (e) {
-            setError(e instanceof Error ? e.message : 'Could not sign that device out.');
+            setError(errorMessage(e, 'Could not sign that device out.'));
           }
         }
       }
@@ -83,7 +84,7 @@ export default function DevicesScreen() {
             toast.show(`${revoked} device${revoked === 1 ? '' : 's'} signed out`, 'success');
             await load();
           } catch (e) {
-            setError(e instanceof Error ? e.message : 'Could not sign other devices out.');
+            setError(errorMessage(e, 'Could not sign other devices out.'));
           } finally {
             setBusy(false);
           }

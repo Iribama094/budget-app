@@ -10,6 +10,7 @@ import { useSpace } from '../contexts/SpaceContext';
 import { Screen, Card, H1, P, PrimaryButton, TextField } from '../components/Common/ui';
 import { createBankLink } from '../api/endpoints';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 export default function BankConnectFormScreen() {
   const nav = useNavigation<any>();
@@ -50,7 +51,7 @@ export default function BankConnectFormScreen() {
       toast.show('Bank linked. Pending transactions created.', 'success');
       goBackOrHome(nav);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to link bank';
+      const msg = errorMessage(e, 'Failed to link bank');
       toast.show(msg, 'error');
     } finally {
       setConnecting(false);

@@ -16,6 +16,7 @@ import { fonts, type } from '../theme/typography';
 import { tokens } from '../theme/tokens';
 import { goBackOrHome } from '../navigation/goBack';
 import { ChoiceChip } from '../components/Plan/ChoiceChip';
+import { errorMessage } from '../lib/errorMessage';
 
 type Preset = { key: string; emoji: string; label: string; months: number };
 
@@ -162,7 +163,7 @@ export default function CreateGoalScreen() {
       );
       nav.replace('GoalDetail', { goalId: goal.id, goal });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not create your goal. Check your connection and try again.');
+      setError(errorMessage(e, 'Could not create your goal. Check your connection and try again.'));
     } finally {
       setIsSaving(false);
     }

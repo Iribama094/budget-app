@@ -15,6 +15,7 @@ import { type } from '../../theme/typography';
 import { GuideAnchor } from '../Common/GuideAnchor';
 import { useConfig } from '../../contexts/ConfigContext';
 import { goBackOrHome } from '../../navigation/goBack';
+import { errorMessage } from '../../lib/errorMessage';
 
 const LOOK = SPACE_LOOK.business;
 
@@ -36,7 +37,7 @@ export function BusinessProfile({ onLogout }: { onLogout: () => void }) {
       setError(null);
       getBusinessSummary()
         .then(setS)
-        .catch((e) => setError(e instanceof Error ? e.message : 'Could not load your business'));
+        .catch((e) => setError(errorMessage(e, 'Could not load your business')));
     }, [])
   );
 

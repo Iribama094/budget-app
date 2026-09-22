@@ -10,6 +10,7 @@ import { getBusinessSettings, updateBusinessSettings } from '../api/business';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 type Form = { businessName: string; businessPhone: string; businessEmail: string; businessAddress: string; invoicePrefix: string };
 
@@ -34,7 +35,7 @@ export default function BusinessDetailsScreen() {
           invoicePrefix: s.invoicePrefix
         })
       )
-      .catch((e) => setError(e instanceof Error ? e.message : 'Could not load your business details'));
+      .catch((e) => setError(errorMessage(e, 'Could not load your business details')));
   }, []);
 
   if (!form) {
@@ -65,7 +66,7 @@ export default function BusinessDetailsScreen() {
       toast.show('Business details saved ✅', 'success');
       goBackOrHome(nav);
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not save your details', 'error');
+      toast.show(errorMessage(e, 'Could not save your details'), 'error');
     } finally {
       setSaving(false);
     }

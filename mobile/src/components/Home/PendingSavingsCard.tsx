@@ -10,6 +10,7 @@ import { Card, IconTile, formatAmount } from '../Common/ui';
 import { confirmSaving, listPendingSavings, skipSaving, type PendingSaving } from '../../api/business';
 import { currencySymbol } from '../../utils/format';
 import { type } from '../../theme/typography';
+import { errorMessage } from '../../lib/errorMessage';
 
 const CHEERS = ['Well done o 💪', 'Your goal is growing 🌱', 'Nice one 🎉'];
 
@@ -52,7 +53,7 @@ export function PendingSavingsCard({ goalId, onAnswered }: { goalId?: string; on
       setItems((list) => list.filter((x) => x.id !== item.id));
       onAnswered?.();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not update that', 'error');
+      toast.show(errorMessage(e, 'Could not update that'), 'error');
     } finally {
       setBusy(null);
     }

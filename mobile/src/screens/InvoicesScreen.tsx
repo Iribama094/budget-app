@@ -13,6 +13,7 @@ import { currencySymbol, formatShortDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 type Filter = 'open' | 'paid' | 'all';
 
@@ -39,7 +40,7 @@ export default function InvoicesScreen() {
       setItems(res.items);
       setTotals(res.totals);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load invoices');
+      setError(errorMessage(e, 'Could not load invoices'));
     } finally {
       setLoading(false);
     }

@@ -13,6 +13,7 @@ import { createInvoice, getBusinessSettings, listCustomers, updateInvoice, type 
 import { currencySymbol, formatNumberInput } from '../utils/format';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 type DraftItem = { description: string; quantity: string; unitPrice: string };
 
@@ -113,7 +114,7 @@ export default function InvoiceEditScreen() {
         nav.replace('InvoiceDetail', { id: inv.id });
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save the invoice');
+      setError(errorMessage(e, 'Could not save the invoice'));
     } finally {
       setSaving(false);
     }

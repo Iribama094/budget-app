@@ -15,6 +15,7 @@ import { MoneyField, parseMoney } from '../components/Business/parts';
 import { currencySymbol } from '../utils/format';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 type Kind = 'goods' | 'services' | 'property' | 'mix';
 const KINDS: Array<{ key: Kind; label: string }> = [
@@ -75,7 +76,7 @@ export default function BusinessSetupScreen() {
       await work();
       setStep(next);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save that. Try again.');
+      setError(errorMessage(e, 'Could not save that. Try again.'));
     } finally {
       setBusy(false);
     }

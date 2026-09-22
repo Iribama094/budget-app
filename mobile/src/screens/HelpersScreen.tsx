@@ -13,6 +13,7 @@ import { Sheet } from '../components/Business/parts';
 import { JoinCodeSheet } from '../components/Common/JoinCodeSheet';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 const ROLE: Record<'view' | 'record', string> = { view: 'Can see', record: 'Can see and add spending' };
 
@@ -38,7 +39,7 @@ export default function HelpersScreen() {
       setError(null);
       setData(await getDelegates());
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load this');
+      setError(errorMessage(e, 'Could not load this'));
     }
   }, []);
 
@@ -61,7 +62,7 @@ export default function HelpersScreen() {
         toast.show('Invite sent. They’ll get a code by email.', 'success');
       }
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not send the invite', 'error');
+      toast.show(errorMessage(e, 'Could not send the invite'), 'error');
     } finally {
       setBusy(false);
     }

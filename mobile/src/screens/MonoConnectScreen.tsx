@@ -12,6 +12,7 @@ import { useToast } from '../components/Common/Toast';
 import { Card, IconTile, InlineError, PrimaryButton, Screen, ScreenHeader, SecondaryButton } from '../components/Common/ui';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 const MONO_PUBLIC_KEY = process.env.EXPO_PUBLIC_MONO_PUBLIC_KEY ?? '';
 
@@ -117,7 +118,7 @@ export default function MonoConnectScreen() {
         if (res.imported) nav.replace('PendingTransactions');
         else goBackOrHome(nav);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Your bank was linked at Mono but we couldn’t save it. Try again.');
+        setError(errorMessage(e, 'Your bank was linked at Mono but we couldn’t save it. Try again.'));
         setPhase('failed');
       }
     }

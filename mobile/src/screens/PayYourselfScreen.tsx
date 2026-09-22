@@ -13,6 +13,7 @@ import { currencySymbol, formatShortDate, monthName } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 /**
  * A suggested safe amount to pay yourself from the business this month. BudgetFriendly doesn't move money:
@@ -41,7 +42,7 @@ export default function PayYourselfScreen() {
       setHistory(res.history);
       setAmount(moneyText(res.suggestion.suggested));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not work out a safe amount');
+      setError(errorMessage(e, 'Could not work out a safe amount'));
     }
   }, []);
 
@@ -76,7 +77,7 @@ export default function PayYourselfScreen() {
       toast.show('Done ✅ Recorded as Owner’s pay in Business and as income in Personal.', 'success', 4000);
       await load();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not record that', 'error');
+      toast.show(errorMessage(e, 'Could not record that'), 'error');
     } finally {
       setSaving(false);
     }

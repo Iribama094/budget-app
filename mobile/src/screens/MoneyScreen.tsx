@@ -16,6 +16,7 @@ import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { useT } from '../lib/i18n';
 import { afterSheetCloses } from '../lib/afterSheetCloses';
+import { errorMessage } from '../lib/errorMessage';
 
 const kindLabel = (k: string) => [...HAVE_KINDS, ...OWN_KINDS].find((x) => x.key === k)?.label.replace(/ \(.*\)$/, '') ?? k;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -53,7 +54,7 @@ export default function MoneyScreen() {
       setData(money);
       setRatesState(r);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load your money');
+      setError(errorMessage(e, 'Could not load your money'));
     } finally {
       setLoading(false);
     }

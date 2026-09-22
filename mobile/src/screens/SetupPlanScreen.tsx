@@ -31,6 +31,7 @@ import { setDailyReminder } from '../lib/notifications';
 import { currencySymbol, formatNumberInput, formatShortDate, toIsoDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 const PAIN_OPTIONS: Array<{ key: PainPoint; title: string; body: string }> = [
   { key: 'runs_out', title: 'My money runs out before payday', body: 'We’ll show what’s safe to spend each day.' },
@@ -154,7 +155,7 @@ export default function SetupPlanScreen() {
     setError(null);
     previewPlan(inputs())
       .then((p) => !cancelled && setPlan(p))
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not build your plan. Check your connection.'))
+      .catch((e) => !cancelled && setError(errorMessage(e, 'Could not build your plan. Check your connection.')))
       .finally(() => !cancelled && setPlanLoading(false));
     return () => {
       cancelled = true;
@@ -307,7 +308,7 @@ export default function SetupPlanScreen() {
       toast.show(res.sharedBudget && code ? `You’re in! ${res.sharedBudget.name.replace(/^My Budget \((.*)\)$/, '$1')} is ready 🎉` : 'Your plan is ready', 'success');
       leave();
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Could not save your plan. Check your connection and try again.';
+      const message = errorMessage(e, 'Could not save your plan. Check your connection and try again.');
       setError(message);
       // A bad code is fixed on the "who" step.
       if (code && /code/i.test(message)) go(order.indexOf('who'));

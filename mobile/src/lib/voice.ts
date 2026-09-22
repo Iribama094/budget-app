@@ -3,6 +3,7 @@ import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } fr
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { transcribeVoiceNote } from '../api/features';
+import { errorMessage } from './errorMessage';
 
 export type VoiceState = 'idle' | 'recording' | 'working';
 
@@ -28,7 +29,7 @@ export function useVoiceNote(onText: (text: string) => void) {
       recorder.record();
       setState('recording');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not start recording');
+      setError(errorMessage(e, 'Could not start recording'));
       setState('idle');
     }
   }, [recorder]);
@@ -47,7 +48,7 @@ export function useVoiceNote(onText: (text: string) => void) {
         if (text) onText(text);
         else setError('I didn’t catch that. Try again, a bit closer to the mic.');
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Could not turn that into text');
+        setError(errorMessage(e, 'Could not turn that into text'));
       } finally {
         setState('idle');
         await setAudioModeAsync({ allowsRecording: false }).catch(() => undefined);

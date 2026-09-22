@@ -39,6 +39,7 @@ import { TIER_LABEL, billTier, gapRoutes, sortBills, type BillTier } from '../li
 import { currencySymbol } from '../utils/format';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 const FREQ: Record<string, string> = { daily: 'a day', monthly: 'monthly', termly: 'a term', yearly: 'yearly', weekly: 'weekly', biweekly: 'every 2 weeks', irregular: 'varies' };
 const TIER_TONE: Record<BillTier, 'neutral' | 'brass' | 'primary'> = { must: 'neutral', reduce: 'brass', pause: 'primary' };
@@ -64,7 +65,7 @@ export default function IncomeBillsScreen() {
     try {
       setPlan(await getPlan());
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load your plan');
+      setError(errorMessage(e, 'Could not load your plan'));
     } finally {
       setLoading(false);
     }
@@ -103,7 +104,7 @@ export default function IncomeBillsScreen() {
       await load();
       toast.show('Income saved. Your plan is updated.', 'success');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not save', 'error');
+      toast.show(errorMessage(e, 'Could not save'), 'error');
     } finally {
       setSaving(false);
     }
@@ -123,7 +124,7 @@ export default function IncomeBillsScreen() {
             setEditing(null);
             await load();
           } catch (e) {
-            toast.show(e instanceof Error ? e.message : 'Could not remove', 'error');
+            toast.show(errorMessage(e, 'Could not remove'), 'error');
           }
         }
       }
@@ -135,7 +136,7 @@ export default function IncomeBillsScreen() {
       await patchMe({ budgetPeriod: basis });
       await Promise.all([refreshUser(), load()]);
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not change that', 'error');
+      toast.show(errorMessage(e, 'Could not change that'), 'error');
     }
   };
 

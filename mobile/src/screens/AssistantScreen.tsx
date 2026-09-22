@@ -19,6 +19,7 @@ import { useSpace } from '../contexts/SpaceContext';
 import { currencySymbol, formatShortDate, toIsoDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 const ASSISTANT_NAME = 'Flux';
 
@@ -66,7 +67,7 @@ export default function AssistantScreen() {
       setUnavailable(null);
     } catch (e) {
       const status = (e as { status?: number })?.status;
-      const message = e instanceof Error ? e.message : 'Flux couldn’t answer just now. Try again.';
+      const message = errorMessage(e, 'Flux couldn’t answer just now. Try again.');
       if (status === 501) setUnavailable(message);
       setMessages((m) => [...m, { id: `e${Date.now()}`, role: 'assistant', text: message, failed: true }]);
     } finally {
@@ -125,7 +126,7 @@ export default function AssistantScreen() {
       ]);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
     } catch (e) {
-      setMessages((list) => [...list, { id: `x${Date.now()}`, role: 'assistant', text: e instanceof Error ? e.message : 'Could not save that', failed: true }]);
+      setMessages((list) => [...list, { id: `x${Date.now()}`, role: 'assistant', text: errorMessage(e, 'Could not save that'), failed: true }]);
     } finally {
       setSavingId(null);
     }

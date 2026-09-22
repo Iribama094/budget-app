@@ -10,6 +10,7 @@ import { AddLine, PlainHeader, PlainList } from '../components/Common/PlainList'
 import { Sheet } from '../components/Business/parts';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 /** One role per person, each explained in a line. No grid of switches. */
 function RolePicker({ value, onChange }: { value: TeamRole; onChange: (r: TeamRole) => void }) {
@@ -58,7 +59,7 @@ export default function TeamScreen() {
       setError(null);
       setMembers((await getTeam()).members);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load your team');
+      setError(errorMessage(e, 'Could not load your team'));
     }
   }, []);
 
@@ -91,7 +92,7 @@ export default function TeamScreen() {
       await load();
       share(res.message);
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not add them', 'error');
+      toast.show(errorMessage(e, 'Could not add them'), 'error');
     } finally {
       setBusy(false);
     }
@@ -104,7 +105,7 @@ export default function TeamScreen() {
       await load();
       toast.show(`${m.name} is now ${ROLES.find((r) => r.key === next)?.label}.`, 'success');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not change that', 'error');
+      toast.show(errorMessage(e, 'Could not change that'), 'error');
     }
   };
 

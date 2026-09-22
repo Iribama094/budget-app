@@ -14,6 +14,7 @@ import { CategoryIcon } from '../Common/CategoryIcon';
 import { listTransactions, type ApiTransaction } from '../../api/endpoints';
 import { currencySymbol, toIsoDateTime } from '../../utils/format';
 import { type } from '../../theme/typography';
+import { errorMessage } from '../../lib/errorMessage';
 
 const LOOK = SPACE_LOOK.business;
 
@@ -41,7 +42,7 @@ export function TeamHome() {
       const res = await listTransactions({ start: toIsoDateTime(start), end: toIsoDateTime(new Date()), limit: 50, spaceId: 'business', type: kind } as any);
       setToday(res.items || []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load today’s entries');
+      setError(errorMessage(e, 'Could not load today’s entries'));
     }
   }, [kind]);
 

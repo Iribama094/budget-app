@@ -34,6 +34,7 @@ import { BUCKETS, bucketDisplayName, normalizeBucket, type Bucket } from '../the
 import { guessIconKey, iconForKey } from '../lib/categoryIcons';
 import { currencySymbol, formatNumberInput, formatShortDate, toIsoDate, toIsoDateTime } from '../utils/format';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 
 export function AddTransactionScreen() {
@@ -321,7 +322,7 @@ export function AddTransactionScreen() {
           // The expense above already records the Savings budget entry. This only links its goal progress.
           await addMoneyToGoal(String(selectedGoalId), { amount: parsedAmount, occurredOn: date, recordInBudget: false });
         } catch (e) {
-          toast.show(e instanceof Error ? e.message : 'Saved transaction but failed to update goal', 'error');
+          toast.show(errorMessage(e, 'Saved transaction but failed to update goal'), 'error');
         }
       }
       let streak: number | null = null;
@@ -336,7 +337,7 @@ export function AddTransactionScreen() {
       else toast.show(t(type === 'expense' ? 'Expense saved' : 'Income saved'), 'success');
       goBackOrHome(nav);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save this transaction. Check your connection and try again.');
+      setError(errorMessage(e, 'Could not save this transaction. Check your connection and try again.'));
     } finally {
       setIsSaving(false);
     }
@@ -1091,7 +1092,7 @@ export function AddTransactionScreen() {
                   setNewCatName('');
                   setShowNewCategory(false);
                 } catch (e) {
-                  toast.show(e instanceof Error ? e.message : 'Could not add that category', 'error');
+                  toast.show(errorMessage(e, 'Could not add that category'), 'error');
                 } finally {
                   setSavingCat(false);
                 }

@@ -12,6 +12,7 @@ import { createCustomer, deleteCustomer, listCustomers, updateCustomer, type Cus
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 const initials = (name: string) =>
   name
@@ -46,7 +47,7 @@ export default function CustomersScreen() {
     try {
       setItems(await listCustomers());
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load your customers');
+      setError(errorMessage(e, 'Could not load your customers'));
     } finally {
       setLoading(false);
     }
@@ -85,7 +86,7 @@ export default function CustomersScreen() {
       toast.show(editing ? 'Customer updated' : `${patch.name} saved`, 'success');
       await load();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not save that customer', 'error');
+      toast.show(errorMessage(e, 'Could not save that customer'), 'error');
     } finally {
       setSaving(false);
     }
@@ -103,7 +104,7 @@ export default function CustomersScreen() {
             toast.show(`${c.name} removed`, 'success');
             await load();
           } catch (e) {
-            toast.show(e instanceof Error ? e.message : 'Could not remove that customer', 'error');
+            toast.show(errorMessage(e, 'Could not remove that customer'), 'error');
           }
         }
       }

@@ -50,6 +50,7 @@ import { TightMonthSheet } from '../components/Budget/TightMonthSheet';
 import { BUDGET_TEMPLATES, type BudgetTemplate } from '../lib/budgetTemplates';
 import { ChoiceChip } from '../components/Plan/ChoiceChip';
 import { createMiniBudgetInSpace } from '../api/endpoints';
+import { errorMessage } from '../lib/errorMessage';
 
 /** One model for every use case: your own plan, a household budget you share every month, or a one-off event or trip. */
 const PURPOSE_OPTIONS: Array<{ value: BudgetPurpose; label: string; subtitle: string }> = [
@@ -466,7 +467,7 @@ export function BudgetScreen() {
         }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load budgets');
+      setError(errorMessage(e, 'Failed to load budgets'));
     } finally {
       setIsLoading(false);
     }
@@ -717,7 +718,7 @@ export function BudgetScreen() {
       // reload list after creation
       await load();
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Failed to save budget';
+      const message = errorMessage(e, 'Failed to save budget');
       if (/overlap an existing budget|already covers those dates/i.test(message)) {
         toast.show(purpose === 'household' ? 'You already have a shared budget for those dates.' : 'A budget already exists for that timeline.', 'error', 3500);
         return;
@@ -818,7 +819,7 @@ export function BudgetScreen() {
       setRolloverFor(null);
       await load();
     } catch (err) {
-      toast.show(err instanceof Error ? err.message : 'Could not move the money.', 'error');
+      toast.show(errorMessage(err, 'Could not move the money.'), 'error');
     } finally {
       setRollingOver(false);
     }

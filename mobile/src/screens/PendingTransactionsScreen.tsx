@@ -34,6 +34,7 @@ import { tokens } from '../theme/tokens';
 import { useSpace } from '../contexts/SpaceContext';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 function directionLabel(direction: 'debit' | 'credit') {
   return direction === 'debit' ? 'Expense (debit)' : 'Income (credit)';
@@ -145,7 +146,7 @@ export default function PendingTransactionsScreen() {
       setSelecting(false);
       await load();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not update those transactions', 'error');
+      toast.show(errorMessage(e, 'Could not update those transactions'), 'error');
     } finally {
       setBulkBusy(false);
     }
@@ -263,7 +264,7 @@ export default function PendingTransactionsScreen() {
         // ignore
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to load pending transactions';
+      const msg = errorMessage(e, 'Failed to load pending transactions');
       toast.show(msg, 'error');
     } finally {
       setLoading(false);
@@ -422,7 +423,7 @@ export default function PendingTransactionsScreen() {
             await patchGoal(String(draft.goalId), { currentAmount: next });
           }
         } catch (e) {
-          toast.show(e instanceof Error ? e.message : 'Saved transaction but failed to update goal', 'error');
+          toast.show(errorMessage(e, 'Saved transaction but failed to update goal'), 'error');
         }
       }
 
@@ -430,7 +431,7 @@ export default function PendingTransactionsScreen() {
       setReconciledThisWeek((n) => n + 1);
       toast.show(`Added to transactions as ${category}.`, 'success');
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to reconcile transaction';
+      const msg = errorMessage(e, 'Failed to reconcile transaction');
       toast.show(msg, 'error');
     } finally {
       setActingId(null);
@@ -459,7 +460,7 @@ export default function PendingTransactionsScreen() {
         }
       );
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not update that transaction', 'error');
+      toast.show(errorMessage(e, 'Could not update that transaction'), 'error');
     } finally {
       setActingId(null);
     }
@@ -486,7 +487,7 @@ export default function PendingTransactionsScreen() {
       setItems((prev) => prev.filter((t) => t.id !== id));
       toast.show('Transaction ignored. It will not affect your budgets.', 'info');
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to ignore transaction';
+      const msg = errorMessage(e, 'Failed to ignore transaction');
       toast.show(msg, 'error');
     } finally {
       setActingId(null);

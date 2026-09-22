@@ -9,6 +9,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
 import { MIN_PASSWORD, PASSWORD_HINT, passwordProblem } from '../lib/passwordRules';
+import { errorMessage } from '../lib/errorMessage';
 
 export default function ChangePasswordScreen() {
   const nav = useNavigation<any>();
@@ -33,7 +34,7 @@ export default function ChangePasswordScreen() {
       toast.show('Password updated', 'success');
       goBackOrHome(nav);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not update your password. Try again.');
+      setError(errorMessage(e, 'Could not update your password. Try again.'));
     } finally {
       setIsChanging(false);
     }

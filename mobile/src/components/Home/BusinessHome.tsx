@@ -45,6 +45,7 @@ import { GuideAnchor } from '../Common/GuideAnchor';
 import { useConfig } from '../../contexts/ConfigContext';
 import { useTeam } from '../../contexts/TeamContext';
 import { businessSetupPostponed } from '../../screens/BusinessSetupScreen';
+import { errorMessage } from '../../lib/errorMessage';
 
 const LOOK = SPACE_LOOK.business;
 
@@ -84,7 +85,7 @@ export function BusinessHome() {
         if (!(await businessSetupPostponed(user.id))) nav.navigate('BusinessSetup', { intro: true });
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load your business numbers');
+      setError(errorMessage(e, 'Could not load your business numbers'));
     } finally {
       setLoading(false);
     }

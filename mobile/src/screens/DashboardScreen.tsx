@@ -58,6 +58,7 @@ import { useConfig } from '../contexts/ConfigContext';
 import { readCache, writeCache } from '../lib/localCache';
 import { Avatar } from '../components/Common/Avatar';
 import { useHiddenIds } from '../lib/undoDelete';
+import { errorMessage } from '../lib/errorMessage';
 
 type HomeSnapshot = {
   data: AnalyticsSummary;
@@ -314,7 +315,7 @@ export function DashboardScreen() {
       const accounts = (bankLinksRes.items || []).reduce((sum, l: any) => sum + (l.accounts?.length ?? 0), 0);
       setBankSummary({ banks, accounts });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
+      setError(errorMessage(e, 'Failed to load'));
     } finally {
       setIsLoading(false);
     }

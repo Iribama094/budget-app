@@ -18,6 +18,7 @@ import { haptic } from '../lib/haptics';
 import { currencySymbol } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 const EMOJI: Record<string, string> = { stacker: '🐿️', planner: '📋', tracker: '🧾', enjoyer: '🎉', hustler: '💪', builder: '🏗️', grinder: '💼', survivor: '🙏' };
 const WHITE = '#FFFFFF';
@@ -75,7 +76,7 @@ export default function WrappedScreen() {
       .catch((e) => {
         if (cancelled) return;
         setData(null);
-        setError(e instanceof Error ? e.message : 'Could not load your Wrapped');
+        setError(errorMessage(e, 'Could not load your Wrapped'));
       })
       .finally(() => !cancelled && setLoading(false));
     return () => {

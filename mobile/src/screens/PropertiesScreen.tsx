@@ -13,6 +13,7 @@ import { DateChoice, MoneyField, Sheet, moneyText, parseMoney } from '../compone
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 const FREQ = { monthly: 'a month', quarterly: 'a quarter', yearly: 'a year' } as const;
 
@@ -39,7 +40,7 @@ export default function PropertiesScreen() {
       setItems(res.items);
       setRentThisYear(res.rentThisYear);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load your properties');
+      setError(errorMessage(e, 'Could not load your properties'));
     } finally {
       setLoading(false);
     }
@@ -79,7 +80,7 @@ export default function PropertiesScreen() {
       setOpen(null);
       await load();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not save', 'error');
+      toast.show(errorMessage(e, 'Could not save'), 'error');
     } finally {
       setBusy(false);
     }
@@ -93,7 +94,7 @@ export default function PropertiesScreen() {
       toast.show(`${formatAmount(p.rentAmount, glyph)} recorded.${next.nextDue ? ` Next due ${formatShortDate(next.nextDue)}.` : ''}`, 'success');
       await load();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not record the rent', 'error');
+      toast.show(errorMessage(e, 'Could not record the rent'), 'error');
     } finally {
       setBusy(false);
     }

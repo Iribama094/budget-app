@@ -18,6 +18,7 @@ import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 const SOURCES: Array<{ key: StatementSource; label: string; how: string }> = [
   { key: 'paystack', label: 'Paystack', how: 'In your Paystack dashboard, open Transactions and export them as CSV. Successful payments come in as sales.' },
@@ -76,7 +77,7 @@ export default function StatementImportScreen() {
       if (!parsed.recognized) setError('We couldn’t find the date and amount columns in that file. Check it’s a transactions CSV export.');
       else if (!parsed.rows.length) setError('We read the file but found no completed transactions in it.');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not open that file');
+      setError(errorMessage(e, 'Could not open that file'));
     }
   };
 
@@ -95,7 +96,7 @@ export default function StatementImportScreen() {
       setResult(totals);
       toast.show(totals.imported ? `${totals.imported} transaction${totals.imported === 1 ? '' : 's'} imported 📥` : 'Nothing new. You’d already uploaded these.', totals.imported ? 'success' : 'info');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Upload failed. Try again.');
+      setError(errorMessage(e, 'Upload failed. Try again.'));
     } finally {
       setUploading(false);
     }

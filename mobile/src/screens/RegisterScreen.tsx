@@ -10,6 +10,7 @@ import { goBackOrHome } from '../navigation/goBack';
 
 import { MIN_PASSWORD, PASSWORD_HINT, passwordProblem } from '../lib/passwordRules';
 import { savePendingInvite } from '../lib/pendingInvite';
+import { errorMessage } from '../lib/errorMessage';
 
 export function RegisterScreen() {
   const auth = useAuth();
@@ -41,7 +42,7 @@ export function RegisterScreen() {
       if (hasCode && inviteCode.trim().length >= 4) await savePendingInvite(inviteCode);
       await auth.register(normalizedEmail, password, name.trim() ? name.trim() : undefined);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong. Check your connection and try again.');
+      setError(errorMessage(e, 'Something went wrong. Check your connection and try again.'));
       setIsSubmitting(false);
     }
   };

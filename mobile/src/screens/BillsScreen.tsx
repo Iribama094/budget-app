@@ -15,6 +15,7 @@ import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 type Filter = 'open' | 'paid' | 'all';
 const CATEGORIES = ['Stock & supplies', 'Rent', 'Utilities', 'Transport & logistics', 'Marketing', 'Equipment', 'Professional fees', 'Other'];
@@ -51,7 +52,7 @@ export default function BillsScreen() {
       setItems(res.items);
       setTotals(res.totals);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load bills');
+      setError(errorMessage(e, 'Could not load bills'));
     } finally {
       setLoading(false);
     }
@@ -70,7 +71,7 @@ export default function BillsScreen() {
     try {
       await fn();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Something went wrong', 'error');
+      toast.show(errorMessage(e, 'Something went wrong'), 'error');
     } finally {
       setBusy(false);
     }

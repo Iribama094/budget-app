@@ -14,6 +14,7 @@ import { formatMoney, formatNumberInput } from '../utils/format';
 import { tokens } from '../theme/tokens';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 export default function MiniBudgetsScreen({ route }: any) {
   const nav = useNavigation<any>();
@@ -64,7 +65,7 @@ export default function MiniBudgetsScreen({ route }: any) {
       const budgeted = b?.categories?.[category]?.budgeted;
       setCategoryBudgeted(typeof budgeted === 'number' ? budgeted : null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load mini budgets');
+      setError(errorMessage(e, 'Failed to load mini budgets'));
     } finally {
       setIsLoading(false);
     }
@@ -99,7 +100,7 @@ export default function MiniBudgetsScreen({ route }: any) {
       setAmount('');
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to create mini budget');
+      setError(errorMessage(e, 'Failed to create mini budget'));
     } finally {
       setIsLoading(false);
     }

@@ -9,6 +9,7 @@ import { DateChoice, Sheet } from '../Business/parts';
 import { TIER_LABEL, billTier } from '../../lib/billPriority';
 import { formatShortDate, toIsoDate } from '../../utils/format';
 import { type } from '../../theme/typography';
+import { errorMessage } from '../../lib/errorMessage';
 
 /**
  * When money is tight: how long it lasts at this pace, what a day can cost to reach the end, which bills come
@@ -64,7 +65,7 @@ export function TightMonthSheet({
       onChanged();
       onClose();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not move the date', 'error');
+      toast.show(errorMessage(e, 'Could not move the date'), 'error');
     } finally {
       setBusy(false);
     }

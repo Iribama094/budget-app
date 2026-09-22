@@ -15,6 +15,7 @@ import { currencySymbol, formatRelativeDay } from '../utils/format';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
 import { type } from '../theme/typography';
+import { errorMessage } from '../lib/errorMessage';
 
 /** Banks this account imports from: what they hold, when they last synced, and what needs attention. */
 export default function BankConnectionsScreen() {
@@ -36,7 +37,7 @@ export default function BankConnectionsScreen() {
       const res = await listBankLinks(spacesEnabled ? { spaceId: activeSpaceId } : undefined);
       setLinks(res.items || []);
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not load your banks', 'error');
+      toast.show(errorMessage(e, 'Could not load your banks'), 'error');
     } finally {
       setLoading(false);
     }
@@ -66,7 +67,7 @@ export default function BankConnectionsScreen() {
       await load();
       if (imported) nav.navigate('PendingTransactions');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not sync this bank', 'error');
+      toast.show(errorMessage(e, 'Could not sync this bank'), 'error');
       await load();
     } finally {
       setBusyId(null);
@@ -90,7 +91,7 @@ export default function BankConnectionsScreen() {
               setLinks((prev) => prev.filter((l) => l.id !== link.id));
               toast.show(`${link.bankName} disconnected`, 'success');
             } catch (e) {
-              toast.show(e instanceof Error ? e.message : 'Could not disconnect this bank', 'error');
+              toast.show(errorMessage(e, 'Could not disconnect this bank'), 'error');
             } finally {
               setBusyId(null);
             }

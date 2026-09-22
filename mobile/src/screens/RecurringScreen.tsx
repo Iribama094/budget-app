@@ -38,6 +38,7 @@ import { getRememberedPushToken, scheduleLocalBillReminders } from '../lib/notif
 import { currencySymbol, formatNumberInput, formatShortDate, parseNumberInput, toIsoDate } from '../utils/format';
 import { fonts, type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 const FREQ_LABEL: Record<RecurringFrequency, string> = { weekly: 'Weekly', monthly: 'Monthly', termly: 'Each term', yearly: 'Yearly' };
 
@@ -150,7 +151,7 @@ export default function RecurringScreen() {
       setPots(Object.fromEntries(goals.filter((g) => g.recurringId).map((g) => [g.recurringId as string, g])));
       void syncLocalReminders(list);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load your recurring items.');
+      setError(errorMessage(e, 'Could not load your recurring items.'));
     } finally {
       setLoading(false);
     }
@@ -176,7 +177,7 @@ export default function RecurringScreen() {
       setPots((prev) => ({ ...prev, [r.id]: goal }));
       toast.show(`Savings pot started. Add to it from Goals, and it pays ${r.name} when it's due.`, 'success', 4000);
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not start the pot', 'error');
+      toast.show(errorMessage(e, 'Could not start the pot'), 'error');
     } finally {
       setStartingPot(false);
     }
@@ -232,7 +233,7 @@ export default function RecurringScreen() {
       setDraft(null);
       await load();
     } catch (e) {
-      setFormError(e instanceof Error ? e.message : 'Could not save. Try again.');
+      setFormError(errorMessage(e, 'Could not save. Try again.'));
     } finally {
       setSaving(false);
     }
@@ -252,7 +253,7 @@ export default function RecurringScreen() {
             toast.show('Schedule deleted', 'success');
             await load();
           } catch (e) {
-            setFormError(e instanceof Error ? e.message : 'Could not delete. Try again.');
+            setFormError(errorMessage(e, 'Could not delete. Try again.'));
           }
         }
       }

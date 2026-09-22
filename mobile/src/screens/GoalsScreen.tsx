@@ -16,6 +16,7 @@ import { useNudges } from '../contexts/NudgesContext';
 import { NudgeTooltip } from '../components/Common/NudgeTooltip';
 import { PendingSavingsCard } from '../components/Home/PendingSavingsCard';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
+import { errorMessage } from '../lib/errorMessage';
 
 function formatDate(iso: string) {
   try {
@@ -72,7 +73,7 @@ export function GoalsScreen() {
         setSavingsMonthlyBudget(null);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
+      setError(errorMessage(e, 'Failed to load'));
     } finally {
       setIsLoading(false);
     }

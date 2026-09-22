@@ -23,6 +23,7 @@ import { afterSheetCloses } from '../lib/afterSheetCloses';
 import { formatNumberInput } from '../utils/format';
 import { goBackOrHome } from '../navigation/goBack';
 import { fonts, type } from '../theme/typography';
+import { errorMessage } from '../lib/errorMessage';
 
 const CURRENCIES = [
   { label: 'Naira', value: '₦', hint: 'Nigeria' },
@@ -103,7 +104,7 @@ export default function ProfileEditScreen() {
       await refreshUser();
       toast.show('Saved', 'success');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save that. Check your connection and try again.');
+      setError(errorMessage(e, 'Could not save that. Check your connection and try again.'));
     } finally {
       setSaving(false);
     }
@@ -123,7 +124,7 @@ export default function ProfileEditScreen() {
         await refreshUser();
         toast.show('Photo updated', 'success');
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Could not change your photo.');
+        setError(errorMessage(e, 'Could not change your photo.'));
       } finally {
         setBusyPhoto(false);
       }
@@ -140,7 +141,7 @@ export default function ProfileEditScreen() {
       await refreshUser();
       toast.show('Photo removed', 'success');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not remove your photo.');
+      setError(errorMessage(e, 'Could not remove your photo.'));
     } finally {
       setBusyPhoto(false);
     }

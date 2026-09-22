@@ -29,6 +29,7 @@ import {
 import { goBackOrHome } from '../navigation/goBack';
 import { RefundRow } from '../components/Transactions/RefundRow';
 import { useTeam } from '../contexts/TeamContext';
+import { errorMessage } from '../lib/errorMessage';
 
 
 
@@ -132,7 +133,7 @@ export default function TransactionDetailScreen() {
       setSelectedMiniBudgetId(t.miniBudgetId ? String(t.miniBudgetId) : null);
       setIsEditing(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load transaction');
+      setError(errorMessage(e, 'Failed to load transaction'));
     } finally {
       setIsLoading(false);
     }
@@ -261,7 +262,7 @@ export default function TransactionDetailScreen() {
       setIsEditing(false);
       setDateManual(false);
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Failed to update transaction';
+      const message = errorMessage(e, 'Failed to update transaction');
       setError(message);
     } finally {
       setIsSaving(false);

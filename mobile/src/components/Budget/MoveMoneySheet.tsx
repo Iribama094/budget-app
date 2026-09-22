@@ -11,6 +11,7 @@ import { formatAmount, PrimaryButton, SecondaryButton, TextField } from '../Comm
 import { bucketDisplayName, normalizeBucket } from '../../theme/buckets';
 import { bucketColor } from '../../theme/theme';
 import { fonts, type } from '../../theme/typography';
+import { errorMessage } from '../../lib/errorMessage';
 
 type Props = {
   visible: boolean;
@@ -92,7 +93,7 @@ export function MoveMoneySheet({ visible, onClose, budget, spent, to: toProp, am
       onMoved(updated);
       onClose();
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not move that money. Try again.', 'error');
+      toast.show(errorMessage(e, 'Could not move that money. Try again.'), 'error');
     } finally {
       setSaving(false);
     }

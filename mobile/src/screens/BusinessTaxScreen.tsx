@@ -13,6 +13,7 @@ import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 const SET_ASIDE = [5, 10, 15, 20, 25, 30];
 const BUFFERS = [1, 2, 3, 6];
@@ -48,7 +49,7 @@ export default function BusinessTaxScreen() {
     try {
       apply(await getBusinessSummary());
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load your tax figures');
+      setError(errorMessage(e, 'Could not load your tax figures'));
     }
   }, []);
 
@@ -64,7 +65,7 @@ export default function BusinessTaxScreen() {
       apply(await getBusinessSummary());
       if (message) toast.show(message, 'success');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not save that', 'error');
+      toast.show(errorMessage(e, 'Could not save that'), 'error');
     }
   };
 
@@ -87,7 +88,7 @@ export default function BusinessTaxScreen() {
       apply(await getBusinessSummary());
       toast.show(filed ? 'Marked as not filed' : 'Marked as filed. We will stop reminding you.', 'success');
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not update that', 'error');
+      toast.show(errorMessage(e, 'Could not update that'), 'error');
     } finally {
       setFiling(null);
     }

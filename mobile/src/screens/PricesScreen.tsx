@@ -11,6 +11,7 @@ import { PlainHeader, PlainList } from '../components/Common/PlainList';
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 const pct = (n: number) => `${n >= 0 ? '+' : '−'}${Math.abs(Math.round(n * 100))}%`;
 
@@ -33,7 +34,7 @@ export default function PricesScreen() {
       setError(null);
       setData(await getPrices(spacesEnabled ? activeSpaceId : undefined));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not work this out');
+      setError(errorMessage(e, 'Could not work this out'));
     }
   }, [activeSpaceId, spacesEnabled]);
 

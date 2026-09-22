@@ -7,6 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { IconButton, InlineError, PrimaryButton, Screen, SecondaryButton, TextButton, TextField } from '../components/Common/ui';
 import { fonts, type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 export function LoginScreen() {
   const auth = useAuth();
@@ -56,7 +57,7 @@ export function LoginScreen() {
     try {
       await auth.login(normalizedEmail, password);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong. Check your connection and try again.');
+      setError(errorMessage(e, 'Something went wrong. Check your connection and try again.'));
       setIsSubmitting(false);
     }
   };

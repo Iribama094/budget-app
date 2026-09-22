@@ -6,6 +6,7 @@ import { useToast } from '../Common/Toast';
 import { PrimaryButton, TextButton, TextField } from '../Common/ui';
 import { formatMoney } from '../../utils/format';
 import { type } from '../../theme/typography';
+import { errorMessage } from '../../lib/errorMessage';
 
 /**
  * "Got money back?" on an expense. A refund makes the expense cost less instead of counting as income;
@@ -32,7 +33,7 @@ export function RefundRow({ tx, currency, spaceId, onDone }: { tx: ApiTransactio
       setText('');
       onDone(updated);
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not record that refund', 'error');
+      toast.show(errorMessage(e, 'Could not record that refund'), 'error');
     } finally {
       setBusy(false);
     }

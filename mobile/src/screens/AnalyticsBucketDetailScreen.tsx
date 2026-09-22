@@ -13,6 +13,7 @@ import { getAnalyticsSummary, type AnalyticsSummary } from '../api/endpoints';
 import { currencySymbol, formatShortDate } from '../utils/format';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 type RouteParams = {
   range: { start: string; end: string };
@@ -52,7 +53,7 @@ export default function AnalyticsBucketDetailScreen() {
       const summary = await getAnalyticsSummary(range.start, range.end, spacesEnabled ? { spaceId: activeSpaceId } : undefined);
       setData(summary);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load analytics');
+      setError(errorMessage(e, 'Failed to load analytics'));
     } finally {
       setIsLoading(false);
     }

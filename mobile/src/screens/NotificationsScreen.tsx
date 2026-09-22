@@ -41,6 +41,7 @@ import { formatRelativeDay } from '../utils/format';
 import { type } from '../theme/typography';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
+import { errorMessage } from '../lib/errorMessage';
 
 const KIND_ICON: Record<NotificationKind, LucideIcon> = {
   pace: TrendingUp,
@@ -116,7 +117,7 @@ export default function NotificationsScreen() {
       setUnread(res.unread);
       setHasUnreadNotifications(res.unread > 0);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load notifications.');
+      setError(errorMessage(e, 'Could not load notifications.'));
     } finally {
       setLoading(false);
     }
