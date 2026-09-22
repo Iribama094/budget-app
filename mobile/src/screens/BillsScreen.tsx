@@ -136,8 +136,8 @@ export default function BillsScreen() {
   return (
     <Screen bottomInset={48} onRefresh={load} refreshing={false}>
       <ScreenHeader
-        title="Bills"
-        subtitle="Money the business owes"
+        title="Supplier bills"
+        subtitle="What you owe the people you buy from"
         onBack={() => goBackOrHome(nav)}
         right={
           <Pressable onPress={() => setDraft(blank())} accessibilityRole="button" accessibilityLabel="Add a bill" style={({ pressed }) => [styles.newPill, { backgroundColor: theme.colors.primary, opacity: pressed ? 0.85 : 1 }]}>

@@ -141,7 +141,7 @@ export function BusinessProfile({ onLogout }: { onLogout: () => void }) {
         />
         <ListRow
           icon={bizTile(Receipt)}
-          title="Suppliers & bills"
+          title="Supplier bills"
           subtitle={s ? `${s.payables.openCount} to pay${s.payables.dueSoonCount ? ` · ${s.payables.dueSoonCount} due soon` : ''}` : 'What you owe suppliers'}
           onPress={() => nav.navigate('Bills')}
           chevron

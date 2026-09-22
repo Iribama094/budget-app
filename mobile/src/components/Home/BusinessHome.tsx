@@ -106,7 +106,7 @@ export function BusinessHome() {
   const allTools = [
     { label: 'Invoices', Icon: FileText, screen: 'Invoices', badge: s?.receivables.overdueCount },
     { label: 'Customers', Icon: Users, screen: 'Customers' },
-    { label: 'Bills', Icon: Receipt, screen: 'Bills', badge: s?.payables.dueSoonCount },
+    { label: 'Suppliers', Icon: Receipt, screen: 'Bills', badge: s?.payables.dueSoonCount },
     { label: 'Staff & pay', Icon: Users, screen: 'Payroll' },
     { label: 'Tax', Icon: Landmark, screen: 'BusinessTax' },
     { label: 'Reports', Icon: ChartColumn, screen: 'BusinessReports' },
@@ -119,7 +119,7 @@ export function BusinessHome() {
   // A business finding its feet does not need eight tools on day one. Everything is still one tap away under
   // "All tools", and the full grid takes over for good once they are actually trading.
   const settledIn = hasActivity || showAllTools;
-  const tools = settledIn ? allTools : allTools.filter((t) => t.label === 'Invoices' || t.label === 'Bills' || t.label === 'Reports');
+  const tools = settledIn ? allTools : allTools.filter((t) => t.label === 'Invoices' || t.label === 'Suppliers' || t.label === 'Reports');
 
   // What is worth doing first, in the order that makes the rest work.
   const setupSteps = s

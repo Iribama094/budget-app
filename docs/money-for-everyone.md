@@ -64,10 +64,33 @@ Your money                       ₦4.2m   (what you have + own - owe)
   - **Heads up from us:** staff can post a price alert in the console (e.g. a fuel price change). It reaches only people who spend in that category.
   - **Business:** "Your costs rose 20% but your prices didn't" when margins shrink.
 
+## Eight KISS changes
+
+Reviewed after the 22 items went in, when the question was what to take away rather than what to add. Each one
+removes something from a screen. They are numbered because the user picks them by number.
+
+| # | Change | Built |
+| --- | --- | --- |
+| 1 | One box for any code. A shared budget, a helper invite and a business code all went in different places; now Settings has one "Join with a code" that works out which it is and says so before you join. | Yes, `routes/join.ts`, `Common/JoinCodeSheet.tsx` |
+| 2 | One kind of tip, on the first visit only. Several kinds of tip, hint and coach mark compete today. | No |
+| 3 | Bank imports: one tap each. Every imported line has a tick that accepts it as shown; the row is only opened when the guess is wrong. | Yes, `PendingTransactionsScreen.tsx` |
+| 4 | Add transaction: amount, what for, Save. Everything else moves behind "More". | No |
+| 5 | Buckets plus category limits, no mini budgets. One idea for "cap this category" instead of two. | No |
+| 6 | Plain names for regular payments. "Bills" meant two things and the same screen had two names. | Yes, see below |
+| 7 | Home: three things. Safe to spend, what is coming, one thing to do. | No |
+| 8 | Insights on one page, not a stack of cards to scroll. | No |
+
+Item 6, what changed. The screen where things that repeat are set up is called **Bills** in the personal space
+and **Regular costs** in a business, matching the two Settings rows that lead to it; it used to be called
+"Recurring & bills" in one place and "Recurring costs & sales" in the other. The business screen for money owed
+to suppliers is **Supplier bills**, not "Bills", and its tool on Business home is **Suppliers**, so no two things
+share a name. `RecurringScreen` picks its title from `activeSpaceId`.
+
 ## Progress log
 
 - 21 Sep 2026: checklist written. Item 2 built.
 - 21 Sep 2026: items 1, 3 to 17 and 19 to 22 built; 18 started. Needs migration `20260921200000_money_for_everyone.sql` applied and the API deployed before the app update. The e2e suite has a "Money for everyone" section that skips until then.
+- 22 Sep 2026: KISS changes 1 and 3 built and released. KISS change 6 built: one name per thing for bills and regular costs.
 
 ## Where each item lives
 

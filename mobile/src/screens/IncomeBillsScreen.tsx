@@ -284,7 +284,7 @@ export default function IncomeBillsScreen() {
           })}
         </ListCard>
       ) : (
-        <Text style={[type.small, { color: theme.colors.textMuted }]}>No regular bills yet. Add rent, school fees or subscriptions in Recurring & bills.</Text>
+        <Text style={[type.small, { color: theme.colors.textMuted }]}>No regular bills yet. Add rent, school fees or subscriptions in Settings, Bills.</Text>
       )}
       {short ? (
         <InfoTip

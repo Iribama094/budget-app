@@ -50,7 +50,7 @@ const TOPICS: Topic[] = [
       },
       {
         q: 'How do transactions get in without typing everything?',
-        a: 'Paste a bank alert SMS (Settings › Paste a bank alert), link a bank (Settings › Linked banks), set up recurring bills and salary (Settings › Recurring & bills), or upload a statement CSV in Business. Imported items wait in Pending transactions for you to confirm.'
+        a: 'Paste a bank alert SMS (Settings › Paste a bank alert), link a bank (Settings › Linked banks), set up bills and salary (Settings › Bills), or upload a statement CSV in Business. Imported items wait in Pending transactions for you to confirm.'
       },
       {
         q: 'Does it work offline?',

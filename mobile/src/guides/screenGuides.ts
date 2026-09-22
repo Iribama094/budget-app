@@ -68,6 +68,10 @@ export const SCREEN_GUIDES: Record<string, ScreenGuide> = {
     steps: [
       { emoji: '📅', title: 'Bills and regular income', body: 'Rent, data, school fees, salary: add them once and we’ll remind you before each one is due.', anchor: 'recurring.add' },
       { emoji: '⏭️', title: 'The next 30 days', body: 'The top shows what’s coming up soon, so nothing catches you off guard.' , anchor: 'recurring.upcoming' }
+    ],
+    business: [
+      { emoji: '📅', title: 'Costs that repeat', body: 'Shop rent, subscriptions, a generator service: add one once and we’ll remind you before it is due.', anchor: 'recurring.add' },
+      { emoji: '⏭️', title: 'The next 30 days', body: 'The top shows what’s coming up soon, so nothing catches you off guard.' , anchor: 'recurring.upcoming' }
     ]
   },
   IncomeBills: {

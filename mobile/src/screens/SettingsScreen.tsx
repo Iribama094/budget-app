@@ -272,7 +272,7 @@ export default function SettingsScreen() {
               onPress={() => nav.navigate('Categories')}
               chevron
             />
-            <ListRow icon={tile(Repeat)} title="Recurring costs & sales" subtitle="Shop rent, subscriptions and regular income" onPress={() => nav.navigate('Recurring')} chevron />
+            <ListRow icon={tile(Repeat)} title="Regular costs" subtitle="Shop rent, subscriptions, anything that repeats" onPress={() => nav.navigate('Recurring')} chevron />
             {bankRow}
             <ListRow icon={tile(Upload)} title="Upload a statement" subtitle="Paystack, Moniepoint or bank CSV" onPress={() => nav.navigate('StatementImport')} chevron />
             <ListRow icon={tile(ClipboardPaste)} title="Paste a bank alert" subtitle="Turn a credit alert into a sale, or a debit into a cost" onPress={() => nav.navigate('BankAlertImport')} chevron />
@@ -296,7 +296,7 @@ export default function SettingsScreen() {
               onPress={() => nav.navigate('Categories')}
               chevron
             />
-            <ListRow icon={tile(Repeat)} title="Recurring & bills" subtitle="Rent, subscriptions, tithe and salary on autopilot" onPress={() => nav.navigate('Recurring')} chevron />
+            <ListRow icon={tile(Repeat)} title="Bills" subtitle="Rent, DSTV, school fees, salary coming in" onPress={() => nav.navigate('Recurring')} chevron />
             {bankRow}
             <ListRow icon={tile(ClipboardPaste)} title="Paste a bank alert" subtitle="Turn a debit or credit SMS into a transaction" onPress={() => nav.navigate('BankAlertImport')} chevron />
             <ListRow icon={tile(Calculator)} title="Tax" subtitle="Estimate your take-home pay and reliefs" onPress={() => nav.navigate('TaxSettings')} chevron />

@@ -103,6 +103,9 @@ export default function RecurringScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
   const { spacesEnabled, activeSpaceId } = useSpace();
+  // One screen, two names: what repeats is called Bills at home and Regular costs in a business, because
+  // that is what people already call them. Settings uses the same two names to get here.
+  const inBusiness = spacesEnabled && activeSpaceId === 'business';
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const glyph = currencySymbol(user?.currency);
@@ -304,7 +307,8 @@ export default function RecurringScreen() {
   return (
     <Screen onRefresh={load} refreshing={loading} bottomInset={48}>
       <ScreenHeader
-        title="Recurring & bills"
+        title={inBusiness ? 'Regular costs' : 'Bills'}
+        subtitle={inBusiness ? 'Shop rent, subscriptions, anything that repeats' : 'Rent, DSTV, school fees, salary coming in'}
         onBack={() => goBackOrHome(nav)}
         right={
           <GuideAnchor id="recurring.add">
