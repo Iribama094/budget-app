@@ -49,11 +49,52 @@ Vercel's Git integration builds on every push to `main`; there is no GitHub Acti
 | Vercel project | Root directory | What it serves |
 | --- | --- | --- |
 | `budgetfriendly-admin` | `admin` | The staff console, https://budgetfriendly-admin.vercel.app |
+| `budgetfriendly-waitlist` | `waitlist` (Git connection off, deploy by hand) | The waitlist site, https://budgetfriendly-waitlist.vercel.app |
 | `budget-app` | repository root | The marketing site (`src/`) |
 
 A project whose root directory is wrong will quietly build the wrong app; that happened to the console once. Check it under the project's Settings, General.
 
 The old MongoDB API (`api/`) no longer answers there, and `vercel.json` has no `crons` entry, so nothing on Vercel runs the daily job twice.
+
+## Waitlist site
+
+Lives in `waitlist/` (plain HTML, no build) and is deployed to its own Vercel project,
+`budgetfriendly-waitlist`, at https://budgetfriendly-waitlist.vercel.app.
+
+**It does not deploy itself on a push.** That project used to be connected to this repository, which meant a
+push to `main` rebuilt it from the repository root and served the old web app instead of the waitlist. The Git
+connection is off, so deploy it by hand:
+
+```bash
+cd waitlist
+npx vercel link --yes --project budgetfriendly-waitlist   # first time in a fresh checkout
+npx vercel deploy --prod --yes
+```
+
+To turn automatic deploys back on, connect the project to the repository again **and** set its Root Directory
+to `waitlist` in the Vercel dashboard, Settings, General. Root Directory is the part that was missing; the same
+mistake once made the staff console serve the marketing site.
+
+When the real domain is connected, swap the absolute links back from the Vercel address to it: the canonical
+and preview tags in each page, `robots.txt`, `sitemap.xml`, and the `WAITLIST_SITE_URL` function secret, which
+is what invite links are built from. A comment in each page says the same.
+
+## Limits and ceilings
+
+Every number lives in a function secret, so a ceiling can be raised without a release
+(`npx supabase secrets set CAP_EMAIL_DAY=500`). The console's Overview shows today's usage.
+
+| Secret | Default | What it controls |
+| --- | --- | --- |
+| `RATE_PER_MINUTE` | 240 signed in, 60 signed out | Requests a minute, per token or address |
+| `RATE_PER_HOUR` | 5000 signed in, 600 signed out | The same over an hour |
+| `CAP_ASSISTANT_DAY` | 2000 | Flux answers a day, for everybody together |
+| `CAP_VOICE_DAY` | 1000 | Voice notes transcribed a day |
+| `CAP_EMAIL_DAY` | 280 | Emails a day, inside the provider's free allowance |
+| `CAP_BANK_SYNC_DAY` | 1500 | Bank refreshes a day |
+| `TURNSTILE_SECRET` | unset | CAPTCHA on the waitlist and forgot-password. Unset means no check at all; set it with the site key in `waitlist/config.js` |
+
+Full explanation in [docs/TECHNICAL.md](docs/TECHNICAL.md).
 
 ## Features that need extra setup
 
