@@ -6,14 +6,14 @@ import { usageToday } from '../lib/limits.ts';
 import { computeWrapped, periodBounds } from '../lib/wrapped.ts';
 import type { Ctx } from '../index.ts';
 
-/** GET /v1/admin/me — who am I, and what may I change. The console calls this first. */
+/** GET /v1/admin/me: who am I, and what may I change. The console calls this first. */
 export async function adminMe(ctx: Ctx) {
   if (ctx.method !== 'GET') methodNotAllowed(['GET']);
   const admin = await requireAdmin(ctx.req);
   return json(200, { admin });
 }
 
-/** GET /v1/admin/overview — the numbers the console's first screen shows. */
+/** GET /v1/admin/overview: the numbers the console's first screen shows. */
 export async function adminOverview(ctx: Ctx) {
   if (ctx.method !== 'GET') methodNotAllowed(['GET']);
   await requireAdmin(ctx.req);
@@ -172,7 +172,7 @@ export async function adminWrapped(ctx: Ctx) {
 }
 
 /**
- * GET /v1/admin/wrapped/preview?email=&kind=&year=&space= — the story that account would see.
+ * GET /v1/admin/wrapped/preview?email=&kind=&year=&space=: the story that account would see.
  *
  * Certifying means saying the numbers are right, which cannot be done without looking at some. This is the one
  * place staff see a person's figures, it is only the Wrapped summary rather than their transactions, and every
@@ -235,7 +235,7 @@ export async function adminWrappedPreview(ctx: Ctx) {
 
 /* ------------------------------------------------------------------- audit */
 
-/** GET /v1/admin/audit — the last 200 changes, newest first. Nobody can edit or remove a line. */
+/** GET /v1/admin/audit: the last 200 changes, newest first. Nobody can edit or remove a line. */
 export async function adminAudit(ctx: Ctx) {
   if (ctx.method !== 'GET') methodNotAllowed(['GET']);
   await requireAdmin(ctx.req);
@@ -255,7 +255,7 @@ const StaffInput = z.object({
   role: z.enum(['owner', 'engineer', 'support', 'finance'])
 });
 
-/** GET/POST /v1/admin/staff, DELETE /v1/admin/staff/:id — owners only. */
+/** GET/POST /v1/admin/staff, DELETE /v1/admin/staff/:id: owners only. */
 export async function adminStaff(ctx: Ctx) {
   const id = ctx.parts[2];
 

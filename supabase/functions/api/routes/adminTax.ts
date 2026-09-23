@@ -19,7 +19,7 @@ const VersionInput = z.object({
   note: z.string().max(400).optional()
 });
 
-/** GET /v1/admin/tax-rules — what is live, what is waiting, and what the code would fall back to. */
+/** GET /v1/admin/tax-rules: what is live, what is waiting, and what the code would fall back to. */
 export async function adminTaxRules(ctx: Ctx) {
   if (ctx.method === 'GET' && !ctx.parts[2]) {
     const admin = await requireAdmin(ctx.req);

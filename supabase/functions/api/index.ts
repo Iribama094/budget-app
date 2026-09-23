@@ -110,7 +110,7 @@ function sameSecret(given: string, expected: string): boolean {
 }
 
 /**
- * GET /v1/cron/daily — called once a day by pg_cron with the shared secret.
+ * GET /v1/cron/daily: called once a day by pg_cron with the shared secret.
  * Records due recurring transactions, sends bill reminders and refreshes live bank connections.
  */
 async function cronDaily(ctx: Ctx): Promise<Response> {

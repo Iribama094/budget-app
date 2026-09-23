@@ -128,7 +128,7 @@ async function handleStub(path: string, init: RequestInit & { body?: any } = {})
       } else if (lower.includes('goal') || lower.includes('car') || lower.includes('house')) {
         reply = "For a big goal, try saving 20–30% of your income, with at least half of that going into long-term investments.";
       } else if (lower.includes('what if') && lower.includes('income')) {
-        reply = "If your income dropped by 20%, I’d first protect Essentials, then trim Free Spend and Miscellaneous, and slow down—but not stop—Investments.";
+        reply = "If your income dropped by 20%, I’d first protect Essentials, then trim Free Spend and Miscellaneous, and slow down, but not stop, Investments.";
       } else if (lower.includes('what if') && (lower.includes('invest') || lower.includes('investment'))) {
         reply = "Increasing investments by 10% is great if Essentials are covered and you still keep a small buffer for Miscellaneous and emergencies.";
       } else if (lower.includes('streak') || lower.includes('habit')) {

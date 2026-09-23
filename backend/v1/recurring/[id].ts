@@ -16,7 +16,7 @@ const PatchSchema = z
 
 /**
  * PATCH/DELETE /v1/recurring/:id
- * POST /v1/recurring/run — record everything due for the signed-in user (called on app open).
+ * POST /v1/recurring/run: record everything due for the signed-in user (called on app open).
  */
 export default async function handler(req: any, res: any) {
   const userId = await requireUserId(req, res);

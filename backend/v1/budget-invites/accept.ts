@@ -9,7 +9,7 @@ import { notifyUser } from '../../_lib/notify.js';
 
 const AcceptSchema = z.object({ code: z.string().trim().min(4).max(12) });
 
-/** POST /v1/budget-invites/accept — join a household budget with a code. */
+/** POST /v1/budget-invites/accept: join a household budget with a code. */
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return methodNotAllowed(res, ['POST']);
   const userId = await requireUserId(req, res);

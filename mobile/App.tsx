@@ -103,7 +103,7 @@ const SPLASH_MIN_MS = 700;
 function AboutScreen() {
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <Text>BudgetFriendly v1 — Smart budgeting for everyone.</Text>
+      <Text>BudgetFriendly v1. Smart budgeting for everyone.</Text>
     </View>
   );
 }

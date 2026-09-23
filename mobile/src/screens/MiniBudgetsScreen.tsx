@@ -216,7 +216,7 @@ export default function MiniBudgetsScreen({ route }: any) {
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', fontSize: 12 }}>Category budget</Text>
                   <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', marginTop: 4 }}>
-                    {categoryBudgeted != null ? formatMoney(categoryBudgeted, user?.currency ?? undefined) : '—'}
+                    {categoryBudgeted != null ? formatMoney(categoryBudgeted, user?.currency ?? undefined) : 'Not set'}
                   </Text>
                 </View>
               </View>

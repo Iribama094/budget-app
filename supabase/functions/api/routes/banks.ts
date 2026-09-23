@@ -142,7 +142,7 @@ export async function bankLinkById(ctx: Ctx) {
 
 const ExchangeSchema = z.object({ code: z.string().min(4).max(200), spaceId: z.enum(['personal', 'business']).optional() });
 
-/** POST /v1/bank-links/mono — finish Mono Connect: exchange the code, save the account, import recent transactions. */
+/** POST /v1/bank-links/mono. Finish Mono Connect: exchange the code, save the account, import recent transactions. */
 export async function monoConnect(ctx: Ctx) {
   if (ctx.method !== 'POST') methodNotAllowed(['POST']);
   const { userId } = await requireAuth(ctx.req);
@@ -188,7 +188,7 @@ export async function monoConnect(ctx: Ctx) {
   }
 }
 
-/** POST /v1/bank-links/:id/sync — import new transactions now. */
+/** POST /v1/bank-links/:id/sync: import new transactions now. */
 export async function bankSync(ctx: Ctx) {
   if (ctx.method !== 'POST') methodNotAllowed(['POST']);
   const { userId } = await requireAuth(ctx.req);
@@ -378,7 +378,7 @@ const BulkSchema = z.object({
 });
 
 /**
- * POST /v1/imported-transactions/bulk — confirm or discard many at once, which is how most people clear an
+ * POST /v1/imported-transactions/bulk: confirm or discard many at once, which is how most people clear an
  * import. Each confirmed row uses the category we suggested for it, so nothing lands as "Uncategorized"
  * that we could have named.
  */

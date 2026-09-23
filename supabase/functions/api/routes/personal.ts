@@ -102,7 +102,7 @@ export async function incomeSourceById(ctx: Ctx) {
 
 /* ------------------------------------------------------------------ plan */
 
-/** GET /v1/plan — the saved plan with today's pay period. */
+/** GET /v1/plan: the saved plan with today's pay period. */
 export async function getPlan(ctx: Ctx) {
   if (ctx.method !== 'GET') methodNotAllowed(['GET']);
   const { userId } = await requireAuth(ctx.req);
@@ -116,7 +116,7 @@ const PreviewSchema = z.object({
   budgetPeriod: z.enum(['payday', 'monthly']).default('payday')
 });
 
-/** POST /v1/plan/preview — what a plan would look like, without saving anything. */
+/** POST /v1/plan/preview: what a plan would look like, without saving anything. */
 export async function planPreview(ctx: Ctx) {
   if (ctx.method !== 'POST') methodNotAllowed(['POST']);
   const { userId, email } = await requireAuth(ctx.req);
@@ -157,7 +157,7 @@ const CompleteSchema = z.object({
 });
 
 /**
- * POST /v1/onboarding/complete — saves the answers from the first-run plan: income sources, bills (as bill
+ * POST /v1/onboarding/complete. Saves the answers from the first-run plan: income sources, bills (as bill
  * reminders), what the person wants help with, and creates their first Needs / Wants / Savings budget.
  */
 export async function onboardingComplete(ctx: Ctx) {
@@ -302,7 +302,7 @@ export async function categoriesIndex(ctx: Ctx) {
   return json(200, { items: items.map(toApiCategory) });
 }
 
-/** PATCH/DELETE /v1/categories/:id — renaming also updates past transactions and bills that used the old name. */
+/** PATCH/DELETE /v1/categories/:id: renaming also updates past transactions and bills that used the old name. */
 export async function categoryById(ctx: Ctx) {
   if (ctx.method !== 'PATCH' && ctx.method !== 'DELETE') methodNotAllowed(['PATCH', 'DELETE']);
   const { userId } = await requireAuth(ctx.req);

@@ -152,7 +152,7 @@ export async function invoicesIndex(ctx: Ctx) {
   });
 }
 
-/** GET/PATCH/DELETE /v1/invoices/:id — once money has been received, only the due date and notes can change. */
+/** GET/PATCH/DELETE /v1/invoices/:id: once money has been received, only the due date and notes can change. */
 export async function invoiceById(ctx: Ctx) {
   if (!['GET', 'PATCH', 'DELETE'].includes(ctx.method)) methodNotAllowed(['GET', 'PATCH', 'DELETE']);
   const { userId } = await requireAuth(ctx.req);
@@ -404,7 +404,7 @@ async function countryOf(userId: string): Promise<string> {
 /** Business staff by default; ?spaceId=personal is household staff (a driver, a nanny, a cook). */
 const staffSpace = (ctx: Ctx) => (spaceParam(ctx.query.get('spaceId')) === 'personal' ? 'personal' : 'business');
 
-/** GET /v1/payroll — staff with PAYE estimates, recent pay runs. POST /v1/staff adds someone. */
+/** GET /v1/payroll: staff with PAYE estimates, recent pay runs. POST /v1/staff adds someone. */
 export async function payrollIndex(ctx: Ctx) {
   if (ctx.method !== 'GET') methodNotAllowed(['GET']);
   const { userId } = await requireAuth(ctx.req);
@@ -482,7 +482,7 @@ const RunSchema = z.object({
 });
 
 /**
- * POST /v1/payroll/runs — records a month's pay: each person's take-home pay as a Payroll cost, and the PAYE
+ * POST /v1/payroll/runs. Records a month's pay: each person's take-home pay as a Payroll cost, and the PAYE
  * withheld as a bill to remit by the 10th of the next month.
  */
 export async function payrollRun(ctx: Ctx) {
@@ -591,7 +591,7 @@ export async function payYourself(ctx: Ctx) {
 
 /* ------------------------------------------------------------------ reports */
 
-/** GET /v1/business/report?from=&to= — profit and loss, cash flow and what's owed, for a lender-ready PDF. */
+/** GET /v1/business/report?from=&to=: profit and loss, cash flow and what's owed, for a lender-ready PDF. */
 export async function businessReport(ctx: Ctx) {
   if (ctx.method !== 'GET') methodNotAllowed(['GET']);
   const { userId } = await requireAuth(ctx.req);
@@ -686,7 +686,7 @@ async function hashText(text: string): Promise<string> {
 }
 
 /**
- * POST /v1/imports/statement — rows parsed on the phone from a Paystack, Moniepoint or bank CSV. They land in
+ * POST /v1/imports/statement: rows parsed on the phone from a Paystack, Moniepoint or bank CSV. They land in
  * the review queue (Pending transactions); re-uploading the same file adds nothing twice.
  */
 export async function statementImport(ctx: Ctx) {

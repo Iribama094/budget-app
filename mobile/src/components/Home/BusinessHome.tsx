@@ -270,7 +270,7 @@ export function BusinessHome() {
               }
             >
               <Text style={[type.title, { color: s.runwayMonths != null && s.runwayMonths < 2 ? theme.colors.error : theme.colors.text }]}>
-                {s.runwayMonths == null ? '—' : s.runwayMonths >= 12 ? '12+ months' : `${Math.max(0, s.runwayMonths).toFixed(1)} months`}
+                {s.runwayMonths == null ? 'Not yet' : s.runwayMonths >= 12 ? '12+ months' : `${Math.max(0, s.runwayMonths).toFixed(1)} months`}
               </Text>
               <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>
                 {s.runwayMonths == null ? 'Log a month of costs to see this' : `At about ${hide ? '••••' : formatAmount(s.avgMonthlyCosts, glyph)} costs a month`}

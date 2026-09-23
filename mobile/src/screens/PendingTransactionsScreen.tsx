@@ -908,14 +908,14 @@ export default function PendingTransactionsScreen() {
                   {draft.step > 1 ? (
                     <View style={{ paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.border }}>
                       <Text style={{ color: theme.colors.textMuted, fontSize: 12 }} numberOfLines={1}>
-                        Category: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{draft.category || '—'}</Text>
+                        Category: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{draft.category || 'Not set'}</Text>
                       </Text>
                     </View>
                   ) : null}
                   {draft.step > 2 ? (
                     <View style={{ paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.border }}>
                       <Text style={{ color: theme.colors.textMuted, fontSize: 12 }} numberOfLines={1}>
-                        Budget: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{(budgetOptions.find((b) => b.id === draft.budgetId)?.name ?? '—')}</Text>
+                        Budget: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{(budgetOptions.find((b) => b.id === draft.budgetId)?.name ?? 'Not set')}</Text>
                       </Text>
                     </View>
                   ) : null}
@@ -929,7 +929,7 @@ export default function PendingTransactionsScreen() {
                   {draft.step > 4 ? (
                     <View style={{ paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.border }}>
                       <Text style={{ color: theme.colors.textMuted, fontSize: 12 }} numberOfLines={1}>
-                        Mini budget: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{draft.miniBudgetId ? (miniBudgetsForDraft.find((m) => m.id === draft.miniBudgetId)?.name ?? '—') : 'NIL'}</Text>
+                        Mini budget: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{draft.miniBudgetId ? (miniBudgetsForDraft.find((m) => m.id === draft.miniBudgetId)?.name ?? 'Not set') : 'NIL'}</Text>
                       </Text>
                     </View>
                   ) : null}
@@ -937,7 +937,7 @@ export default function PendingTransactionsScreen() {
                   {draft.step > 5 && draft.budgetCategory === 'Savings' ? (
                     <View style={{ paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.border }}>
                       <Text style={{ color: theme.colors.textMuted, fontSize: 12 }} numberOfLines={1}>
-                        Goal: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{draft.goalId ? (goals.find((g) => String(g.id) === String(draft.goalId))?.name ?? '—') : 'None'}</Text>
+                        Goal: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{draft.goalId ? (goals.find((g) => String(g.id) === String(draft.goalId))?.name ?? 'Not set') : 'None'}</Text>
                       </Text>
                     </View>
                   ) : null}

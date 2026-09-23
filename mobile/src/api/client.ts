@@ -366,7 +366,7 @@ export async function apiFetch(path: string, init?: RequestInit & { skipAuth?: b
         } else if (lower.includes('remind') || lower.includes('reminder')) {
           reply = "Use your calendar or reminders app for exact dates, and think of this app as the place you reconcile what actually happened.";
         } else if (lower.includes('what if') && lower.includes('income')) {
-          reply = "If income drops, protect Essentials, trim Free Spend + Misc, and slow—but don’t stop—Savings and Investments.";
+          reply = "If income drops, protect Essentials, trim Free Spend + Misc, and slow, but don’t stop, Savings and Investments.";
         } else if (lower.includes('goal') || lower.includes('car') || lower.includes('house')) {
           reply = "Big goals work best when at least 20% of income consistently flows into Savings + Investments.";
         }

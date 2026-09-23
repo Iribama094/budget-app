@@ -45,7 +45,7 @@ export function TourWelcomeModal({
           <View style={{ marginTop: 12, gap: 8 }}>
             {[
               'Works for Personal and Business spaces',
-              'No pressure — you can skip anytime',
+              'No pressure, you can skip anytime',
               'Takes about 30 seconds'
             ].map((t) => (
               <View key={t} style={{ flexDirection: 'row', alignItems: 'center' }}>

@@ -150,7 +150,7 @@ export async function usersMe(ctx: Ctx) {
 const ForgotSchema = z.object({ email: z.string().email(), captcha: z.string().max(3000).optional() });
 
 /**
- * POST /v1/auth/forgot-password — emails a 6-digit reset code. The app confirms it with Supabase Auth
+ * POST /v1/auth/forgot-password: emails a 6-digit reset code. The app confirms it with Supabase Auth
  * (verifyOtp, type "recovery") and then sets the new password. Always answers the same way, so it
  * can't be used to discover accounts.
  */
@@ -183,7 +183,7 @@ export async function forgotPassword(ctx: Ctx) {
 
 const ChangePasswordSchema = z.object({ oldPassword: z.string().min(1), newPassword: z.string().min(8) });
 
-/** POST /v1/auth/change-password — checks the current password before setting a new one. */
+/** POST /v1/auth/change-password: checks the current password before setting a new one. */
 export async function changePassword(ctx: Ctx) {
   if (ctx.method !== 'POST') methodNotAllowed(['POST']);
   const auth = await requireAuth(ctx.req);

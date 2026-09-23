@@ -70,7 +70,7 @@ export function pickQuote(themes: QuoteTheme[], seed: string, from: Quote[] = QU
   return weighted[hash(seed) % weighted.length];
 }
 
-export const quoteLine = (q: Quote) => `“${q.text}” — ${q.author}`;
+export const quoteLine = (q: Quote) => `“${q.text}” ${q.author}`;
 
 let cached: { at: number; list: Quote[] } | null = null;
 

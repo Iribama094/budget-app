@@ -5,7 +5,7 @@ import { requireUserId } from '../../_lib/user.js';
 import { MonoError, monoConfigured } from '../../_lib/mono.js';
 import { syncBankLink } from '../../_lib/bankSync.js';
 
-/** POST /v1/bank-links/:id/sync — import new transactions now. */
+/** POST /v1/bank-links/:id/sync: import new transactions now. */
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return methodNotAllowed(res, ['POST']);
   const userId = await requireUserId(req, res);

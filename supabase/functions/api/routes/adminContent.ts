@@ -37,7 +37,7 @@ const BlockInput = z.object({
   enabled: z.boolean().optional()
 });
 
-/** GET /v1/admin/content?kind=quote — everything the console can edit, newest change first. */
+/** GET /v1/admin/content?kind=quote: everything the console can edit, newest change first. */
 export async function adminContent(ctx: Ctx) {
   const key = ctx.parts[2];
 
@@ -99,7 +99,7 @@ export async function adminContent(ctx: Ctx) {
 }
 
 /**
- * POST /v1/admin/content/seed-quotes — copies the quotes that ship in the code into the database, once, so
+ * POST /v1/admin/content/seed-quotes: copies the quotes that ship in the code into the database, once, so
  * they can be edited without a release. Existing rows are left alone.
  */
 export async function adminSeedQuotes(ctx: Ctx) {

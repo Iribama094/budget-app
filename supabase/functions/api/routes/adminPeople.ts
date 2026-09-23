@@ -15,7 +15,7 @@ import type { Ctx } from '../index.ts';
  */
 
 /**
- * GET /v1/admin/people?q= — their email, the start of it, their name, or their account id.
+ * GET /v1/admin/people?q=: their email, the start of it, their name, or their account id.
  *
  * Somebody writing in says "it's Amaka" and spells their address wrong, so a name has to work. Three letters
  * minimum and twenty results at most, which keeps this looking somebody up rather than reading the list.
@@ -45,7 +45,7 @@ export async function adminPeople(ctx: Ctx) {
   return json(200, { items, searched: q });
 }
 
-/** GET /v1/admin/people/:id — how the account is set up, and why it might be behaving oddly. */
+/** GET /v1/admin/people/:id: how the account is set up, and why it might be behaving oddly. */
 export async function adminPerson(ctx: Ctx) {
   if (ctx.method !== 'GET') methodNotAllowed(['GET']);
   const admin = await requireAdmin(ctx.req, 'people');
@@ -94,7 +94,7 @@ export async function adminPerson(ctx: Ctx) {
 const ActionInput = z.object({ action: z.enum(['send-password-reset', 'sign-out-devices']) });
 
 /**
- * POST /v1/admin/people/:id/action — the few things staff may do for somebody.
+ * POST /v1/admin/people/:id/action: the few things staff may do for somebody.
  *
  * Neither reveals anything: a reset sends a code to their own email, and signing out devices only ends
  * sessions. There is no "sign in as them", because reading someone's money to fix a bug is not a trade this

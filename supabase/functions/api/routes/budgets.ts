@@ -109,7 +109,7 @@ export async function budgetsIndex(ctx: Ctx) {
   return json(200, { items: items.map((b) => toApiBudget(b, userId)) });
 }
 
-/** GET/PATCH/DELETE /v1/budgets/:id — members can read a shared budget; only the owner can change or delete it. */
+/** GET/PATCH/DELETE /v1/budgets/:id: members can read a shared budget; only the owner can change or delete it. */
 export async function budgetById(ctx: Ctx) {
   if (!['GET', 'PATCH', 'DELETE'].includes(ctx.method)) methodNotAllowed(['GET', 'PATCH', 'DELETE']);
   const { userId } = await requireAuth(ctx.req);
@@ -194,7 +194,7 @@ function periodLabel(start: string, end: string): string {
 }
 
 /**
- * POST /v1/budgets/:id/next — start the next period with the same plan, and for a shared budget the same people.
+ * POST /v1/budgets/:id/next: start the next period with the same plan, and for a shared budget the same people.
  * Owner only. If the next one already exists it is returned instead of creating another.
  */
 export async function nextPeriod(ctx: Ctx) {
@@ -318,7 +318,7 @@ async function unspentByBucket(b: BudgetRow) {
 const diffIsoDays = (from: string, to: string) => Math.round((parseIsoDateUtcNoon(to).getTime() - parseIsoDateUtcNoon(from).getTime()) / 86400000);
 
 /**
- * GET /v1/budgets/:id/pace — what's safe to spend each day for the rest of this budget. Money still meant for
+ * GET /v1/budgets/:id/pace: what's safe to spend each day for the rest of this budget. Money still meant for
  * Savings, and bills due before the budget ends, are held back so the daily figure is money that's truly free.
  */
 export async function budgetPace(ctx: Ctx) {
@@ -573,7 +573,7 @@ export async function joinBudgetWithCode(userId: string, rawCode: string): Promi
 
 const AcceptSchema = z.object({ code: z.string().trim().min(4).max(12) });
 
-/** POST /v1/budget-invites/accept — join a household budget with a code. */
+/** POST /v1/budget-invites/accept: join a household budget with a code. */
 export async function acceptInvite(ctx: Ctx) {
   if (ctx.method !== 'POST') methodNotAllowed(['POST']);
   const { userId } = await requireAuth(ctx.req);

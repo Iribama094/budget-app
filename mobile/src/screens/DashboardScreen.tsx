@@ -458,7 +458,7 @@ export function DashboardScreen() {
     const entries = Object.entries(byCat)
       .filter(([, v]) => Number(v) > 0)
       .sort((a, b) => Number(b[1]) - Number(a[1]));
-    if (entries.length === 0) return 'No spending yet — add a transaction to unlock insights.';
+    if (entries.length === 0) return 'No spending yet. Add a transaction to unlock insights.';
     const [topCat, topAmt] = entries[0];
     return `Biggest spend ${summaryLabelLower}: ${topCat} (${showAmounts ? formatMoney(Number(topAmt) || 0, currency) : '••••'}).`;
   }, [currency, currentBudget, currentBudgetTopSpend, data?.spendingByCategory, showAmounts, summaryLabelLower]);

@@ -97,7 +97,7 @@ export default function AnalyticsWeeklyDetailScreen() {
               <View key={d.date} style={{ paddingVertical: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <Text numberOfLines={1} style={[type.bodyStrong, { color: theme.colors.text, flex: 1 }]}>
-                    {d.date ? formatShortDate(d.date) : '—'}
+                    {d.date ? formatShortDate(d.date) : 'No date'}
                     {isPeak ? '  🔥' : ''}
                   </Text>
                   <Amount value={d.expenses} currency={glyph} size="sm" hidden={!showAmounts} />

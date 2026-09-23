@@ -120,7 +120,7 @@ const AddMoneySchema = z.object({
   clientId: z.string().min(8).max(100).optional()
 });
 
-/** POST /v1/goals/:id/contributions — "I put money toward this goal", recorded as a Savings entry too. */
+/** POST /v1/goals/:id/contributions: "I put money toward this goal", recorded as a Savings entry too. */
 export async function goalAddMoney(ctx: Ctx) {
   if (ctx.method !== 'POST') methodNotAllowed(['POST']);
   const { userId } = await requireAuth(ctx.req);

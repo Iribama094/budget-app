@@ -77,7 +77,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
                     {item.label}
                   </motion.span>
 
-                  {/* no circular background — only icon + label change color when active */}
+                  {/* no circular background, only icon + label change color when active */}
                 </motion.button>
               );
             })}

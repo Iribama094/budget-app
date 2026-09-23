@@ -10,7 +10,7 @@ import { enforceRateLimit } from '../lib/rateLimit.ts';
 import { enforceBurst, enforceQuota, requireDailyCap } from '../lib/limits.ts';
 import type { Ctx } from '../index.ts';
 
-/** GET /v1/insights?spaceId= — personal suggestions learned from the person's own data. */
+/** GET /v1/insights?spaceId=: personal suggestions learned from the person's own data. */
 export async function insightsIndex(ctx: Ctx) {
   if (ctx.method !== 'GET') methodNotAllowed(['GET']);
   const { userId } = await requireAuth(ctx.req);
@@ -18,7 +18,7 @@ export async function insightsIndex(ctx: Ctx) {
   return json(200, { items, generatedAt: new Date().toISOString() });
 }
 
-/** POST /v1/insights/:key/dismiss — hides that suggestion for two weeks. */
+/** POST /v1/insights/:key/dismiss: hides that suggestion for two weeks. */
 export async function insightDismiss(ctx: Ctx) {
   if (ctx.method !== 'POST') methodNotAllowed(['POST']);
   const { userId } = await requireAuth(ctx.req);
@@ -39,7 +39,7 @@ const ChatSchema = z.object({
     .default([])
 });
 
-/** POST /v1/assistant/chat — ask Flux, the AI money coach. */
+/** POST /v1/assistant/chat: ask Flux, the AI money coach. */
 export async function assistantChat(ctx: Ctx) {
   if (ctx.method !== 'POST') methodNotAllowed(['POST']);
   const { userId } = await requireAuth(ctx.req);

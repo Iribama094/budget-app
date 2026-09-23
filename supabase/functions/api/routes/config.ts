@@ -4,7 +4,7 @@ import { inRollout, isStaff, listFlags, openWrappedPeriods } from '../lib/admin.
 import type { Ctx } from '../index.ts';
 
 /**
- * GET /v1/config — what this person's app should show right now.
+ * GET /v1/config: what this person's app should show right now.
  *
  * The phone asks on open and every ten minutes, so switching something off in the console reaches everyone
  * within a minute without an app update. Staff decisions live here; nothing about the person's money does.

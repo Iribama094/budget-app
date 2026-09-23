@@ -489,7 +489,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                           }
                         }}>
                           <option value="">-- Select budget (required) --</option>
-                          {budgets.map(b => <option key={b.id} value={b.id}>{b.name} — {new Date(b.startDate).toLocaleDateString()}</option>)}
+                          {budgets.map(b => <option key={b.id} value={b.id}>{b.name}, {new Date(b.startDate).toLocaleDateString()}</option>)}
                         </select>
                       </div>
                       {errors.budget && (

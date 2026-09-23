@@ -8,7 +8,7 @@ export default function AccountScreen() {
   const nav = useNavigation<any>();
 
   useEffect(() => {
-    // Redirect to Profile directly — the list view was removed per design
+    // Redirect to Profile directly: the list view was removed per design
     nav.navigate('Profile');
   }, [nav]);
 

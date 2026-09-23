@@ -50,7 +50,7 @@ async function transcribe(base64: string, mimeType: string, language: string): P
   return String(out?.text ?? '').trim();
 }
 
-/** POST /v1/voice/transcribe — a short voice note becomes text, for Flux and for logging a transaction by voice. */
+/** POST /v1/voice/transcribe: a short voice note becomes text, for Flux and for logging a transaction by voice. */
 export async function voiceTranscribe(ctx: Ctx) {
   if (ctx.method !== 'POST') methodNotAllowed(['POST']);
   const { userId } = await requireAuth(ctx.req);

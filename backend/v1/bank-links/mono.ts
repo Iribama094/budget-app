@@ -12,7 +12,7 @@ const ExchangeSchema = z.object({
   spaceId: z.enum(['personal', 'business']).optional()
 });
 
-/** POST /v1/bank-links/mono — finish Mono Connect: exchange the code, save the account, import recent transactions. */
+/** POST /v1/bank-links/mono. Finish Mono Connect: exchange the code, save the account, import recent transactions. */
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return methodNotAllowed(res, ['POST']);
   const userId = await requireUserId(req, res);

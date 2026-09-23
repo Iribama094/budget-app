@@ -9,7 +9,7 @@ import { monoConfigured } from '../../_lib/mono.js';
 const HOUR_MS = 60 * 60 * 1000;
 
 /**
- * GET /v1/cron/daily — scheduled by vercel.json. Vercel sends `Authorization: Bearer $CRON_SECRET`.
+ * GET /v1/cron/daily. Scheduled by vercel.json. Vercel sends `Authorization: Bearer $CRON_SECRET`.
  * Records due recurring transactions, sends bill reminders and refreshes live bank connections.
  * The weekly check-in reminder is scheduled on each phone, in its own time zone.
  */

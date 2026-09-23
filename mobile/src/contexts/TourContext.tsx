@@ -103,7 +103,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
         s.push({
           id: 'dashboard.addTx',
           title: 'Add your first transaction',
-          body: 'Log spending manually (or after bank import). Everything else—budgets and insights—builds from your transactions.',
+          body: 'Log spending manually (or after bank import). Everything else, budgets and insights, builds from your transactions.',
           anchorId: 'dashboard.addTx',
           screen: { name: 'Main', params: { screen: 'Dashboard' } },
           primaryLabel: 'Next'

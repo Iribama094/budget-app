@@ -234,7 +234,7 @@ export type RateLimitDoc = {
 };
 
 export type AlertLogDoc = {
-  /** userId:dedupeKey — an insert conflict means the alert was already sent. */
+  /** userId:dedupeKey: an insert conflict means the alert was already sent. */
   _id: string;
   userId: string;
   createdAt: Date;

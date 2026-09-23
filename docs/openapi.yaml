@@ -254,7 +254,7 @@ paths:
   /v1/cron/daily:
     get:
       tags: [Jobs]
-      summary: Vercel Cron job — recurring transactions, bill reminders, bank sync. Requires Authorization Bearer CRON_SECRET.
+      summary: Vercel Cron job: recurring transactions, bill reminders, bank sync. Requires Authorization Bearer CRON_SECRET.
       security: []
       responses:
         '200': { description: OK }
@@ -341,7 +341,7 @@ paths:
   /v1/bank-links/mono:
     post:
       tags: [Bank links]
-      summary: Finish Mono Connect — exchange the code, save the account, import the last 90 days for review
+      summary: Finish Mono Connect: exchange the code, save the account, import the last 90 days for review
       responses:
         '201': { description: Connected }
         '501': { description: MONO_SECRET_KEY not configured }

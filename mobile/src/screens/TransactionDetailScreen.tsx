@@ -315,7 +315,7 @@ export default function TransactionDetailScreen() {
             {!isEditing ? (
               <View style={{ marginTop: 10, gap: 8 }}>
                 <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Type: <Text style={{ color: theme.colors.text }}>{type === 'expense' ? 'Expense' : 'Income'}</Text></Text>
-                <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Category: <Text style={{ color: theme.colors.text }}>{resolvedCategory || '—'}</Text></Text>
+                <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Category: <Text style={{ color: theme.colors.text }}>{resolvedCategory || 'Not set'}</Text></Text>
                 <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Date: <Text style={{ color: theme.colors.text }}>{date}</Text></Text>
                 <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Budget: <Text style={{ color: theme.colors.text }}>{selectedBudgetId ? (budgets.find((b) => String(b.id) === String(selectedBudgetId))?.name ?? 'Selected') : 'None'}</Text></Text>
                 {selectedBudgetId ? (
