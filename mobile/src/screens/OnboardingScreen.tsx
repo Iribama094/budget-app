@@ -52,9 +52,15 @@ const INK = '#0D2B26';
 const INK_2 = '#134A41';
 const ON_INK = '#EAF4F1';
 
-// How far down the screen the picture reaches. The green has taken it over well before this line, so the
-// number is where the photo stops being drawn, not where the eye sees it end.
-const PHOTO = 0.62;
+/**
+ * How tall the picture is, driven by the width rather than the height of the screen.
+ *
+ * These photos are landscape, roughly 3:2. Sizing them by screen height made a tall portrait window that a
+ * landscape photo can only fill by being blown up and cropped to its middle, which is why the first version
+ * looked zoomed in. At about three quarters of the width the whole subject is in frame on every phone.
+ */
+const photoHeight = (width: number, height: number) =>
+  Math.round(Math.min(Math.max(width * 0.74, height * 0.3), height * 0.46));
 
 /**
  * First screens after the splash. Each slide's photo is the whole screen behind the words, and the green the
@@ -67,7 +73,9 @@ export function OnboardingScreen({ onDone, onContinueToAuth }: Props) {
   const scrollX = useRef(new Animated.Value(0)).current;
   const textAnim = useRef(new Animated.Value(1)).current;
   const isLast = index === SLIDES.length - 1;
-  const photoH = Math.round(height * PHOTO);
+  const photoH = photoHeight(width, height);
+  // Where the picture stops, as a fraction of the screen, so the flat green behind it ends on the same line.
+  const photoStop = photoH / height;
 
   useEffect(() => {
     textAnim.setValue(0);
@@ -87,7 +95,7 @@ export function OnboardingScreen({ onDone, onContinueToAuth }: Props) {
     <View style={styles.fill}>
       {/* The green the whole screen is painted in. It is still flat INK where the photo fades out, so the two
           meet on the same colour and there is no seam to find. */}
-      <LinearGradient colors={[INK, INK, INK_2]} locations={[0, PHOTO, 1]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[INK, INK, INK_2]} locations={[0, photoStop, 1]} style={StyleSheet.absoluteFill} />
 
       <View pointerEvents="none" style={[styles.backdrop, { height: photoH }]}>
         {/* One photo per slide, cross fading with the swipe rather than sliding with it, so the backdrop feels
