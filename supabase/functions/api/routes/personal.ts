@@ -263,6 +263,8 @@ const CategoryPatchSchema = z
     bucket: BucketSchema.nullable().optional(),
     icon: z.string().trim().min(1).max(24).optional(),
     hidden: z.boolean().optional(),
+    /** A monthly cap on this category. Null clears it. */
+    monthlyLimit: z.number().finite().nonnegative().max(1e9).nullable().optional(),
     /** With a bucket change: also move this period's spending in the category, so the buckets add up. */
     moveThisPeriod: z.boolean().optional()
   })
@@ -324,7 +326,8 @@ export async function categoryById(ctx: Ctx) {
         name = ${name},
         bucket = ${existing.type === 'expense' ? (patch.bucket !== undefined ? patch.bucket : existing.bucket) : null},
         icon = ${patch.icon ?? existing.icon},
-        hidden = ${patch.hidden ?? existing.hidden}
+        hidden = ${patch.hidden ?? existing.hidden},
+        monthly_limit = ${patch.monthlyLimit !== undefined ? patch.monthlyLimit : existing.monthlyLimit}
       where id = ${id} and user_id = ${userId}
       returning *
     `;

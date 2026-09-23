@@ -75,7 +75,7 @@ removes something from a screen. They are numbered because the user picks them b
 | 2 | One kind of tip, on the first visit only. Several kinds of tip, hint and coach mark compete today. | No |
 | 3 | Bank imports: one tap each. Every imported line has a tick that accepts it as shown; the row is only opened when the guess is wrong. | Yes, `PendingTransactionsScreen.tsx` |
 | 4 | Add transaction: amount, what for, Save. Everything else moves behind "More". | No |
-| 5 | Buckets plus category limits, no mini budgets. One idea for "cap this category" instead of two. | No |
+| 5 | Buckets plus category limits, no mini budgets. One idea for "cap this category" instead of two. | Yes |
 | 6 | Plain names for regular payments. "Bills" meant two things and the same screen had two names. | Yes, see below |
 | 7 | Home: three things. Safe to spend, what is coming, one thing to do. | No |
 | 8 | Insights on one page, not a stack of cards to scroll. | No |
@@ -103,8 +103,8 @@ share a name. `RecurringScreen` picks its title from `activeSpaceId`.
 | 8 Steady pay | `goals.kind = 'buffer'`, `direction: 'out'` payouts, insights | Income & payday > Steady pay, goal "Pay yourself" |
 | 9 Tight month | budget `endDate` patch, `/budgets/:id/pace` | Budget: "Money tight?" sheet, "My pay is late" |
 | 10 Ajo | `recurring.payout_*`, payout reminder | Bill editor: "It's an ajo or esusu" |
-| 11 Family support | monthly insight | Existing category, mini budget as the limit |
-| 12, 21 Templates | mini budgets | New budget: Wedding, Burial, Building, Moving abroad, Pocket money |
+| 11 Family support | monthly insight | Existing category, with a monthly limit on it |
+| 12, 21 Templates | the budget's own stages | New budget: Wedding, Burial, Building, Moving abroad, Pocket money |
 | 15 Household staff | `staff.space_id`, no PAYE at home | Profile > Household staff |
 | 16 Helpers | `delegates`, checked in `requireAuth` for every request | Profile > People who help, banner while helping |
 | 17 Landlords | `routes/people.ts` properties, rent reminders | Business profile > Properties |

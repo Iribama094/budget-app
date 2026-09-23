@@ -16,6 +16,8 @@ export type ApiCategory = {
   isDefault: boolean;
   hidden: boolean;
   sortOrder: number;
+  /** A monthly cap on this category, or null for no limit. */
+  monthlyLimit: number | null;
 };
 
 export async function listCategories(spaceId: SpaceId): Promise<ApiCategory[]> {
@@ -27,7 +29,7 @@ export async function createCategory(input: { name: string; type: 'income' | 'ex
   return (await apiFetch('/v1/categories', { method: 'POST', body: JSON.stringify(input) })).category as ApiCategory;
 }
 
-export type CategoryPatch = Partial<Pick<ApiCategory, 'name' | 'bucket' | 'icon' | 'hidden'>> & {
+export type CategoryPatch = Partial<Pick<ApiCategory, 'name' | 'bucket' | 'icon' | 'hidden' | 'monthlyLimit'>> & {
   /** With a bucket change: also move this period's spending in the category to the new bucket. */
   moveThisPeriod?: boolean;
 };

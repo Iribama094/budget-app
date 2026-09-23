@@ -19,8 +19,6 @@ import {
   getTransaction,
   getTransactionInSpace,
   listBudgets,
-  listMiniBudgets,
-  listMiniBudgetsInSpace,
   patchTransaction,
   patchTransactionInSpace,
   type ApiBudget,
@@ -72,9 +70,6 @@ export default function TransactionDetailScreen() {
   const [bucket, setBucket] = useState<(typeof BUCKETS)[number]>('Needs');
   const [showBucketPicker, setShowBucketPicker] = useState(false);
 
-  const [miniBudgets, setMiniBudgets] = useState<Array<{ id: string; name: string; category?: string | null }>>([]);
-  const [selectedMiniBudgetId, setSelectedMiniBudgetId] = useState<string | null>(null);
-  const [showMiniBudgetPicker, setShowMiniBudgetPicker] = useState(false);
 
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [otherCategory, setOtherCategory] = useState('');
@@ -129,7 +124,6 @@ export default function TransactionDetailScreen() {
       setDate(toIsoDate(new Date(t.occurredAt)));
       setSelectedBudgetId(t.budgetId ? String(t.budgetId) : null);
       setBucket(normalizeBucket(t.budgetCategory) ?? 'Needs');
-      setSelectedMiniBudgetId(t.miniBudgetId ? String(t.miniBudgetId) : null);
       setIsEditing(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load transaction');
@@ -156,10 +150,6 @@ export default function TransactionDetailScreen() {
     if (category !== 'Other') setOtherCategory('');
   }, [category]);
 
-  const miniBudgetsForBucket = useMemo(() => {
-    return miniBudgets.filter((m) => (m.category ?? null) === bucket);
-  }, [bucket, miniBudgets]);
-
   useEffect(() => {
     (async () => {
       try {
@@ -175,24 +165,6 @@ export default function TransactionDetailScreen() {
     })();
   }, [activeSpaceId, spacesEnabled]);
 
-  useEffect(() => {
-    if (!selectedBudgetId) {
-      setMiniBudgets([]);
-      setSelectedMiniBudgetId(null);
-      return;
-    }
-    (async () => {
-      try {
-        const res = spacesEnabled
-          ? await listMiniBudgetsInSpace(String(selectedBudgetId), activeSpaceId)
-          : await listMiniBudgets(String(selectedBudgetId));
-        setMiniBudgets((res.items || []).map((m: any) => ({ id: m.id, name: m.name, category: m.category ?? null })));
-      } catch {
-        setMiniBudgets([]);
-      }
-    })();
-  }, [activeSpaceId, selectedBudgetId, spacesEnabled]);
-
   const initialRef = useRef<any>(null);
   useEffect(() => {
     if (!tx) return;
@@ -204,7 +176,6 @@ export default function TransactionDetailScreen() {
       date: toIsoDate(new Date(tx.occurredAt)),
       budgetId: tx.budgetId ? String(tx.budgetId) : null,
       bucket: (tx.budgetCategory as any) ?? null,
-      miniBudgetId: tx.miniBudgetId ? String(tx.miniBudgetId) : null
     };
   }, [tx]);
 
@@ -212,7 +183,6 @@ export default function TransactionDetailScreen() {
     const initial = initialRef.current;
     if (!initial) return false;
     const nextBucket = selectedBudgetId ? bucket : null;
-    const nextMini = selectedBudgetId ? selectedMiniBudgetId : null;
     return (
       initial.type !== type ||
       Number(initial.amount) !== Number(parsedAmount) ||
@@ -220,10 +190,9 @@ export default function TransactionDetailScreen() {
       String(initial.description ?? '') !== String(description ?? '') ||
       String(initial.date ?? '') !== String(date ?? '') ||
       String(initial.budgetId ?? null) !== String(selectedBudgetId ?? null) ||
-      String(initial.bucket ?? null) !== String(nextBucket ?? null) ||
-      String(initial.miniBudgetId ?? null) !== String(nextMini ?? null)
+      String(initial.bucket ?? null) !== String(nextBucket ?? null)
     );
-  }, [bucket, date, description, parsedAmount, resolvedCategory, selectedBudgetId, selectedMiniBudgetId, type]);
+  }, [bucket, date, description, parsedAmount, resolvedCategory, selectedBudgetId, type]);
 
   const handleSave = useCallback(async () => {
     if (!tx) return;
@@ -252,8 +221,7 @@ export default function TransactionDetailScreen() {
         description: description.trim(),
         occurredAt,
         budgetId: selectedBudgetId ?? null,
-        budgetCategory: selectedBudgetId ? bucket : null,
-        miniBudgetId: selectedBudgetId ? selectedMiniBudgetId ?? null : null
+        budgetCategory: selectedBudgetId ? bucket : null
       };
       const updated = spacesEnabled ? await patchTransactionInSpace(tx.id, patch, activeSpaceId) : await patchTransaction(tx.id, patch);
       setTx(updated);
@@ -266,7 +234,7 @@ export default function TransactionDetailScreen() {
     } finally {
       setIsSaving(false);
     }
-  }, [activeSpaceId, bucket, date, description, parsedAmount, resolvedCategory, selectedBudgetId, selectedMiniBudgetId, spacesEnabled, toast, tx, type]);
+  }, [activeSpaceId, bucket, date, description, parsedAmount, resolvedCategory, selectedBudgetId, spacesEnabled, toast, tx, type]);
 
   // No "Are you sure?": it goes at once and the toast offers Undo for a few seconds.
   const confirmDelete = useCallback(() => {
@@ -320,9 +288,6 @@ export default function TransactionDetailScreen() {
                 <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Budget: <Text style={{ color: theme.colors.text }}>{selectedBudgetId ? (budgets.find((b) => String(b.id) === String(selectedBudgetId))?.name ?? 'Selected') : 'None'}</Text></Text>
                 {selectedBudgetId ? (
                   <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Type of transaction: <Text style={{ color: theme.colors.text }}>{bucketLabel(bucket)}</Text></Text>
-                ) : null}
-                {selectedBudgetId ? (
-                  <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Mini budget: <Text style={{ color: theme.colors.text }}>{selectedMiniBudgetId ? (miniBudgets.find((m) => m.id === selectedMiniBudgetId)?.name ?? 'Selected') : 'None'}</Text></Text>
                 ) : null}
                 {description.trim() ? (
                   <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Note: <Text style={{ color: theme.colors.text }}>{description}</Text></Text>
@@ -477,7 +442,6 @@ export default function TransactionDetailScreen() {
                         <Pressable
                           onPress={() => {
                             setSelectedBudgetId(null);
-                            setSelectedMiniBudgetId(null);
                             setShowBudgetPicker(false);
                           }}
                           style={({ pressed }) => ({
@@ -550,69 +514,6 @@ export default function TransactionDetailScreen() {
                   </View>
                 ) : null}
 
-                {selectedBudgetId ? (
-                  <View style={{ marginTop: 10 }}>
-                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Mini budget</Text>
-                    <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold', marginTop: 4, fontSize: 12 }}>
-                      Shows mini budgets under: {bucketLabel(bucket)}
-                    </Text>
-                    <View style={{ marginTop: 8, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface, overflow: 'hidden' }}>
-                      <Pressable
-                        onPress={() => {
-                          if (miniBudgetsForBucket.length === 0) return;
-                          setShowMiniBudgetPicker((v) => !v);
-                        }}
-                        style={({ pressed }) => ({ paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', opacity: pressed ? 0.9 : 1 })}
-                      >
-                        <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>
-                          {miniBudgetsForBucket.length === 0
-                            ? `No mini budgets for ${bucketLabel(bucket)}`
-                            : selectedMiniBudgetId
-                              ? miniBudgetsForBucket.find((m) => m.id === selectedMiniBudgetId)?.name ?? 'Selected mini budget'
-                              : 'None'}
-                        </Text>
-                        {miniBudgetsForBucket.length > 0 ? <Text style={{ color: theme.colors.textMuted }}>▼</Text> : null}
-                      </Pressable>
-
-                      {showMiniBudgetPicker ? (
-                        <View style={{ borderTopWidth: 1, borderTopColor: theme.colors.border, backgroundColor: theme.colors.background }}>
-                          <Pressable
-                            onPress={() => {
-                              setSelectedMiniBudgetId(null);
-                              setShowMiniBudgetPicker(false);
-                            }}
-                            style={({ pressed }) => ({
-                              paddingVertical: 12,
-                              paddingHorizontal: 12,
-                              backgroundColor: pressed || !selectedMiniBudgetId ? theme.colors.surfaceAlt : 'transparent'
-                            })}
-                          >
-                            <Text style={{ color: theme.colors.text, fontWeight: !selectedMiniBudgetId ? '900' : '700' }}>None</Text>
-                          </Pressable>
-                          {miniBudgetsForBucket.map((m) => {
-                            const active = m.id === selectedMiniBudgetId;
-                            return (
-                              <Pressable
-                                key={m.id}
-                                onPress={() => {
-                                  setSelectedMiniBudgetId(m.id);
-                                  setShowMiniBudgetPicker(false);
-                                }}
-                                style={({ pressed }) => ({
-                                  paddingVertical: 12,
-                                  paddingHorizontal: 12,
-                                  backgroundColor: pressed || active ? theme.colors.surfaceAlt : 'transparent'
-                                })}
-                              >
-                                <Text style={{ color: theme.colors.text, fontWeight: active ? '900' : '700' }}>{m.name}</Text>
-                              </Pressable>
-                            );
-                          })}
-                        </View>
-                      ) : null}
-                    </View>
-                  </View>
-                ) : null}
 
                 <View style={{ marginTop: 10 }}>
                   <TextField label="Note (optional)" value={description} onChangeText={setDescription} placeholder="Optional note…" />

@@ -86,9 +86,6 @@ export const SCREEN_GUIDES: Record<string, ScreenGuide> = {
       { emoji: '⏭️', title: 'Start the next period', body: 'When this one ends, start the next with the same plan in one tap.' , anchor: 'budgetdetail.next' }
     ]
   },
-  MiniBudgets: {
-    steps: [{ emoji: '🧩', title: 'Budgets inside your budget', body: 'Set a small budget for things you buy often, like fuel or data, and track it on its own so nothing sneaks up on you.', anchor: 'minibudgets.list' }]
-  },
   BudgetStreakDetail: {
     steps: [{ emoji: '🔥', title: 'Your budget streak', body: 'Every day you spend below your usual daily amount keeps the streak alive. Check in daily to keep it going.', anchor: 'streak.card' }]
   },

@@ -5,7 +5,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CalendarDays, ChevronLeft, ChevronRight, ClipboardPaste, Delete, Mic, PieChart, Plus, Receipt, Repeat, Sparkles, Square, Wallet, X } from '../icons';
 
-import { createTransaction, listBudgets, listGoals, listMiniBudgets, listMiniBudgetsInSpace, listTransactions, type ApiBudget, type ApiGoal } from '../api/endpoints';
+import { createTransaction, listBudgets, listGoals, listTransactions, type ApiBudget, type ApiGoal } from '../api/endpoints';
 import { addMoneyToGoal, getBusinessSettings } from '../api/business';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -78,13 +78,10 @@ export function AddTransactionScreen() {
   const [budgets, setBudgets] = useState<ApiBudget[]>([]);
   const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
   const [budgetTxnType, setBudgetTxnType] = useState<Bucket>('Needs');
-  const [miniBudgets, setMiniBudgets] = useState<Array<{ id: string; name: string; category?: string | null }>>([]);
   // undefined = not decided yet, null = explicitly "None"
-  const [selectedMiniBudgetId, setSelectedMiniBudgetId] = useState<string | null | undefined>(undefined);
   const [showBudgetPicker, setShowBudgetPicker] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showBucketPicker, setShowBucketPicker] = useState(false);
-  const [showMiniBudgetPicker, setShowMiniBudgetPicker] = useState(false);
 
   const [goals, setGoals] = useState<ApiGoal[]>([]);
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
@@ -208,10 +205,6 @@ export function AddTransactionScreen() {
     setBudgetTxnType(allowedBudgetTypes[0].key);
   }, [allowedBudgetTypes, budgetTxnType, requiresBudget]);
 
-  const miniBudgetsForCategory = useMemo(() => {
-    return miniBudgets.filter((m) => (m.category ?? null) === budgetCategoryLabel);
-  }, [budgetCategoryLabel, miniBudgets]);
-
   const typedAmount = useMemo(() => {
     // Remove thousand separators; keep dot as decimal separator.
     const n = Number(amount.replace(/,/g, ''));
@@ -308,7 +301,6 @@ export function AddTransactionScreen() {
           ? {
               budgetId: selectedBudgetId,
               budgetCategory: budgetCategoryLabel,
-              miniBudget: selectedMiniBudgetId ?? undefined
             }
           : {}),
         ...(spacesEnabled ? { spaceId: activeSpaceId } : {}),
@@ -370,47 +362,6 @@ export function AddTransactionScreen() {
       }
     })();
   }, [activeSpaceId, isBudgetCurrent, spacesEnabled]);
-
-  // Load mini-budgets when a budget is selected.
-  React.useEffect(() => {
-    const shouldLoadMiniBudgets = requiresBudget && !!selectedBudgetId;
-    if (!shouldLoadMiniBudgets) {
-      setMiniBudgets([]);
-      setSelectedMiniBudgetId(null);
-      return;
-    }
-
-    (async () => {
-      try {
-        const res = spacesEnabled
-          ? await listMiniBudgetsInSpace(String(selectedBudgetId), activeSpaceId)
-          : await listMiniBudgets(String(selectedBudgetId));
-        setMiniBudgets((res.items || []).map((m: any) => ({ id: m.id, name: m.name, category: m.category ?? null })));
-      } catch {
-        setMiniBudgets([]);
-      }
-    })();
-  }, [activeSpaceId, requiresBudget, selectedBudgetId, budgetTxnType, spacesEnabled, type]);
-
-  // When the selected bucket changes, try to keep mini budget selection valid.
-  React.useEffect(() => {
-    if (!selectedBudgetId) return;
-    if (miniBudgetsForCategory.length === 0) {
-      setSelectedMiniBudgetId(null);
-      return;
-    }
-
-    // Only auto-pick a mini budget when the user hasn't made a choice yet.
-    if (selectedMiniBudgetId === undefined) {
-      setSelectedMiniBudgetId(miniBudgetsForCategory[0]?.id ?? null);
-      return;
-    }
-
-    // If a specific mini budget was chosen but is no longer valid, fall back.
-    if (selectedMiniBudgetId !== null && !miniBudgetsForCategory.some((m) => m.id === selectedMiniBudgetId)) {
-      setSelectedMiniBudgetId(miniBudgetsForCategory[0]?.id ?? null);
-    }
-  }, [miniBudgetsForCategory, selectedBudgetId, selectedMiniBudgetId, type]);
 
   // Suggest a category from the note, learned from this person's past choices.
   const [categoryTouched, setCategoryTouched] = useState(false);
@@ -543,7 +494,6 @@ export function AddTransactionScreen() {
     return toIsoDate(d);
   })();
   const dateLabel = date === todayIso ? 'Today' : date === yesterdayIso ? 'Yesterday' : formatShortDate(date);
-  const selectedMini = miniBudgetsForCategory.find((m) => m.id === selectedMiniBudgetId) ?? null;
   const budgetName = selectedBudget ? selectedBudget.name.replace(/^My Budget \((.*)\)$/, '$1') : null;
 
   const blocker = !(Number.isFinite(parsedAmount) && parsedAmount > 0)
@@ -641,7 +591,6 @@ export function AddTransactionScreen() {
               setApplyToBudget(true);
             } else {
               setApplyToBudget(false);
-              setSelectedMiniBudgetId(null);
             }
           }}
           style={{ width: 200 }}
@@ -857,10 +806,7 @@ export function AddTransactionScreen() {
               <Text style={[typo.body, { color: theme.colors.text, flex: 1 }]}>{t('Count toward a budget')}</Text>
               <Switch
                 value={applyToBudget}
-                onValueChange={(v) => {
-                  setApplyToBudget(v);
-                  if (!v) setSelectedMiniBudgetId(null);
-                }}
+                onValueChange={setApplyToBudget}
                 trackColor={{ true: theme.colors.primary, false: theme.colors.border }}
                 thumbColor="#FFFFFF"
               />
@@ -871,7 +817,7 @@ export function AddTransactionScreen() {
               <PieChart color={theme.colors.textMuted} size={18} />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text numberOfLines={1} style={[typo.body, { color: theme.colors.text }]}>
-                  {budgets.length === 0 ? 'No budget yet' : `${budgetCategoryDisplay}${selectedMini ? ` · ${selectedMini.name}` : ''}`}
+                  {budgets.length === 0 ? 'No budget yet' : budgetCategoryDisplay}
                 </Text>
                 {budgetName ? <Text style={[typo.caption, { color: theme.colors.textMuted }]}>{budgetName}</Text> : null}
               </View>
@@ -1036,15 +982,6 @@ export function AddTransactionScreen() {
                     );
                   })}
                 </View>
-                {miniBudgetsForCategory.length > 0 ? (
-                  <SelectField
-                    label="Mini budget (optional)"
-                    value={selectedMiniBudgetId == null ? null : String(selectedMiniBudgetId)}
-                    options={[{ value: null, label: 'None' }, ...miniBudgetsForCategory.map((m) => ({ value: String(m.id), label: m.name }))]}
-                    onChange={(id) => setSelectedMiniBudgetId(id)}
-                    style={{ marginTop: 14, marginBottom: 0 }}
-                  />
-                ) : null}
                 <PrimaryButton title="Done" onPress={() => setShowBudgetSheet(false)} style={{ marginTop: 18 }} />
               </>
             )}

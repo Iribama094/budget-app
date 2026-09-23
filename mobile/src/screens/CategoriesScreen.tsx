@@ -18,8 +18,9 @@ import { CATEGORY_ICONS, ICON_CHOICES, guessIconKey } from '../lib/categoryIcons
 import { BUCKETS, bucketDescription, bucketDisplayName, type Bucket } from '../theme/buckets';
 import { type } from '../theme/typography';
 import { goBackOrHome } from '../navigation/goBack';
+import { formatNumberInput, parseNumberInput } from '../utils/format';
 
-type Draft = { id: string | null; name: string; type: 'income' | 'expense'; bucket: Bucket; icon: string; hidden: boolean; iconTouched: boolean };
+type Draft = { id: string | null; name: string; type: 'income' | 'expense'; bucket: Bucket; icon: string; hidden: boolean; iconTouched: boolean; limit: string };
 
 /** Add, rename, regroup or hide categories, e.g. tithe, generator fuel or ajo contributions. */
 export default function CategoriesScreen() {
@@ -45,8 +46,9 @@ export default function CategoriesScreen() {
   const hidden = useMemo(() => all.filter((c) => c.type === kind && c.hidden), [all, kind]);
   const offline = all.some((c) => c.id.startsWith('default:'));
 
-  const openNew = () => setDraft({ id: null, name: '', type: kind, bucket: 'Needs', icon: 'tag', hidden: false, iconTouched: false });
-  const openEdit = (c: ApiCategory) => setDraft({ id: c.id, name: c.name, type: c.type, bucket: c.bucket ?? 'Needs', icon: c.icon, hidden: c.hidden, iconTouched: true });
+  const openNew = () => setDraft({ id: null, name: '', type: kind, bucket: 'Needs', icon: 'tag', hidden: false, iconTouched: false, limit: '' });
+  const openEdit = (c: ApiCategory) =>
+    setDraft({ id: c.id, name: c.name, type: c.type, bucket: c.bucket ?? 'Needs', icon: c.icon, hidden: c.hidden, iconTouched: true, limit: c.monthlyLimit == null ? '' : formatNumberInput(String(Math.round(c.monthlyLimit))) });
 
   const save = () => {
     if (!draft || !draft.name.trim()) return;
@@ -73,15 +75,18 @@ export default function CategoriesScreen() {
     setSaving(true);
     try {
       const icon = draft.iconTouched ? draft.icon : guessIconKey(draft.name, draft.type === 'income');
+      const monthlyLimit = draft.type === 'expense' && draft.limit.trim() ? Math.round(parseNumberInput(draft.limit)) || null : null;
       if (draft.id) {
         const bucket = draft.type === 'expense' ? draft.bucket : null;
-        const { moved } = await update(draft.id, { name: draft.name.trim(), bucket, icon, hidden: draft.hidden, ...(moveThisPeriod ? { moveThisPeriod } : {}) });
+        const { moved } = await update(draft.id, { name: draft.name.trim(), bucket, icon, hidden: draft.hidden, monthlyLimit, ...(moveThisPeriod ? { moveThisPeriod } : {}) });
         toast.show(
           moved > 0 && bucket ? `Category saved. ${moved} transaction${moved === 1 ? '' : 's'} moved to ${bucketDisplayName(bucket, isBusiness)}.` : 'Category saved',
           'success'
         );
       } else {
-        await create({ name: draft.name.trim(), type: draft.type, bucket: draft.type === 'expense' ? draft.bucket : null, icon });
+        const made = await create({ name: draft.name.trim(), type: draft.type, bucket: draft.type === 'expense' ? draft.bucket : null, icon });
+        // Limits are set on an existing category, so a new one with a limit is saved and then given it.
+        if (monthlyLimit && made?.id) await update(made.id, { monthlyLimit }).catch(() => undefined);
         toast.show(`${draft.name.trim()} added`, 'success');
       }
       setDraft(null);
@@ -198,6 +203,14 @@ export default function CategoriesScreen() {
                     <>
                       <Text style={[type.smallStrong, { color: theme.colors.text, marginBottom: 8 }]}>Counts as</Text>
                       <SegmentedControl options={BUCKETS.map((b) => ({ key: b, label: bucketDisplayName(b, isBusiness) }))} value={draft.bucket} onChange={(b) => setDraft({ ...draft, bucket: b })} />
+                      <TextField
+                        label="Monthly limit (optional)"
+                        value={draft.limit}
+                        onChangeText={(v) => setDraft({ ...draft, limit: formatNumberInput(v) })}
+                        keyboardType="numeric"
+                        placeholder="No limit"
+                        hint="Everything you spend in this category counts towards it. Budget shows the ones you're close to or over."
+                      />
                     </>
                   ) : null}
 

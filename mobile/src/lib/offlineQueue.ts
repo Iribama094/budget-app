@@ -12,7 +12,6 @@ export type TransactionPayload = {
   occurredAt: string;
   budgetId?: string;
   budgetCategory?: string;
-  miniBudget?: string;
   spaceId?: 'personal' | 'business';
   /** VAT inside a business cost, claimed back against VAT charged on sales. */
   vatAmount?: number;

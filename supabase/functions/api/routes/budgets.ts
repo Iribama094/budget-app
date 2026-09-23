@@ -254,40 +254,33 @@ export async function nextPeriod(ctx: Ctx) {
   return json(201, { budget: toApiBudget(created!, userId), existed: false, keptUp });
 }
 
-/* ------------------------------------------------------------ mini budgets */
+/* ------------------------------------------------------------ category limits */
 
-const MiniSchema = z.object({ name: z.string().min(1).max(80), amount: z.number().finite().nonnegative(), category: z.string().min(1).max(60).optional() });
-
-const toApiMini = (m: any) => ({
-  id: m.id,
-  budgetId: m.budgetId,
-  name: m.name,
-  amount: Number(m.amount),
-  category: m.category ?? null,
-  createdAt: iso(m.createdAt),
-  updatedAt: iso(m.updatedAt)
-});
-
-/** GET/POST /v1/budgets/:id/mini-budgets */
-export async function miniBudgets(ctx: Ctx) {
-  if (ctx.method !== 'GET' && ctx.method !== 'POST') methodNotAllowed(['GET', 'POST']);
-  const { userId } = await requireAuth(ctx.req);
-  const budgetId = ctx.parts[1];
-  const parent = await findOwnBudget(userId, budgetId, spaceParam(ctx.query.get('spaceId')));
-  if (!parent) notFound('Budget not found');
-
-  if (ctx.method === 'POST') {
-    const input = await body(ctx.req, MiniSchema);
-    const [m] = await sql`
-      insert into public.mini_budgets (user_id, budget_id, name, amount, category)
-      values (${userId}, ${budgetId}, ${input.name}, ${input.amount}, ${input.category ?? null})
-      returning *
-    `;
-    return json(201, { miniBudget: toApiMini(m) });
-  }
-
-  const items = await sql`select * from public.mini_budgets where user_id = ${userId} and budget_id = ${budgetId} order by created_at desc, id desc`;
-  return json(200, { items: items.map(toApiMini) });
+/**
+ * Categories somebody set a monthly limit on, with what they have spent against it in this budget's period.
+ *
+ * The spending is every transaction in that category: there is nothing extra to tag, which is the whole point
+ * of limits living on the category rather than in a separate list of mini budgets.
+ */
+export async function limitsFor(b: BudgetRow) {
+  const { start, end } = budgetBounds(b);
+  const rows = await sql<{ id: string; name: string; icon: string; bucket: string | null; monthlyLimit: number; spent: number }[]>`
+    select c.id, c.name, c.icon, c.bucket, c.monthly_limit,
+      coalesce((
+        select sum(t.amount) from public.transactions t
+        where t.user_id in ${sql(budgetMemberIds(b))} and t.space_id = c.space_id and t.type = 'expense'
+          and t.category = c.name and t.occurred_at >= ${start} and t.occurred_at <= ${end}
+      ), 0) as spent
+    from public.categories c
+    where c.user_id = ${b.userId} and c.space_id = ${b.spaceId} and c.type = 'expense'
+      and c.monthly_limit is not null and not c.hidden
+    order by c.name asc
+  `;
+  return rows.map((r) => {
+    const limit = Number(r.monthlyLimit);
+    const spent = Math.round(Number(r.spent));
+    return { id: r.id, name: r.name, icon: r.icon, bucket: r.bucket ?? null, limit, spent, left: Math.round(limit - spent) };
+  });
 }
 
 /* ------------------------------------------------------------ rollover */
@@ -349,6 +342,7 @@ export async function paceFor(b: NonNullable<Awaited<ReturnType<typeof findVisib
         `
       : [];
   const billsTotal = Math.round(bills.reduce((s, x) => s + Number(x.amount), 0));
+  const limits = await limitsFor(b);
   const daysLeft = today > end ? 0 : diffIsoDays(today, end) + 1;
   const safeToSpend = Math.max(0, Math.round(left - savingsLeft - billsTotal));
 
@@ -361,6 +355,7 @@ export async function paceFor(b: NonNullable<Awaited<ReturnType<typeof findVisib
     daysLeft,
     safeToSpend,
     safePerDay: daysLeft > 0 ? Math.floor(safeToSpend / daysLeft) : 0,
+    limits,
     trackingStart: b.trackingStart ?? null
   };
 }

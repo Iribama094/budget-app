@@ -210,13 +210,6 @@ export function AnalyticsScreen() {
       .sort((a, b) => b.amount - a.amount);
   }, [data]);
 
-  const miniSpend = useMemo(() => {
-    const byMini = data?.spendingByMiniBudget ?? {};
-    return Object.entries(byMini)
-      .map(([mini, amount]) => ({ mini, amount }))
-      .sort((a, b) => b.amount - a.amount);
-  }, [data]);
-
   const maxCat = useMemo(() => {
     return categories.reduce((m, c) => Math.max(m, c.amount), 0) || 1;
   }, [categories]);
@@ -224,10 +217,6 @@ export function AnalyticsScreen() {
   const maxBucket = useMemo(() => {
     return bucketSpend.reduce((m, c) => Math.max(m, c.amount), 0) || 1;
   }, [bucketSpend]);
-
-  const maxMini = useMemo(() => {
-    return miniSpend.reduce((m, c) => Math.max(m, c.amount), 0) || 1;
-  }, [miniSpend]);
 
   // For the stacked weekly bars we need per-day category breakdowns.
   // If the API doesn't provide per-day breakdown, synthesize from categories for demo mode.
@@ -522,17 +511,6 @@ export function AnalyticsScreen() {
           title="Budget buckets"
           subtitle={bucketSpend[0] ? `${bucketLabel(bucketSpend[0].bucket)} leads${hide ? '' : ` at ${formatAmount(bucketSpend[0].amount, glyph)}`}` : 'No bucket spending yet'}
           onPress={() => activeRangeIso && nav.navigate('AnalyticsBucketDetail' as never, { range: activeRangeIso, timeframe } as never)}
-          chevron
-        />
-        <ListRow
-          icon={
-            <IconTile bg={theme.categories.bg[2]}>
-              <Layers color={theme.categories.fg[2]} size={19} />
-            </IconTile>
-          }
-          title="Mini budgets"
-          subtitle={miniSpend[0] ? `${miniSpend[0].mini} leads${hide ? '' : ` at ${formatAmount(miniSpend[0].amount, glyph)}`}` : 'No mini budget spending yet'}
-          onPress={() => activeRangeIso && nav.navigate('AnalyticsMiniBudgetsDetail' as never, { range: activeRangeIso, timeframe } as never)}
           chevron
         />
         <ListRow

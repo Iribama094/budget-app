@@ -45,8 +45,8 @@ const TOPICS: Topic[] = [
         a: 'Yes. Go to Settings (gear on Home) › Categories. The app also learns: once you pick a category for a payee, it suggests it next time.'
       },
       {
-        q: 'What are mini budgets?',
-        a: 'Smaller limits inside a budget, like “Eating out”, so you can watch one kind of spending closely. Open a budget and tap a part of your plan to add one.'
+        q: 'Can I cap one kind of spending?',
+        a: 'Yes. Open Settings, Categories, pick one like “Eating out” and set a monthly limit. Everything you spend in that category counts towards it on its own, and Budget shows the ones you are close to or over.'
       },
       {
         q: 'How do transactions get in without typing everything?',

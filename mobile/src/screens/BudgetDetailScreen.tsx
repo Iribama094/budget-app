@@ -528,15 +528,6 @@ export default function BudgetDetailScreen() {
                   <View key={cat} style={{ paddingVertical: 12, borderBottomWidth: 1, borderColor: theme.colors.border }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{bucketLabel(cat)}</Text>
-                      <Pressable
-                        onPress={() => nav.navigate('MiniBudgets', { budgetId: budget.id, category: cat })}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}
-                      >
-                        <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: theme.colors.surfaceAlt }}>
-                          <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_700Bold', fontSize: 11 }}>Mini budgets</Text>
-                        </View>
-                      </Pressable>
                     </View>
 
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>

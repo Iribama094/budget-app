@@ -147,6 +147,8 @@ export function toApiCategory(c: any) {
     isDefault: c.isDefault,
     hidden: c.hidden,
     sortOrder: c.sortOrder,
+    /** What they mean to keep spending on this in a month. Null on most categories, which have no limit. */
+    monthlyLimit: c.monthlyLimit == null ? null : Number(c.monthlyLimit),
     createdAt: iso(c.createdAt)
   };
 }

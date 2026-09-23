@@ -142,7 +142,7 @@ export default function BudgetStreakDetailScreen() {
   const tips = [
     { Icon: TrendingDown, text: 'Keep daily spending below your average to maintain the streak.' },
     { Icon: Search, text: 'Check the categories that take the most money and trim where you can.' },
-    { Icon: Wallet, text: 'Set mini budgets for things you buy often so nothing sneaks up on you.' }
+    { Icon: Wallet, text: 'Put a monthly limit on things you buy often, like fuel or data, so nothing sneaks up on you.' }
   ];
 
   return (

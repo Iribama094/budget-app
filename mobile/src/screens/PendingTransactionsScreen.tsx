@@ -20,14 +20,11 @@ import {
   settleImportedTransaction,
   listBudgets,
   listGoals,
-  listMiniBudgets,
-  listMiniBudgetsInSpace,
   patchGoal,
   patchGoalInSpace,
   type ApiBudget,
   type ApiGoal,
   type ApiImportedTransaction,
-  type ApiMiniBudget
 } from '../api/endpoints';
 import { formatMoney } from '../utils/format';
 import { tokens } from '../theme/tokens';
@@ -60,13 +57,12 @@ function suggestedCategory(tx: ApiImportedTransaction): string {
 
 
 
-type PendingStep = 1 | 2 | 3 | 4 | 5 | 6;
+type PendingStep = 1 | 2 | 3 | 5 | 6;
 
 type PendingDraft = {
   category: string;
   budgetId: string | null;
   budgetCategory: (typeof BUCKETS)[number];
-  miniBudgetId: string | null;
   goalId: string | null;
   step: PendingStep;
 };
@@ -109,7 +105,6 @@ export default function PendingTransactionsScreen() {
 
   const [budgets, setBudgets] = useState<ApiBudget[]>([]);
   const [currentBudget, setCurrentBudget] = useState<ApiBudget | null>(null);
-  const [miniBudgetsByBudget, setMiniBudgetsByBudget] = useState<Record<string, ApiMiniBudget[]>>({});
   const [drafts, setDrafts] = useState<Record<string, PendingDraft>>({});
 
   const [goals, setGoals] = useState<ApiGoal[]>([]);
@@ -284,7 +279,6 @@ export default function PendingTransactionsScreen() {
           category: suggestedCategory(tx),
           budgetId: null,
           budgetCategory: 'Needs',
-          miniBudgetId: null,
           goalId: null,
           step: 1
         };
@@ -292,20 +286,6 @@ export default function PendingTransactionsScreen() {
       return next;
     });
   }, [items]);
-
-  const loadMiniBudgetsForBudget = useCallback(
-    async (budgetId: string) => {
-      if (!budgetId) return;
-      if (miniBudgetsByBudget[budgetId]) return;
-      try {
-        const res = spacesEnabled ? await listMiniBudgetsInSpace(budgetId, activeSpaceId) : await listMiniBudgets(budgetId);
-        setMiniBudgetsByBudget((prev) => ({ ...prev, [budgetId]: (res.items ?? []) as ApiMiniBudget[] }));
-      } catch {
-        setMiniBudgetsByBudget((prev) => ({ ...prev, [budgetId]: [] }));
-      }
-    },
-    [activeSpaceId, miniBudgetsByBudget, spacesEnabled]
-  );
 
   useEffect(() => {
     // Reduce taps: when expanding, ensure we have a draft in state and default to the
@@ -318,7 +298,6 @@ export default function PendingTransactionsScreen() {
         category: '',
         budgetId: null,
         budgetCategory: 'Needs',
-        miniBudgetId: null,
         step: 1
       };
 
@@ -331,14 +310,10 @@ export default function PendingTransactionsScreen() {
       if (ensured.budgetId) return existing ? prev : { ...prev, [expandedId]: ensured };
       return {
         ...prev,
-        [expandedId]: { ...ensured, budgetId: String(currentBudget.id), miniBudgetId: null }
+        [expandedId]: { ...ensured, budgetId: String(currentBudget.id) }
       };
     });
-
-    if (currentBudget?.id) {
-      void loadMiniBudgetsForBudget(String(currentBudget.id));
-    }
-  }, [currentBudget?.id, expandedId, loadMiniBudgetsForBudget]);
+  }, [currentBudget?.id, expandedId]);
 
   const hasItems = items.length > 0;
 
@@ -346,7 +321,6 @@ export default function PendingTransactionsScreen() {
     if (step === 1) return 'Category';
     if (step === 2) return 'Budget';
     if (step === 3) return 'Type';
-    if (step === 4) return 'Mini budget';
     if (step === 5) return 'Goal';
     return 'Confirm';
   };
@@ -355,7 +329,6 @@ export default function PendingTransactionsScreen() {
     if (draft.step === 1) return draft.category.trim().length > 0;
     if (draft.step === 2) return !!draft.budgetId;
     if (draft.step === 3) return !!draft.budgetId && !!draft.budgetCategory;
-    if (draft.step === 4) return !!draft.budgetId;
     if (draft.step === 5) return !!draft.budgetId;
     return false;
   };
@@ -363,16 +336,14 @@ export default function PendingTransactionsScreen() {
   const nextStepFrom = (draft: PendingDraft): PendingStep => {
     if (draft.step === 1) return draft.budgetId ? 3 : 2;
     if (draft.step === 2) return 3;
-    if (draft.step === 3) return 4;
-    if (draft.step === 4) return draft.budgetCategory === 'Savings' ? 5 : 6;
+    if (draft.step === 3) return draft.budgetCategory === 'Savings' ? 5 : 6;
     if (draft.step === 5) return 6;
     return 6;
   };
 
   const prevStepFrom = (draft: PendingDraft): PendingStep => {
-    if (draft.step === 6) return draft.budgetCategory === 'Savings' ? 5 : 4;
-    if (draft.step === 5) return 4;
-    if (draft.step === 4) return 3;
+    if (draft.step === 6) return draft.budgetCategory === 'Savings' ? 5 : 3;
+    if (draft.step === 5) return 3;
     if (draft.step === 3) return 2;
     if (draft.step === 2) return 1;
     return 1;
@@ -393,7 +364,6 @@ export default function PendingTransactionsScreen() {
         description?: string;
         budgetId?: string | null;
         budgetCategory?: string | null;
-        miniBudgetId?: string | null;
       } = {
         type,
         category,
@@ -402,7 +372,6 @@ export default function PendingTransactionsScreen() {
         // Without a chosen budget the server uses the one covering that date, and the bucket comes from the
         // category we suggested, so a one-tap confirm still lands in the right place.
         budgetCategory: draft?.budgetId ? draft?.budgetCategory ?? 'Needs' : tx.suggestedBucket ?? null,
-        miniBudgetId: draft?.budgetId && draft?.miniBudgetId ? String(draft.miniBudgetId) : null
       };
 
       if (spacesEnabled) {
@@ -611,7 +580,7 @@ export default function PendingTransactionsScreen() {
                 <Card>
                   <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>Tip</Text>
                   <Text style={{ color: theme.colors.textMuted, marginTop: 6 }}>
-                    Tap a transaction to open it. Choose: category → budget → type (Essential/Savings/etc) → mini budget (or NIL), then add.
+                    Tap a transaction to open it. Choose: category → budget → type (Essential/Savings/etc), then add.
                   </Text>
                   <View style={{ marginTop: 10 }}>
                     <SecondaryButton
@@ -680,7 +649,6 @@ export default function PendingTransactionsScreen() {
             category: suggestedCategory(item),
             budgetId: null,
             budgetCategory: 'Needs',
-            miniBudgetId: null,
             goalId: null,
             step: 1
           };
@@ -704,15 +672,13 @@ export default function PendingTransactionsScreen() {
             if (normalized.size === 0) return [...BUCKETS];
             return order.filter((x) => normalized.has(x)) as Array<(typeof BUCKETS)[number]>;
           })();
-          const miniBudgetsForDraft = draft.budgetId ? (miniBudgetsByBudget[draft.budgetId] ?? []) : [];
-          const miniBudgetsForBucket = miniBudgetsForDraft.filter((m) => (m.category ?? null) === draft.budgetCategory);
 
           // Keep draft bucket valid for the selected budget.
           if (selectedBudget && allowedBuckets.length > 0 && !allowedBuckets.includes(draft.budgetCategory)) {
             const nextBucket = allowedBuckets[0];
             setDrafts((prev) => ({
               ...prev,
-              [item.id]: { ...draft, budgetCategory: nextBucket, miniBudgetId: null, goalId: null }
+              [item.id]: { ...draft, budgetCategory: nextBucket, goalId: null }
             }));
           }
 
@@ -733,7 +699,6 @@ export default function PendingTransactionsScreen() {
                         category: suggestedCategory(item),
                         budgetId: null,
                         budgetCategory: 'Needs',
-                        miniBudgetId: null,
                         goalId: null,
                         step: 1
                       }
@@ -926,13 +891,6 @@ export default function PendingTransactionsScreen() {
                       </Text>
                     </View>
                   ) : null}
-                  {draft.step > 4 ? (
-                    <View style={{ paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.border }}>
-                      <Text style={{ color: theme.colors.textMuted, fontSize: 12 }} numberOfLines={1}>
-                        Mini budget: <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold' }}>{draft.miniBudgetId ? (miniBudgetsForDraft.find((m) => m.id === draft.miniBudgetId)?.name ?? 'Not set') : 'NIL'}</Text>
-                      </Text>
-                    </View>
-                  ) : null}
 
                   {draft.step > 5 && draft.budgetCategory === 'Savings' ? (
                     <View style={{ paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.border }}>
@@ -975,9 +933,8 @@ export default function PendingTransactionsScreen() {
                         if (!id) return;
                         setDrafts((prev) => ({
                           ...prev,
-                          [item.id]: { ...draft, budgetId: id, miniBudgetId: null, step: 3 }
+                          [item.id]: { ...draft, budgetId: id, step: 3 }
                         }));
-                        void loadMiniBudgetsForBudget(id);
                       }}
                       style={{ marginTop: 10, marginBottom: 0 }}
                     />
@@ -995,7 +952,7 @@ export default function PendingTransactionsScreen() {
                               onPress={() => {
                                 setDrafts((prev) => ({
                                   ...prev,
-                                  [item.id]: { ...draft, budgetCategory: b, miniBudgetId: null, goalId: null, step: 4 }
+                                  [item.id]: { ...draft, budgetCategory: b, goalId: null, step: b === 'Savings' ? 5 : 6 }
                                 }));
                               }}
                               style={pillStyle(theme, selected)}
@@ -1005,40 +962,6 @@ export default function PendingTransactionsScreen() {
                           );
                         })}
                       </View>
-                    </View>
-                  ) : null}
-
-                  {draft.step === 4 ? (
-                    <View style={{ marginTop: 10 }}>
-                      {miniBudgetsForBucket.length ? (
-                        <SelectField
-                          label="Mini budget (optional)"
-                          value={draft.miniBudgetId ? String(draft.miniBudgetId) : null}
-                          options={[{ value: null, label: 'None' }, ...miniBudgetsForBucket.map((m) => ({ value: String(m.id), label: m.name }))]}
-                          onChange={(id) =>
-                            setDrafts((prev) => ({
-                              ...prev,
-                              [item.id]: { ...draft, miniBudgetId: id, step: draft.budgetCategory === 'Savings' ? 5 : 6 }
-                            }))
-                          }
-                          style={{ marginBottom: 0 }}
-                        />
-                      ) : (
-                        <>
-                          {draft.budgetId && miniBudgetsByBudget[draft.budgetId] ? (
-                            <Text style={{ color: theme.colors.textMuted, marginBottom: 8, fontSize: 12 }}>No mini budgets under {bucketLabel(draft.budgetCategory)}.</Text>
-                          ) : null}
-                          <SecondaryButton
-                            title="Continue"
-                            onPress={() =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [item.id]: { ...draft, miniBudgetId: null, step: draft.budgetCategory === 'Savings' ? 5 : 6 }
-                              }))
-                            }
-                          />
-                        </>
-                      )}
                     </View>
                   ) : null}
 

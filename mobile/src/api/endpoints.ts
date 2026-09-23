@@ -97,7 +97,6 @@ export type ApiTransaction = {
   description: string;
   budgetId?: string | null;
   budgetCategory?: string | null;
-  miniBudgetId?: string | null;
   /** Given back on this expense; amount is already net of it. */
   refundedAmount?: number;
   /** Received in another currency: what arrived and the rate it was changed at. */
@@ -108,16 +107,6 @@ export type ApiTransaction = {
   createdBy?: string | null;
   recordedBy?: string | null;
   occurredAt: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type ApiMiniBudget = {
-  id: string;
-  budgetId: string;
-  name: string;
-  amount: number;
-  category?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -153,7 +142,6 @@ export async function createTransaction(input: {
   occurredAt: string;
   budgetId?: string | number | null;
   budgetCategory?: string | null;
-  miniBudget?: string | null;
   spaceId?: 'personal' | 'business';
 }): Promise<ApiTransaction> {
   const data = await apiFetch('/v1/transactions', { method: 'POST', body: JSON.stringify(input) });
@@ -175,8 +163,7 @@ export async function getTransactionInSpace(id: string, spaceId?: 'personal' | '
 
 export async function patchTransaction(
   id: string,
-  patch: Partial<Pick<ApiTransaction, 'type' | 'amount' | 'category' | 'description' | 'occurredAt' | 'budgetId' | 'budgetCategory' | 'miniBudgetId'>> & {
-    miniBudget?: string | null;
+  patch: Partial<Pick<ApiTransaction, 'type' | 'amount' | 'category' | 'description' | 'occurredAt' | 'budgetId' | 'budgetCategory'>> & {
   }
 ): Promise<ApiTransaction> {
   const data = await apiFetch(`/v1/transactions/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) });
@@ -185,8 +172,7 @@ export async function patchTransaction(
 
 export async function patchTransactionInSpace(
   id: string,
-  patch: Partial<Pick<ApiTransaction, 'type' | 'amount' | 'category' | 'description' | 'occurredAt' | 'budgetId' | 'budgetCategory' | 'miniBudgetId'>> & {
-    miniBudget?: string | null;
+  patch: Partial<Pick<ApiTransaction, 'type' | 'amount' | 'category' | 'description' | 'occurredAt' | 'budgetId' | 'budgetCategory'>> & {
   },
   spaceId?: 'personal' | 'business'
 ): Promise<ApiTransaction> {
@@ -213,39 +199,6 @@ export async function deleteTransactionInSpace(id: string, spaceId?: 'personal' 
   if (spaceId) qs.set('spaceId', spaceId);
   const suffix = qs.toString() ? `?${qs.toString()}` : '';
   await apiFetch(`/v1/transactions/${encodeURIComponent(id)}${suffix}`, { method: 'DELETE' });
-}
-
-export async function listMiniBudgets(budgetId: string): Promise<{ items: ApiMiniBudget[] }> {
-  const data = await apiFetch(`/v1/budgets/${encodeURIComponent(budgetId)}/mini-budgets`, { method: 'GET' });
-  return data as any;
-}
-
-export async function listMiniBudgetsInSpace(budgetId: string, spaceId?: 'personal' | 'business'): Promise<{ items: ApiMiniBudget[] }> {
-  const qs = new URLSearchParams();
-  if (spaceId) qs.set('spaceId', spaceId);
-  const suffix = qs.toString() ? `?${qs.toString()}` : '';
-  const data = await apiFetch(`/v1/budgets/${encodeURIComponent(budgetId)}/mini-budgets${suffix}`, { method: 'GET' });
-  return data as any;
-}
-
-export async function createMiniBudget(budgetId: string, input: { name: string; amount: number; category?: string }): Promise<any> {
-  const data = await apiFetch(`/v1/budgets/${encodeURIComponent(budgetId)}/mini-budgets`, { method: 'POST', body: JSON.stringify(input) });
-  return (data as any).miniBudget as ApiMiniBudget;
-}
-
-export async function createMiniBudgetInSpace(
-  budgetId: string,
-  input: { name: string; amount: number; category?: string },
-  spaceId?: 'personal' | 'business'
-): Promise<any> {
-  const qs = new URLSearchParams();
-  if (spaceId) qs.set('spaceId', spaceId);
-  const suffix = qs.toString() ? `?${qs.toString()}` : '';
-  const data = await apiFetch(`/v1/budgets/${encodeURIComponent(budgetId)}/mini-budgets${suffix}`, {
-    method: 'POST',
-    body: JSON.stringify(input)
-  });
-  return (data as any).miniBudget as ApiMiniBudget;
 }
 
 export async function patchBudget(id: string, patch: Partial<{ name: string; totalBudget: number; period: 'monthly' | 'weekly'; startDate: string; categories: Record<string, { budgeted: number }>; endDate?: string }>): Promise<any> {
@@ -395,7 +348,19 @@ export type ApiBudgetPace = {
   daysLeft: number;
   safeToSpend: number;
   safePerDay: number;
+  /** Categories with a monthly limit, and what has gone on each in this period. */
+  limits: ApiCategoryLimit[];
   trackingStart: string | null;
+};
+
+export type ApiCategoryLimit = {
+  id: string;
+  name: string;
+  icon: string;
+  bucket: string | null;
+  limit: number;
+  spent: number;
+  left: number;
 };
 
 export async function getBudgetPace(id: string): Promise<ApiBudgetPace> {
@@ -577,8 +542,6 @@ export async function reconcileImportedTransaction(
     description?: string;
     budgetId?: string | null;
     budgetCategory?: string | null;
-    miniBudgetId?: string | null;
-    miniBudget?: string | null;
   }
 ): Promise<ApiImportedTransaction> {
   const data = await apiFetch(`/v1/imported-transactions/${encodeURIComponent(id)}/reconcile`, {
@@ -597,8 +560,6 @@ export async function reconcileImportedTransactionInSpace(
         description?: string;
         budgetId?: string | null;
         budgetCategory?: string | null;
-        miniBudgetId?: string | null;
-        miniBudget?: string | null;
       }
     | undefined,
   spaceId?: 'personal' | 'business'
@@ -662,7 +623,6 @@ export type AnalyticsSummary = {
     spendingByCategory: Record<string, number>;
   }>;
   spendingByBucket?: Record<string, number>;
-  spendingByMiniBudget?: Record<string, number>;
 };
 
 export async function getAnalyticsSummary(start: string, end: string, params?: { spaceId?: 'personal' | 'business' }): Promise<AnalyticsSummary> {
