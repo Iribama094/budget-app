@@ -659,6 +659,33 @@ export function Ring({ progress, size = 44, stroke = 5, color, label }: { progre
 }
 
 /** Grey rows that gently pulse while the first data loads, so the screen keeps its shape instead of showing a spinner. */
+/**
+ * Stands in for a number that is still on its way, at the size the number will be. Used where showing a figure
+ * the phone worked out on its own would mean correcting it a second later, which reads as the app changing its
+ * mind about someone's money.
+ */
+export function AmountPlaceholder({ color, style }: { color?: string; style?: StyleProp<ViewStyle> }) {
+  const { theme } = useTheme();
+  const pulse = React.useRef(new Animated.Value(0.25)).current;
+  React.useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.5, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.25, duration: 700, useNativeDriver: true })
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  return (
+    <Animated.View
+      accessible
+      accessibilityLabel="Working out what is safe to spend"
+      style={[{ height: 44, width: '62%', borderRadius: tokens.radius.md, backgroundColor: color ?? theme.colors.surfaceAlt, opacity: pulse }, style]}
+    />
+  );
+}
+
 export function Skeleton({ rows = 3, height = 56, color, style }: { rows?: number; height?: number; color?: string; style?: StyleProp<ViewStyle> }) {
   const { theme } = useTheme();
   const pulse = React.useRef(new Animated.Value(0.55)).current;

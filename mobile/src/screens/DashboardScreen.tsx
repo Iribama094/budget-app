@@ -19,6 +19,7 @@ import {
 } from '../api/endpoints';
 import {
   Amount,
+  AmountPlaceholder,
   Card,
   Chip,
   EmptyState,
@@ -481,15 +482,39 @@ export function DashboardScreen() {
   const greetingWord = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   // Safe to spend comes from the server, which holds back unsaved Savings and bills still due this period.
-  // Refetched whenever spending changes; until it arrives (or offline) the simpler local figure is used.
+  // The number the phone can work out on its own does not know about either, so it is always too high. Showing
+  // it first and correcting it a moment later is worse than showing nothing, so until the real one arrives the
+  // card waits. The last real one is kept on the phone, so coming back to the app it is there immediately.
   const [serverPace, setServerPace] = useState<(ApiBudgetPace & { budgetId: string }) | null>(null);
+  const [paceFailed, setPaceFailed] = useState(false);
+  // The last real figure, kept only for when the phone cannot reach us. It is never shown ahead of a fresh one.
+  const [lastKnown, setLastKnown] = useState<(ApiBudgetPace & { budgetId: string }) | null>(null);
+
   useEffect(() => {
     const id = currentBudget?.id;
     if (!id) return;
     let cancelled = false;
+    void readCache<ApiBudgetPace & { budgetId: string }>(`pace:${id}`).then((cached) => {
+      if (!cancelled && cached) setLastKnown(cached);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentBudget?.id]);
+
+  useEffect(() => {
+    const id = currentBudget?.id;
+    if (!id) return;
+    let cancelled = false;
+    setPaceFailed(false);
     getBudgetPace(String(id))
-      .then((p) => !cancelled && setServerPace({ ...p, budgetId: String(id) }))
-      .catch(() => undefined);
+      .then((p) => {
+        if (cancelled) return;
+        const next = { ...p, budgetId: String(id) };
+        setServerPace(next);
+        writeCache(`pace:${id}`, next);
+      })
+      .catch(() => !cancelled && setPaceFailed(true));
     return () => {
       cancelled = true;
     };
@@ -512,19 +537,23 @@ export function DashboardScreen() {
     const spentRatio = currentBudget.totalBudget > 0 ? budgetUsed / currentBudget.totalBudget : 0;
     const timeRatio = elapsedDays / totalDays;
     const status: 'over' | 'hot' | 'onPace' = left < 0 ? 'over' : spentRatio > timeRatio + 0.05 ? 'hot' : 'onPace';
-    const server = serverPace && serverPace.budgetId === String(currentBudget.id) ? serverPace : null;
+    const forThis = (p: (ApiBudgetPace & { budgetId: string }) | null) => (p && p.budgetId === String(currentBudget.id) ? p : null);
+    // What we were told. Failing that, and only once the request has actually failed, the last thing we were
+    // told, and failing that the rough figure this phone can work out on its own.
+    const server = forThis(serverPace) ?? (paceFailed ? forThis(lastKnown) : null);
     const safePerDay = server ? server.safePerDay : left > 0 ? left / daysLeft : 0;
     const heldBack = server ? server.savingsLeft + server.billsTotal : 0;
-    return { left, daysLeft, spentRatio, timeRatio, safePerDay, heldBack, status };
+    return { left, daysLeft, spentRatio, timeRatio, safePerDay, heldBack, status, real: !!forThis(serverPace) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentBudget, budgetUsed, budgetEffectiveEndIso, serverPace]);
+  }, [currentBudget, budgetUsed, budgetEffectiveEndIso, serverPace, lastKnown, paceFailed]);
 
   const inkText = theme.colors.inkText;
   const paceLabel = pace?.status === 'over' ? 'Over budget' : pace?.status === 'hot' ? 'Spending fast' : 'On pace';
 
-  // Keep the home-screen widget in step with what Home shows (respecting hidden amounts).
+  // Keep the home-screen widget in step with what Home shows (respecting hidden amounts). Never the rough
+  // figure: a widget sits on the home screen for hours, so a wrong number there lasts far longer than on Home.
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || (pace && !pace.real)) return;
     const mask = (s: string) => (showAmounts ? s : '••••');
     void publishWidgetSnapshot(
       currentBudget && pace
@@ -611,14 +640,18 @@ export function DashboardScreen() {
                 {showAmounts ? <EyeOff color={inkText} size={18} opacity={0.75} /> : <Eye color={inkText} size={18} opacity={0.75} />}
               </Pressable>
             </View>
-            <Amount
-              value={pace.status === 'over' ? Math.abs(pace.left) : Math.round(pace.safePerDay)}
-              currency={glyph}
-              size="hero"
-              color={inkText}
-              hidden={hide}
-              style={{ marginTop: 10, marginBottom: 4 }}
-            />
+            {pace.real || paceFailed ? (
+              <Amount
+                value={pace.status === 'over' ? Math.abs(pace.left) : Math.round(pace.safePerDay)}
+                currency={glyph}
+                size="hero"
+                color={inkText}
+                hidden={hide}
+                style={{ marginTop: 10, marginBottom: 4 }}
+              />
+            ) : (
+              <AmountPlaceholder color={inkText} style={{ marginTop: 10, marginBottom: 4 }} />
+            )}
             <Text style={[type.small, { color: inkText, opacity: 0.75 }]}>
               {hide
                 ? `${pace.daysLeft} day${pace.daysLeft === 1 ? '' : 's'} to go`
