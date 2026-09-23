@@ -509,11 +509,9 @@ export default function PendingTransactionsScreen() {
         keyExtractor={(t) => t.id}
         showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={
-          hasItems
-            ? { paddingBottom: 20 }
-            : { flexGrow: 1, justifyContent: 'center', paddingBottom: 20 }
-        }
+        // The header is part of this list, so centring the whole thing put the back arrow and title in the
+        // middle of an empty screen. Only the "all caught up" message is centred now, in the space below.
+        contentContainerStyle={hasItems ? { paddingBottom: 20 } : { flexGrow: 1, paddingBottom: 20 }}
         ListHeaderComponent={
           <View>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -663,7 +661,7 @@ export default function PendingTransactionsScreen() {
           </View>
         }
         ListEmptyComponent={!loading ? (
-          <View style={{ alignItems: 'center' }}>
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
             <AlertCircle color={theme.colors.textMuted} size={32} />
             <P style={{ textAlign: 'center', marginTop: 8 }}>No pending transactions. You are all caught up.</P>
           </View>

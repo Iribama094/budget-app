@@ -252,9 +252,10 @@ export function Amount({
     <Text
       style={[base, { color: color ?? theme.colors.text }, style]}
       numberOfLines={1}
-      // Big amounts shrink to fit rather than getting cut off when someone uses large text on their phone.
-      adjustsFontSizeToFit={big}
-      minimumFontScale={0.6}
+      // Any amount shrinks to fit rather than getting cut off. Money in and out sits in half a card, so
+      // millions ran past the edge at the ordinary size, not only at the big ones.
+      adjustsFontSizeToFit
+      minimumFontScale={big ? 0.6 : 0.7}
       accessibilityLabel={hidden ? 'Amount hidden' : `${sign === '−' ? 'minus ' : sign === '+' ? 'plus ' : ''}${currency}${groupDigits(value)}`}
     >
       {sign}
