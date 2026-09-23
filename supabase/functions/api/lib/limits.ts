@@ -8,7 +8,10 @@ import { enforceRateLimit } from './rateLimit.ts';
  * Three different jobs, deliberately kept apart:
  *
  * 1. **Burst** is per function instance and held in memory. It costs nothing, so it can run on every single
- *    request, and it catches the common case: a loop gone wrong, or somebody hammering one endpoint.
+ *    request, and it catches the common case: a loop gone wrong, or somebody hammering one endpoint. The
+ *    platform runs several instances, so a determined caller can get a few extra through by landing on
+ *    different ones. That is fine for a guard whose job is to blunt floods. Anywhere the exact number
+ *    matters, and on anything the public can reach without signing in, use a quota instead.
  * 2. **Quota** is a counter in Postgres, so it holds across instances and restarts. It costs one small write,
  *    so it guards the things that cost money or take time, not every request.
  * 3. **Ceiling** is the same counter but for everybody at once. It is the last line before a surprise

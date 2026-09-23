@@ -1,7 +1,7 @@
 import { sql, isUniqueViolation } from '../lib/db.ts';
 import { body, json, methodNotAllowed, z } from '../lib/http.ts';
 import { enforceRateLimit } from '../lib/rateLimit.ts';
-import { enforceBurst } from '../lib/limits.ts';
+import { enforceQuota } from '../lib/limits.ts';
 import { requireHuman } from '../lib/captcha.ts';
 import { sendEmail } from '../lib/email.ts';
 import { cleanCode, codeTaken, inviteLink, newReferralCode } from '../lib/referral.ts';
@@ -69,7 +69,7 @@ export async function waitlistJoin(ctx: Ctx) {
   const input = await body(ctx.req, JoinSchema, 'Check your name and email and try again');
 
   const ip = (ctx.req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown';
-  enforceBurst(`waitlist:ip:${ip}`, 3, 60);
+  await enforceQuota({ key: `waitlist:burst:${ip}`, limit: 3, windowSec: 60, message: 'One at a time. Try again in a moment.' });
   await enforceRateLimit({ key: `waitlist:ip:${ip}`, limit: 20, windowSec: 60 * 60 });
   await requireHuman(input.captcha, ip);
 

@@ -5,7 +5,7 @@ import { DEFAULT_NOTIFICATION_PREFS, getNotificationPrefs, notifyUser } from '..
 import { enforceRateLimit } from '../lib/rateLimit.ts';
 import { sendEmail } from '../lib/email.ts';
 import { checkVerificationCode, isEmailVerified, mustProveEmail, sendVerificationCode } from '../lib/verify.ts';
-import { enforceBurst } from '../lib/limits.ts';
+import { enforceQuota } from '../lib/limits.ts';
 import { requireHuman } from '../lib/captcha.ts';
 import type { Ctx } from '../index.ts';
 
@@ -159,7 +159,7 @@ export async function forgotPassword(ctx: Ctx) {
   const { email: raw, captcha } = await body(ctx.req, ForgotSchema, 'Enter a valid email address');
   const email = raw.trim().toLowerCase();
   const ip = (ctx.req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown';
-  enforceBurst(`forgot:ip:${ip}`, 3, 60);
+  await enforceQuota({ key: `forgot:burst:${ip}`, limit: 3, windowSec: 60, message: 'One at a time. Try again in a moment.' });
   await enforceRateLimit({ key: `forgot:ip:${ip}`, limit: 20, windowSec: 60 * 60 });
   await requireHuman(captcha, ip);
   await enforceRateLimit({ key: `forgot:email:${email}`, limit: 5, windowSec: 60 * 60 });
