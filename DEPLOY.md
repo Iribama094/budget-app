@@ -66,10 +66,15 @@ push to `main` rebuilt it from the repository root and served the old web app in
 connection is off, so deploy it by hand:
 
 ```bash
+node scripts/check-site-deployed.mjs   # is the live site behind this repo?
 cd waitlist
 npx vercel link --yes --project budgetfriendly-waitlist   # first time in a fresh checkout
 npx vercel deploy --prod --yes
 ```
+
+`check-site-deployed.mjs` compares every page on the live site with `waitlist/` and names the ones that are
+behind, so a change that was never deployed shows up in one command instead of weeks later. There is a fuller
+note in [waitlist/README.md](waitlist/README.md), where somebody changing the site will actually see it.
 
 To turn automatic deploys back on, connect the project to the repository again **and** set its Root Directory
 to `waitlist` in the Vercel dashboard, Settings, General. Root Directory is the part that was missing; the same
