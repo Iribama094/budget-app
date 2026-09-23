@@ -28,6 +28,12 @@ what the system did. Keep it short enough to read on a phone in one go.
   you changed the API
 - `node supabase/scripts/e2e.mjs "$(pwd)"` after deploying the API
 - `node scripts/check-writing.mjs`
+- `node scripts/check-site-deployed.mjs` if you changed anything in `waitlist/`. That site is deployed by hand,
+  so the repo and the live pages drift apart silently. See `waitlist/README.md`.
+
+The e2e suite is run from this machine, whose connection drops often enough to matter. Failures that move
+between runs are the line, not the code: re-run before digging, and only believe a check that fails twice. When
+re-running is slow, write a short probe that hits the one endpoint a few times with a throwaway account.
 
 ## Layers on screen
 
