@@ -11,7 +11,62 @@ export type ParsedVoiceEntry = {
   description: string;
   /** 0 for today, -1 for yesterday. */
   dayOffset: 0 | -1;
+  /** One of the person's own categories, when they named it. */
+  category: string | null;
+  /** What the money was for, tidied into something that could become a category. Null when nothing was named. */
+  subject: string | null;
 };
+
+/** Words that are about the spending, not about what was bought, so they never become a category. */
+const NOT_A_SUBJECT = new Set([
+  'it', 'that', 'this', 'them', 'him', 'her', 'me', 'my', 'myself', 'the', 'a', 'an', 'some', 'something',
+  'today', 'yesterday', 'now', 'naira', 'ngn', 'money', 'cash', 'total', 'here', 'there', 'stuff', 'things'
+]);
+
+const singular = (w: string) => (w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w);
+const normalise = (w: string) => singular(w.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim());
+
+/**
+ * The category the person actually said. Their own names are matched first and longest first, so "school fees"
+ * wins over "school", and a plural is treated as its singular so "fees" finds "Fee".
+ */
+function findCategory(lower: string, known: string[]): string | null {
+  const hay = ' ' + normalise(lower).replace(/\s+/g, ' ') + ' ';
+  const sorted = [...known].sort((a, b) => b.length - a.length);
+  for (const name of sorted) {
+    const needle = normalise(name);
+    if (needle && hay.includes(' ' + needle + ' ')) return name;
+  }
+  // Each word on its own, so "fuel" finds "Generator fuel" when nothing matched whole.
+  for (const name of sorted) {
+    const words = normalise(name).split(' ').filter((w) => w.length > 3 && !NOT_A_SUBJECT.has(w));
+    if (words.some((w) => hay.includes(' ' + w + ' '))) return name;
+  }
+  return null;
+}
+
+/** The thing bought, short enough to be a category name: "fuel for the generator" becomes "Fuel". */
+function findSubject(description: string): string | null {
+  const words = description
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((w) => !NOT_A_SUBJECT.has(w));
+  if (!words.length) return null;
+  // Up to two words, stopping at a joining word, so "school fees" survives but "fuel for generator" does not.
+  const stop = new Set(['for', 'from', 'with', 'at', 'in', 'on', 'to', 'and', 'of']);
+  const take: string[] = [];
+  for (const w of words) {
+    if (stop.has(w)) break;
+    take.push(w);
+    if (take.length === 2) break;
+  }
+  if (!take.length) return null;
+  const name = take.join(' ');
+  if (name.length < 3 || /^\d+$/.test(name)) return null;
+  return name[0].toUpperCase() + name.slice(1);
+}
 
 const UNITS: Record<string, number> = {
   zero: 0,
@@ -92,7 +147,7 @@ function findAmount(text: string): { amount: number; matched: string } | null {
   return null;
 }
 
-export function parseVoiceEntry(raw: string): ParsedVoiceEntry {
+export function parseVoiceEntry(raw: string, knownCategories: string[] = []): ParsedVoiceEntry {
   const text = raw.trim().replace(/\s+/g, ' ');
   const lower = text.toLowerCase();
   const found = findAmount(lower);
@@ -104,7 +159,14 @@ export function parseVoiceEntry(raw: string): ParsedVoiceEntry {
   // What it was for: the part after "on" or "for", otherwise the sentence without the money words.
   let description = '';
   const after = text.match(/\b(?:on|for|to)\s+(.+)$/i);
-  if (after) description = after[1];
+  // "bought bread for 1500" puts the money after "for", not the thing bought, so only take what follows when
+  // there is something there besides the amount.
+  const afterText = after ? after[1] : '';
+  const afterIsOnlyMoney = !afterText
+    .replace(/[₦,\d\s]/g, '')
+    .replace(/\b(naira|ngn|k|m|thousand|million|hundred)\b/gi, '')
+    .trim();
+  if (after && !afterIsOnlyMoney) description = afterText;
   else {
     description = text
       .replace(new RegExp(`(?:₦|ngn)?\\s*${found?.matched ? found.matched.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '(?!)'}`, 'i'), ' ')
@@ -116,8 +178,18 @@ export function parseVoiceEntry(raw: string): ParsedVoiceEntry {
     .replace(/\b(today|yesterday)\b/gi, ' ')
     .replace(/\s+/g, ' ')
     .replace(/^[\s,.-]+|[\s,.-]+$/g, '')
+    // A joining word left dangling at either end once the money came out of the middle: "Bread for".
+    .replace(/\s+\b(for|on|to|and|of|with|at|in|from)\b$/i, '')
+    .replace(/^\b(a|an|the)\b\s+/i, '')
     .slice(0, 80);
   if (description) description = description[0].toUpperCase() + description.slice(1);
 
-  return { type, amount: found?.amount ?? null, description, dayOffset };
+  return {
+    type,
+    amount: found?.amount ?? null,
+    description,
+    dayOffset,
+    category: findCategory(lower, knownCategories),
+    subject: findSubject(description)
+  };
 }

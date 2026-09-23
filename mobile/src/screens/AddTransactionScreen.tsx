@@ -113,7 +113,7 @@ export function AddTransactionScreen() {
     (key: string) => bucketDisplayName(key, isBusiness),
     [isBusiness]
   );
-  const { expense: expenseCategories, income: incomeCategories, create: createCategory } = useCategories();
+  const { expense: expenseCategories, income: incomeCategories, create: createCategory, refresh: refreshCategories } = useCategories();
   const categoryItems = type === 'expense' ? expenseCategories : incomeCategories;
   const categories = useMemo(() => categoryItems.map((c) => c.name), [categoryItems]);
 
@@ -556,22 +556,63 @@ export function AddTransactionScreen() {
           : 'Choose a budget, or turn off “Count toward a budget”'
         : null;
 
-  // "I spent 5k on fuel yesterday" fills in the amount, type, note and date. You still check it and save.
+  // "I spent 5k on fuel yesterday" fills in the amount, type, note, date and the category. You still check it
+  // and save. If what they named is not a category yet, it becomes one, because having to stop and add it by
+  // hand is exactly the work speaking was meant to save.
   const voice = useVoiceNote((text) => {
-    const parsed = parseVoiceEntry(text);
+    const nextType = parseVoiceEntry(text).type;
+    const parsed = parseVoiceEntry(text, categories);
     if (parsed.type) setType(parsed.type);
     if (parsed.amount != null) setAmount(formatNumberInput(String(parsed.amount)));
-    if (parsed.description) {
-      setDescription(parsed.description);
+    if (parsed.description) setDescription(parsed.description);
+    setDate(parsed.dayOffset === -1 ? yesterdayIso : todayIso);
+
+    if (parsed.category) {
+      setCategory(parsed.category);
+      setCategoryTouched(true);
+    } else if (parsed.subject) {
+      setCategoryTouched(true);
+      void addHeardCategory(parsed.subject, parsed.type ?? nextType ?? type);
+    } else {
+      // Nothing named, so let the usual suggestion from the note have its turn.
       setCategoryTouched(false);
     }
-    setDate(parsed.dayOffset === -1 ? yesterdayIso : todayIso);
+
     toast.show(
       parsed.amount != null ? `Heard: ${text.slice(0, 60)}. Check it and save 🎤` : 'I caught the note but not the amount. Type it in.',
       parsed.amount != null ? 'success' : 'info',
       4000
     );
   });
+
+  /**
+   * A category the person named out loud that they do not have yet. We ask the server where it belongs before
+   * creating it, so "fuel" lands in Needs rather than wherever the form happened to be pointing.
+   */
+  const addHeardCategory = async (name: string, forType: 'income' | 'expense') => {
+    const space = spacesEnabled ? activeSpaceId : 'personal';
+    const hit = await suggestCategory(name, forType, space).catch(() => null);
+    if (hit && categories.includes(hit.category)) {
+      setCategory(hit.category);
+      setSuggested(hit.category);
+      return;
+    }
+    try {
+      const created = await createCategory({
+        name,
+        type: forType,
+        bucket: forType === 'expense' ? hit?.bucket ?? 'Wants' : null,
+        icon: guessIconKey(name, forType === 'income')
+      });
+      setCategory(created.name);
+      if (forType === 'expense' && created.bucket && allowedBudgetTypes.some((x) => x.key === created.bucket)) setBudgetTxnType(created.bucket);
+      await refreshCategories().catch(() => undefined);
+      toast.show(`Added ${created.name} as a new category. Change it if that is not right.`, 'info', 5000);
+    } catch {
+      // Could not add it, so leave the category for them to pick rather than guessing.
+      setCategoryTouched(false);
+    }
+  };
 
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back'];
 
