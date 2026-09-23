@@ -7,6 +7,8 @@ export type ApiUser = {
   currency: string | null;
   locale: string | null;
   monthlyIncome: number | null;
+  /** Where the profile photo lives, or null when there is none. */
+  avatarUrl?: string | null;
   taxProfile?: {
     country?: string;
     withheldByEmployer?: boolean;
@@ -47,23 +49,10 @@ export async function getMe(): Promise<ApiUser> {
 }
 
 export async function patchMe(
-  patch: Partial<Pick<ApiUser, 'name' | 'currency' | 'locale' | 'monthlyIncome' | 'budgetPeriod' | 'budgetMode' | 'homeBudget' | 'language'>> & { taxProfile?: any; painPoints?: string[] }
+  patch: Partial<Pick<ApiUser, 'name' | 'currency' | 'locale' | 'monthlyIncome' | 'budgetPeriod' | 'budgetMode' | 'homeBudget' | 'language' | 'avatarUrl'>> & { taxProfile?: any; painPoints?: string[] }
 ): Promise<ApiUser> {
   const data = await apiFetch('/v1/users/me', { method: 'PATCH', body: JSON.stringify(patch) });
   return (data as any).user as ApiUser;
-}
-
-export async function uploadAvatar(uri: string): Promise<{ avatarUrl: string }> {
-  // If already a remote or data URL, just return it
-  if (/^https?:\/\//.test(uri) || uri.startsWith('data:')) {
-    return { avatarUrl: uri };
-  }
-
-  // FormData upload for local files (React Native)
-  const form = new FormData();
-  form.append('avatar', { uri, name: 'avatar.jpg', type: 'image/jpeg' } as any);
-  const data = await apiFetch('/v1/users/me/avatar', { method: 'POST', body: form });
-  return data as { avatarUrl: string };
 }
 
 export async function getTaxRules(country: string): Promise<any> {

@@ -1,415 +1,291 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { View, Text, Pressable, Image, Alert, ScrollView } from 'react-native';
-import { Modal } from '../components/Common/AppModal';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ArrowLeft } from '../icons';
+import { Camera, Check, Images, Trash2 } from '../icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Card, Screen, H1, P, TextField, PrimaryButton, SecondaryButton } from '../components/Common/ui';
-import { patchMe, uploadAvatar } from '../api/endpoints';
-import { apiFetch } from '../api/client';
-import * as ImagePicker from 'expo-image-picker';
-import * as SecureStore from 'expo-secure-store';
-import { tokens } from '../theme/tokens';
+import { useToast } from '../components/Common/Toast';
+import { Avatar } from '../components/Common/Avatar';
+import {
+  InlineError,
+  ListCard,
+  ListRow,
+  PrimaryButton,
+  Screen,
+  ScreenHeader,
+  SectionHeader,
+  TextField
+} from '../components/Common/ui';
+import { Sheet } from '../components/Business/parts';
+import { patchMe } from '../api/endpoints';
+import { deletePhoto, pickPhoto, uploadPhoto } from '../lib/avatar';
+import { afterSheetCloses } from '../lib/afterSheetCloses';
 import { formatNumberInput } from '../utils/format';
 import { goBackOrHome } from '../navigation/goBack';
+import { fonts, type } from '../theme/typography';
 
-const CURRENCY_OPTIONS: Array<{ label: string; value: string }> = [
-  { label: 'Nigerian Naira (₦)', value: '₦' },
-  { label: 'US Dollar ($)', value: '$' },
-  { label: 'British Pound (£)', value: '£' },
-  { label: 'Euro (€)', value: '€' }
+const CURRENCIES = [
+  { label: 'Naira', value: '₦', hint: 'Nigeria' },
+  { label: 'US Dollar', value: '$', hint: 'United States' },
+  { label: 'Pound', value: '£', hint: 'United Kingdom' },
+  { label: 'Euro', value: '€', hint: 'Europe' }
 ];
 
-const LOCALE_OPTIONS: Array<{ label: string; value: string }> = [
-  { label: 'Nigeria (en-NG)', value: 'en-NG' },
-  { label: 'United States (en-US)', value: 'en-US' },
-  { label: 'United Kingdom (en-GB)', value: 'en-GB' }
+const REGIONS = [
+  { label: 'Nigeria', value: 'en-NG', hint: 'Dates and numbers the Nigerian way' },
+  { label: 'United Kingdom', value: 'en-GB', hint: 'Day before month' },
+  { label: 'United States', value: 'en-US', hint: 'Month before day' }
 ];
 
+const labelFor = (list: { label: string; value: string }[], value: string | null, fallback: string) =>
+  list.find((x) => x.value === value)?.label ?? (value || fallback);
+
+/**
+ * Your profile: the photo, the name, and the few settings that are about the person rather than their money.
+ *
+ * There is no view mode and no edit mode. The fields are the fields, Save appears once something has changed,
+ * and the photo saves on its own because picking one is already the decision.
+ */
 export default function ProfileEditScreen() {
   const nav = useNavigation<any>();
   const { user, refreshUser } = useAuth();
   const { theme } = useTheme();
+  const toast = useToast();
 
   const [name, setName] = useState(user?.name ?? '');
   const [currency, setCurrency] = useState(user?.currency ?? '₦');
-  const [monthly, setMonthly] = useState(user?.monthlyIncome != null ? String(user.monthlyIncome) : '');
-  const [locale, setLocale] = useState(user?.locale ?? '');
-  const [isSaving, setIsSaving] = useState(false);
+  const [locale, setLocale] = useState(user?.locale ?? 'en-NG');
+  const [monthly, setMonthly] = useState(user?.monthlyIncome != null ? formatNumberInput(String(user.monthlyIncome)) : '');
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
-  const [showLocalePicker, setShowLocalePicker] = useState(false);
 
-  const initials = useMemo(() => (user?.name || user?.email || 'U').slice(0, 2).toUpperCase(), [user]);
-  const displayName = useMemo(() => user?.name || user?.email || 'User', [user]);
+  const [photoSheet, setPhotoSheet] = useState(false);
+  const [currencySheet, setCurrencySheet] = useState(false);
+  const [regionSheet, setRegionSheet] = useState(false);
+  const [busyPhoto, setBusyPhoto] = useState(false);
+
+  // If the account is refreshed from somewhere else, take the new values as the starting point.
+  useEffect(() => {
+    setName(user?.name ?? '');
+    setCurrency(user?.currency ?? '₦');
+    setLocale(user?.locale ?? 'en-NG');
+    setMonthly(user?.monthlyIncome != null ? formatNumberInput(String(user.monthlyIncome)) : '');
+  }, [user?.name, user?.currency, user?.locale, user?.monthlyIncome]);
+
+  const initials = useMemo(() => {
+    const parts = (user?.name ?? '').trim().split(/\s+/).filter(Boolean);
+    return ((parts[0]?.[0] ?? user?.email?.[0] ?? 'U') + (parts[1]?.[0] ?? '')).toUpperCase();
+  }, [user?.name, user?.email]);
+
   const memberSince = useMemo(() => {
     if (!user?.createdAt) return null;
-    try {
-      const d = new Date(user.createdAt);
-      return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short' });
-    } catch {
-      return null;
-    }
-  }, [user]);
+    const d = new Date(user.createdAt);
+    return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
+  }, [user?.createdAt]);
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [avatarUri, setAvatarUri] = useState<string | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const val = await SecureStore.getItemAsync('bf_avatar_uri_v1');
-        if (val) setAvatarUri(val);
-      } catch {
-        // ignore
-      }
-    })();
-  }, []);
-
-  const pickImage = async () => {
-    try {
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert('Permission required', 'Please grant photo library access to choose an avatar.');
-        return;
-      }
-      const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8, allowsEditing: true, aspect: [1, 1] });
-      if (!res.cancelled) {
-        // Persist immediately as a local fallback
-        await SecureStore.setItemAsync('bf_avatar_uri_v1', res.uri);
-        setAvatarUri(res.uri);
-
-        // Attempt to upload to backend and persist returned remote URL
-        try {
-          const uploaded = await uploadAvatar(res.uri);
-          if (uploaded?.avatarUrl) {
-            // Persist server-side avatar URL and refresh user
-            await apiFetch('/v1/users/me', { method: 'PATCH', body: JSON.stringify({ avatarUrl: uploaded.avatarUrl }) });
-            await refreshUser();
-            await SecureStore.setItemAsync('bf_avatar_uri_v1', uploaded.avatarUrl);
-            setAvatarUri(uploaded.avatarUrl);
-          }
-        } catch (e) {
-          // ignore upload failures and keep local URI
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
-  };
-
-  const removeAvatar = async () => {
-    try {
-      await SecureStore.deleteItemAsync('bf_avatar_uri_v1');
-      setAvatarUri(null);
-    } catch {
-      // ignore
-    }
-  };
+  const monthlyNumber = monthly ? Number(monthly.replace(/,/g, '')) : null;
+  const changed =
+    (name.trim() || null) !== (user?.name ?? null) ||
+    currency !== (user?.currency ?? '₦') ||
+    locale !== (user?.locale ?? 'en-NG') ||
+    monthlyNumber !== (user?.monthlyIncome ?? null);
 
   const save = async () => {
     setError(null);
-    setIsSaving(true);
+    setSaving(true);
     try {
       await patchMe({
         name: name.trim() || null,
-        currency: currency || null,
-        monthlyIncome: monthly ? Number(monthly.replace(/,/g, '')) : undefined,
-        locale: locale.trim() || null
+        currency,
+        locale,
+        monthlyIncome: monthlyNumber ?? undefined
       });
       await refreshUser();
-      setIsEditing(false);
+      toast.show('Saved', 'success');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save');
+      setError(e instanceof Error ? e.message : 'Could not save that. Check your connection and try again.');
     } finally {
-      setIsSaving(false);
+      setSaving(false);
+    }
+  };
+
+  const changePhoto = async (from: 'library' | 'camera') => {
+    setPhotoSheet(false);
+    // The photos and the camera open as their own full screen, so the sheet goes first.
+    afterSheetCloses(async () => {
+      setBusyPhoto(true);
+      setError(null);
+      try {
+        const asset = await pickPhoto(from);
+        if (!asset || !user?.id) return;
+        const url = await uploadPhoto(user.id, asset);
+        await patchMe({ avatarUrl: url });
+        await refreshUser();
+        toast.show('Photo updated', 'success');
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Could not change your photo.');
+      } finally {
+        setBusyPhoto(false);
+      }
+    });
+  };
+
+  const removePhoto = async () => {
+    setPhotoSheet(false);
+    setBusyPhoto(true);
+    setError(null);
+    try {
+      if (user?.id) await deletePhoto(user.id);
+      await patchMe({ avatarUrl: null });
+      await refreshUser();
+      toast.show('Photo removed', 'success');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not remove your photo.');
+    } finally {
+      setBusyPhoto(false);
     }
   };
 
   return (
-    <Screen>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+    <Screen bottomInset={40}>
+      <ScreenHeader title="Your profile" onBack={() => goBackOrHome(nav)} />
+
+      {error ? <InlineError message={error} /> : null}
+
+      <View style={{ alignItems: 'center', paddingTop: 6, paddingBottom: 22 }}>
         <Pressable
-          onPress={() => goBackOrHome(nav)}
-          style={({ pressed }) => [{
-            width: 44,
-            height: 44,
-            borderRadius: 18,
-            backgroundColor: theme.colors.surface,
-            borderWidth: 1,
-            borderColor: theme.colors.border,
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: pressed ? 0.92 : 1
-          }]}
+          onPress={() => setPhotoSheet(true)}
+          disabled={busyPhoto}
+          accessibilityRole="button"
+          accessibilityLabel={user?.avatarUrl ? 'Change your photo' : 'Add a photo'}
+          style={({ pressed }) => [{ opacity: pressed || busyPhoto ? 0.7 : 1 }]}
         >
-          <ArrowLeft color={theme.colors.text} size={20} />
-        </Pressable>
-
-        <View style={{ marginLeft: 12, flex: 1 }}>
-          <H1 style={{ marginBottom: 0 }}>Profile details</H1>
-        </View>
-      </View>
-
-      <View style={{ marginTop: 12 }}>
-        {error ? (
-          <Card style={{ padding: 12 }}>
-            <Text style={{ color: theme.colors.error }}>{error}</Text>
-          </Card>
-        ) : null}
-
-        <Card style={{ padding: 18, flexDirection: 'row', alignItems: 'center' }}>
-          <Pressable onPress={pickImage} style={{ marginRight: 12 }}>
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={{ width: 64, height: 64, borderRadius: 18 }} />
-            ) : (
-              <View
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 18,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: theme.colors.primary
-                }}
-              >
-                <Text style={{ color: tokens.colors.white, fontFamily: 'Figtree_700Bold', fontSize: 20 }}>{initials}</Text>
-              </View>
-            )}
-          </Pressable>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>
-              {displayName}
-            </Text>
-            <Text numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.colors.textMuted, marginTop: 4 }}>
-              {user?.email ?? ''}
-            </Text>
-            {memberSince ? (
-              <P style={{ marginTop: 4, fontSize: 12 }}>Member since {memberSince}</P>
-            ) : null}
-            {avatarUri ? (
-              <Pressable onPress={removeAvatar} style={({ pressed }) => [{ marginTop: 8, alignSelf: 'flex-start', opacity: pressed ? 0.9 : 1 }]}>
-                <Text style={{ color: theme.colors.primary, fontSize: 12, fontFamily: 'Figtree_600SemiBold' }}>Remove photo</Text>
-              </Pressable>
-            ) : null}
+          <Avatar uri={user?.avatarUrl} initials={initials} size={104} />
+          <View
+            style={{
+              position: 'absolute',
+              right: -2,
+              bottom: -2,
+              width: 34,
+              height: 34,
+              borderRadius: 17,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: theme.colors.primary,
+              borderWidth: 3,
+              borderColor: theme.colors.background
+            }}
+          >
+            <Camera color={theme.colors.onPrimary} size={16} />
           </View>
-        </Card>
+        </Pressable>
 
-        <View style={{ marginTop: 12 }}>
-          <Card>
-            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Personal details</Text>
-            <View style={{ marginTop: 12, gap: 12 }}>
-              {!isEditing ? (
-                <>
-                  <View>
-                    <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>Full name</Text>
-                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold', marginTop: 4 }}>{name || 'Not set'}</Text>
-                  </View>
-                  <View>
-                    <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>Email</Text>
-                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold', marginTop: 4 }}>{user?.email ?? '-'}</Text>
-                  </View>
-                </>
-              ) : (
-                <>
-                  <TextField label="Full name" value={name} onChangeText={setName} placeholder="Your full name" />
-                </>
-              )}
-            </View>
-          </Card>
-        </View>
-
-        <View style={{ marginTop: 12 }}>
-          <Card>
-            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Region & preferences</Text>
-            <View style={{ marginTop: 12, gap: 12 }}>
-              {!isEditing ? (
-                <>
-                  <View>
-                    <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>Preferred currency</Text>
-                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold', marginTop: 4 }}>{currency || '₦'}</Text>
-                  </View>
-                  <View>
-                    <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>Region / locale</Text>
-                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold', marginTop: 4 }}>{locale || 'Not set'}</Text>
-                  </View>
-                </>
-              ) : (
-                <>
-                  <View>
-                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold', marginBottom: 6 }}>Preferred currency</Text>
-                    <Pressable
-                      onPress={() => setShowCurrencyPicker(true)}
-                      style={({ pressed }) => [
-                        {
-                          borderWidth: 1,
-                          borderColor: theme.colors.border,
-                          backgroundColor: theme.colors.surfaceAlt,
-                          borderRadius: tokens.radius['2xl'],
-                          paddingHorizontal: 14,
-                          paddingVertical: 12,
-                          opacity: pressed ? 0.92 : 1
-                        }
-                      ]}
-                    >
-                      <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>{currency || '₦'}</Text>
-                      <Text style={{ color: theme.colors.textMuted, marginTop: 4, fontSize: 12 }}>Tap to change</Text>
-                    </Pressable>
-                  </View>
-
-                  <View>
-                    <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold', marginBottom: 6 }}>Region / locale</Text>
-                    <Pressable
-                      onPress={() => setShowLocalePicker(true)}
-                      style={({ pressed }) => [
-                        {
-                          borderWidth: 1,
-                          borderColor: theme.colors.border,
-                          backgroundColor: theme.colors.surfaceAlt,
-                          borderRadius: tokens.radius['2xl'],
-                          paddingHorizontal: 14,
-                          paddingVertical: 12,
-                          opacity: pressed ? 0.92 : 1
-                        }
-                      ]}
-                    >
-                      <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>{locale || 'en-NG'}</Text>
-                      <Text style={{ color: theme.colors.textMuted, marginTop: 4, fontSize: 12 }}>Tap to change</Text>
-                    </Pressable>
-                  </View>
-                </>
-              )}
-            </View>
-          </Card>
-        </View>
-
-        <View style={{ marginTop: 12 }}>
-          <Card>
-            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Income</Text>
-            <View style={{ marginTop: 12 }}>
-              {!isEditing ? (
-                <View>
-                  <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>Monthly income (take-home)</Text>
-                  <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold', marginTop: 4 }}>{monthly || 'Not set'}</Text>
-                </View>
-              ) : (
-                <TextField
-                  label="Monthly income (take-home)"
-                  value={monthly}
-                  onChangeText={(v) => setMonthly(formatNumberInput(v))}
-                  placeholder="0"
-                  keyboardType="decimal-pad"
-                />
-              )}
-              <P style={{ marginTop: 4 }}>We use this to personalise budgets, insights and formatting.</P>
-            </View>
-          </Card>
-        </View>
-
-        <View style={{ marginTop: 16 }}>
-          {!isEditing ? (
-            <PrimaryButton title="Edit profile" onPress={() => setIsEditing(true)} />
-          ) : (
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <SecondaryButton
-                  title="Cancel"
-                  onPress={() => {
-                    setIsEditing(false);
-                    setName(user?.name ?? '');
-                    setCurrency(user?.currency ?? '₦');
-                    setMonthly(user?.monthlyIncome != null ? String(user.monthlyIncome) : '');
-                    setLocale(user?.locale ?? '');
-                    setError(null);
-                  }}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <PrimaryButton title={isSaving ? 'Saving…' : 'Save changes'} onPress={save} disabled={isSaving} />
-              </View>
-            </View>
-          )}
-        </View>
+        <Text style={[type.title, { color: theme.colors.text, marginTop: 14 }]}>{user?.name || 'Add your name'}</Text>
+        <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>{user?.email ?? ''}</Text>
+        {memberSince ? (
+          <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>With us since {memberSince}</Text>
+        ) : null}
+        <Pressable onPress={() => setPhotoSheet(true)} disabled={busyPhoto} hitSlop={8} style={{ marginTop: 10 }}>
+          <Text style={{ color: theme.colors.primary, fontFamily: fonts.semibold, fontSize: 13 }}>
+            {busyPhoto ? 'Working on it' : user?.avatarUrl ? 'Change photo' : 'Add a photo'}
+          </Text>
+        </Pressable>
       </View>
 
-      <Modal visible={showCurrencyPicker} transparent animationType="fade" onRequestClose={() => setShowCurrencyPicker(false)}>
-        <Pressable
-          onPress={() => setShowCurrencyPicker(false)}
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', padding: 18, justifyContent: 'flex-end' }}
-        >
-          <Pressable
-            onPress={() => {}}
-            style={{ backgroundColor: theme.colors.surface, borderRadius: tokens.radius['2xl'], borderWidth: 1, borderColor: theme.colors.border, padding: 14, maxHeight: '70%' }}
-          >
-            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Preferred currency</Text>
-            <ScrollView style={{ marginTop: 10 }}>
-              {CURRENCY_OPTIONS.map((o) => {
-                const active = o.value === currency;
-                return (
-                  <Pressable
-                    key={o.value}
-                    onPress={() => {
-                      setCurrency(o.value);
-                      setShowCurrencyPicker(false);
-                    }}
-                    style={({ pressed }) => [
-                      {
-                        paddingVertical: 12,
-                        paddingHorizontal: 10,
-                        borderRadius: 12,
-                        backgroundColor: active ? theme.colors.surfaceAlt : 'transparent',
-                        opacity: pressed ? 0.92 : 1
-                      }
-                    ]}
-                  >
-                    <Text style={{ color: theme.colors.text, fontWeight: active ? '900' : '800' }}>{o.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <SectionHeader title="About you" />
+      <ListCard>
+        <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 2 }}>
+          <TextField label="Your name" value={name} onChangeText={setName} placeholder="What should we call you?" autoCapitalize="words" />
+        </View>
+        <ListRow title="Email" subtitle={user?.email ?? ''} />
+      </ListCard>
+      <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 6, marginBottom: 18, paddingHorizontal: 4 }]}>
+        Your email is how you sign in. To change it, go to Settings, Account.
+      </Text>
 
-      <Modal visible={showLocalePicker} transparent animationType="fade" onRequestClose={() => setShowLocalePicker(false)}>
-        <Pressable
-          onPress={() => setShowLocalePicker(false)}
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', padding: 18, justifyContent: 'flex-end' }}
-        >
-          <Pressable
-            onPress={() => {}}
-            style={{ backgroundColor: theme.colors.surface, borderRadius: tokens.radius['2xl'], borderWidth: 1, borderColor: theme.colors.border, padding: 14, maxHeight: '70%' }}
-          >
-            <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_700Bold', fontSize: 16 }}>Region / locale</Text>
-            <ScrollView style={{ marginTop: 10 }}>
-              {LOCALE_OPTIONS.map((o) => {
-                const active = o.value === (locale || 'en-NG');
-                return (
-                  <Pressable
-                    key={o.value}
-                    onPress={() => {
-                      setLocale(o.value);
-                      setShowLocalePicker(false);
-                    }}
-                    style={({ pressed }) => [
-                      {
-                        paddingVertical: 12,
-                        paddingHorizontal: 10,
-                        borderRadius: 12,
-                        backgroundColor: active ? theme.colors.surfaceAlt : 'transparent',
-                        opacity: pressed ? 0.92 : 1
-                      }
-                    ]}
-                  >
-                    <Text style={{ color: theme.colors.text, fontWeight: active ? '900' : '800' }}>{o.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <SectionHeader title="Money and region" />
+      <ListCard>
+        <ListRow
+          title="Currency"
+          subtitle={`${labelFor(CURRENCIES, currency, 'Naira')}, shown as ${currency}`}
+          onPress={() => setCurrencySheet(true)}
+          chevron
+        />
+        <ListRow title="Region" subtitle={labelFor(REGIONS, locale, 'Nigeria')} onPress={() => setRegionSheet(true)} chevron />
+        <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 }}>
+          <TextField
+            label="Take-home pay each month"
+            value={monthly}
+            onChangeText={(v) => setMonthly(formatNumberInput(v))}
+            keyboardType="numeric"
+            placeholder="What lands in your account"
+          />
+        </View>
+      </ListCard>
+      <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 6, marginBottom: 20, paddingHorizontal: 4 }]}>
+        Take-home pay is what actually reaches you, after tax and deductions. It is the starting point for your plan.
+      </Text>
+
+      {changed ? <PrimaryButton title="Save changes" onPress={save} loading={saving} /> : null}
+
+      <Sheet
+        visible={photoSheet}
+        onClose={() => setPhotoSheet(false)}
+        title="Your photo"
+        subtitle="Anyone you share a budget or a business with will see it."
+      >
+        <ListCard>
+          <ListRow icon={<Camera color={theme.colors.primary} size={18} />} title="Take a photo" onPress={() => void changePhoto('camera')} chevron />
+          <ListRow
+            icon={<Images color={theme.colors.primary} size={18} />}
+            title="Choose from your photos"
+            onPress={() => void changePhoto('library')}
+            chevron
+          />
+          {user?.avatarUrl ? (
+            <ListRow
+              icon={<Trash2 color={theme.colors.error} size={18} />}
+              title="Remove photo"
+              titleStyle={{ color: theme.colors.error }}
+              onPress={() => void removePhoto()}
+            />
+          ) : null}
+        </ListCard>
+      </Sheet>
+
+      <Sheet visible={currencySheet} onClose={() => setCurrencySheet(false)} title="Currency" subtitle="What your amounts are shown in.">
+        <ListCard>
+          {CURRENCIES.map((c) => (
+            <ListRow
+              key={c.value}
+              title={`${c.label} (${c.value})`}
+              subtitle={c.hint}
+              right={currency === c.value ? <Check color={theme.colors.primary} size={18} strokeWidth={3} /> : undefined}
+              onPress={() => {
+                setCurrency(c.value);
+                setCurrencySheet(false);
+              }}
+            />
+          ))}
+        </ListCard>
+      </Sheet>
+
+      <Sheet visible={regionSheet} onClose={() => setRegionSheet(false)} title="Region" subtitle="How dates and numbers are written.">
+        <ListCard>
+          {REGIONS.map((r) => (
+            <ListRow
+              key={r.value}
+              title={r.label}
+              subtitle={r.hint}
+              right={locale === r.value ? <Check color={theme.colors.primary} size={18} strokeWidth={3} /> : undefined}
+              onPress={() => {
+                setLocale(r.value);
+                setRegionSheet(false);
+              }}
+            />
+          ))}
+        </ListCard>
+      </Sheet>
     </Screen>
   );
 }

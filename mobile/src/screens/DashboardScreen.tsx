@@ -56,6 +56,7 @@ import { ShortfallCard } from '../components/Home/ShortfallCard';
 import { usePlan } from '../lib/usePlan';
 import { useConfig } from '../contexts/ConfigContext';
 import { readCache, writeCache } from '../lib/localCache';
+import { Avatar } from '../components/Common/Avatar';
 import { useHiddenIds } from '../lib/undoDelete';
 
 type HomeSnapshot = {
@@ -582,9 +583,9 @@ export function DashboardScreen() {
           onPress={() => nav.navigate('Profile')}
           accessibilityRole="button"
           accessibilityLabel="Account"
-          style={[styles.avatar, { backgroundColor: theme.colors.primarySoft }]}
+          style={styles.avatar}
         >
-          <Text style={{ fontFamily: fonts.display, fontSize: 14, color: theme.colors.primary }}>{avatarInitials}</Text>
+          <Avatar uri={user?.avatarUrl} initials={avatarInitials} size={40} />
         </Pressable>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={1} style={[type.bodyStrong, { color: theme.colors.text, fontSize: 16 }]}>

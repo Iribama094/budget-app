@@ -9,6 +9,8 @@
 export type { LucideIcon, LucideProps } from 'lucide-react-native';
 
 export { default as AlertCircle } from 'lucide-react-native/dist/esm/icons/circle-alert';
+export { default as Camera } from 'lucide-react-native/dist/esm/icons/camera';
+export { default as Images } from 'lucide-react-native/dist/esm/icons/images';
 export { default as AlertTriangle } from 'lucide-react-native/dist/esm/icons/triangle-alert';
 export { default as ArrowDownLeft } from 'lucide-react-native/dist/esm/icons/arrow-down-left';
 export { default as ArrowLeft } from 'lucide-react-native/dist/esm/icons/arrow-left';

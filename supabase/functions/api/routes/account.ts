@@ -27,6 +27,7 @@ export function toApiUser(p: any, _opts: { withTax?: boolean } = {}) {
     budgetMode: p.budgetMode ?? 'solo',
     homeBudget: p.homeBudget ?? 'own',
     language: p.language ?? 'en',
+    avatarUrl: p.avatarUrl ?? null,
     createdAt: iso(p.createdAt),
     updatedAt: iso(p.updatedAt)
   };
@@ -117,7 +118,9 @@ const PatchMeSchema = z
     budgetMode: z.enum(['solo', 'shared', 'both']).optional(),
     homeBudget: z.enum(['own', 'shared']).optional(),
     /** 'pcm' is Nigerian Pidgin. */
-    language: z.enum(['en', 'pcm']).optional()
+    language: z.enum(['en', 'pcm']).optional(),
+    /** Where the photo lives in storage. Null removes it. The app uploads the file itself. */
+    avatarUrl: z.string().url().max(500).nullable().optional()
   })
   .strict();
 
@@ -140,7 +143,8 @@ export async function usersMe(ctx: Ctx) {
       budget_mode = ${patch.budgetMode ?? current.budgetMode ?? 'solo'},
       home_budget = ${patch.homeBudget ?? current.homeBudget ?? 'own'},
       pain_points = ${patch.painPoints ?? current.painPoints},
-      language = ${patch.language ?? current.language ?? 'en'}
+      language = ${patch.language ?? current.language ?? 'en'},
+      avatar_url = ${patch.avatarUrl !== undefined ? patch.avatarUrl : current.avatarUrl ?? null}
     where id = ${auth.userId}
     returning *
   `;
