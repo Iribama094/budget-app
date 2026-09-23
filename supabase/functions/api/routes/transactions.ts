@@ -19,8 +19,6 @@ const CreateSchema = z.object({
   occurredAt: z.string().datetime({ offset: true }),
   budgetId: z.string().min(1).max(120).optional(),
   budgetCategory: z.string().min(1).max(60).optional(),
-  miniBudgetId: z.string().min(1).max(120).optional(),
-  miniBudget: z.string().min(1).max(120).optional(),
   spaceId: z.enum(['personal', 'business']).optional(),
   /** VAT inside a business cost, claimed back against VAT charged on sales. */
   vatAmount: z.number().finite().nonnegative().max(1e12).optional(),
@@ -39,8 +37,6 @@ const PatchSchema = z
     occurredAt: z.string().datetime({ offset: true }).optional(),
     budgetId: z.union([z.string().min(1).max(120), z.null()]).optional(),
     budgetCategory: z.union([z.string().min(1).max(60), z.null()]).optional(),
-    miniBudgetId: z.union([z.string().min(1).max(120), z.null()]).optional(),
-    miniBudget: z.union([z.string().min(1).max(120), z.null()]).optional(),
     /** Money given back on this expense. Taken off what it cost; the whole amount removes it. */
     refund: z.number().finite().positive().optional()
   })
@@ -57,7 +53,6 @@ export function toApiTransaction(t: any, opts: { full?: boolean; names?: Map<str
     description: t.description,
     budgetId: t.budgetId ?? null,
     budgetCategory: t.budgetCategory ?? null,
-    miniBudgetId: t.miniBudgetId ?? null,
     refundedAmount: Number(t.refundedAmount ?? 0),
     fxCurrency: t.fxCurrency ?? null,
     fxAmount: t.fxAmount == null ? null : Number(t.fxAmount),
@@ -112,10 +107,10 @@ export async function transactionsIndex(ctx: Ctx) {
     try {
       [tx] = await sql`
         insert into public.transactions
-          (user_id, space_id, type, amount, category, description, budget_id, budget_category, mini_budget_id, client_id, occurred_at, vat_amount,
+          (user_id, space_id, type, amount, category, description, budget_id, budget_category, client_id, occurred_at, vat_amount,
            fx_currency, fx_amount, fx_rate, created_by)
         values (${userId}, ${space}, ${input.type}, ${input.amount}, ${input.category}, ${input.description},
-                ${input.budgetId ?? null}, ${input.budgetCategory ?? null}, ${input.miniBudgetId ?? input.miniBudget ?? null},
+                ${input.budgetId ?? null}, ${input.budgetCategory ?? null},
                 ${input.clientId ?? null}, ${new Date(input.occurredAt)}, ${space === 'business' && input.type === 'expense' ? input.vatAmount ?? 0 : 0},
                 ${input.fx?.currency.toUpperCase() ?? null}, ${input.fx?.amount ?? null}, ${input.fx?.rate ?? null},
                 ${actorId !== userId ? actorId : null})
@@ -239,11 +234,6 @@ export async function transactionById(ctx: Ctx) {
   const nextAmount = patch.amount ?? prevAmount;
   const nextBudgetId = has(patch, 'budgetId') ? patch.budgetId ?? null : prevBudgetId;
   const nextBucket = has(patch, 'budgetCategory') ? patch.budgetCategory ?? null : prevBucket;
-  const nextMini = has(patch, 'miniBudgetId')
-    ? patch.miniBudgetId ?? null
-    : has(patch, 'miniBudget')
-      ? patch.miniBudget ?? null
-      : existing.miniBudgetId ?? null;
   if (nextBudgetId && !isUuid(nextBudgetId)) badRequest('That budget is not available');
 
   // Keep the budget's total and buckets in step with income changes.
@@ -276,7 +266,6 @@ export async function transactionById(ctx: Ctx) {
       occurred_at = ${patch.occurredAt ? new Date(patch.occurredAt) : existing.occurredAt},
       budget_id = ${nextBudgetId},
       budget_category = ${nextBucket},
-      mini_budget_id = ${nextMini}
     where id = ${id} and user_id = ${userId}
     returning *
   `;
@@ -303,7 +292,7 @@ export async function analyticsSummary(ctx: Ctx) {
 
   const [range, lifetime] = await Promise.all([
     sql`
-      select type, amount, category, budget_category, mini_budget_id, occurred_at from public.transactions
+      select type, amount, category, budget_category, occurred_at from public.transactions
       where user_id = ${userId} and occurred_at >= ${start} and occurred_at <= ${end} ${spaceFilter}
     `,
     sql`select type, sum(amount) as total from public.transactions where user_id = ${userId} ${spaceFilter} group by type`
@@ -314,7 +303,6 @@ export async function analyticsSummary(ctx: Ctx) {
   let expenses = 0;
   const spendingByCategory: Record<string, number> = {};
   const spendingByBucket: Record<string, number> = {};
-  const spendingByMiniBudgetId: Record<string, number> = {};
   const dailyCategory: Record<string, Record<string, number>> = {};
   const dailyExpenses: Record<string, number> = {};
 
@@ -341,19 +329,6 @@ export async function analyticsSummary(ctx: Ctx) {
     perDay[t.category] = (perDay[t.category] ?? 0) + amount;
     const bucket = t.budgetCategory ? String(t.budgetCategory) : 'Unassigned';
     spendingByBucket[bucket] = (spendingByBucket[bucket] ?? 0) + amount;
-    if (t.miniBudgetId) spendingByMiniBudgetId[t.miniBudgetId] = (spendingByMiniBudgetId[t.miniBudgetId] ?? 0) + amount;
-  }
-
-  const spendingByMiniBudget: Record<string, number> = {};
-  const miniIds = Object.keys(spendingByMiniBudgetId).filter(isUuid);
-  const names = new Map<string, string>();
-  if (miniIds.length) {
-    const minis = await sql`select id, name from public.mini_budgets where user_id = ${userId} and id in ${sql(miniIds)}`;
-    minis.forEach((m) => names.set(m.id, m.name ?? 'Mini budget'));
-  }
-  for (const [id, amount] of Object.entries(spendingByMiniBudgetId)) {
-    const label = names.get(id) ?? id;
-    spendingByMiniBudget[label] = (spendingByMiniBudget[label] ?? 0) + amount;
   }
 
   const totalIncome = Number(lifetime.find((x) => x.type === 'income')?.total ?? 0);
@@ -368,7 +343,6 @@ export async function analyticsSummary(ctx: Ctx) {
     dailySpendingByCategory: Object.keys(dailyExpenses)
       .sort()
       .map((date) => ({ date, expenses: dailyExpenses[date] ?? 0, spendingByCategory: dailyCategory[date] ?? {} })),
-    spendingByBucket,
-    spendingByMiniBudget
+    spendingByBucket
   });
 }

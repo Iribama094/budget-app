@@ -58,7 +58,7 @@ export const TEAM_RULES: Rule[] = [
   { path: /^(debts|properties)\/[^/]+\/[^/]+$/, POST: M },
   { path: /^(budgets|recurring|goals)$/, GET: LEADS, POST: M },
   { path: /^(budgets|recurring|goals)\/[^/]+$/, GET: LEADS, PATCH: M },
-  { path: /^budgets\/[^/]+\/(pace|mini-budgets)$/, GET: LEADS, POST: M }
+  { path: /^budgets\/[^/]+\/pace$/, GET: LEADS }
 
   // Never for a team: bank connections and imports, owner pay, Wrapped, adding people, and every DELETE.
 ];

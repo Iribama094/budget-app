@@ -2,7 +2,7 @@ import type { BudgetPurpose } from '../api/endpoints';
 
 /**
  * Starting points for one-off projects and a child's pocket money. A template only fills in the name and splits
- * the total into stages (mini budgets) people can change; nothing else about the budget is special.
+ * the total into stages people can change; nothing else about the budget is special.
  */
 export type BudgetTemplate = {
   key: string;

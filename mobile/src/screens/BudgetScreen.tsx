@@ -6,7 +6,7 @@ import { Modal } from '../components/Common/AppModal';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { createBudget, listBudgets, listTransactions, patchBudget, patchBudgetInSpace, calcTax, type ApiBudget, type ApiTransaction, type BudgetPurpose } from '../api/endpoints';
+import { createBudget, getBudgetPace, listBudgets, listTransactions, patchBudget, patchBudgetInSpace, calcTax, type ApiBudget, type ApiCategoryLimit, type ApiTransaction, type BudgetPurpose } from '../api/endpoints';
 import { ArrowRightLeft, CalendarDays, Check, ChevronLeft, ChevronRight, Eye, EyeOff, Minus, PartyPopper, Plus, Users, X } from '../icons';
 import { applyRollover, getRollover, type RolloverPreview } from '../api/features';
 import { useAuth } from '../contexts/AuthContext';
@@ -49,7 +49,6 @@ import { MoveMoneySheet } from '../components/Budget/MoveMoneySheet';
 import { TightMonthSheet } from '../components/Budget/TightMonthSheet';
 import { BUDGET_TEMPLATES, type BudgetTemplate } from '../lib/budgetTemplates';
 import { ChoiceChip } from '../components/Plan/ChoiceChip';
-import { createMiniBudgetInSpace } from '../api/endpoints';
 
 /** One model for every use case: your own plan, a household budget you share every month, or a one-off event or trip. */
 const PURPOSE_OPTIONS: Array<{ value: BudgetPurpose; label: string; subtitle: string }> = [
@@ -666,6 +665,13 @@ export function BudgetScreen() {
       if (includeFree) categories.Wants = { budgeted: freeAmt };
       if (includeSavings) categories.Savings = { budgeted: savingsAmt };
 
+      // A project starts split into its stages instead of Needs, Wants and Savings: a wedding has a venue and
+      // food, not wants. They are parts of this budget like any other, and Budget detail lists them the same way.
+      if (!editingBudgetId && template?.stages.length && template.purpose === purpose) {
+        for (const key of Object.keys(categories)) delete categories[key];
+        for (const [name, share] of template.stages) categories[name] = { budgeted: Math.round((parsedTotal * share) / 100) };
+      }
+
       const startDateObj = payRange ? new Date(`${payRange.start}T12:00:00`) : new Date(startYearSel, startMonthSel, 1);
       const endDateObj = payRange ? new Date(`${payRange.end}T12:00:00`) : new Date(endYearSel, endMonthSel + 1, 0);
 
@@ -699,14 +705,6 @@ export function BudgetScreen() {
             ...(spacesEnabled ? { spaceId: activeSpaceId } : {})
           });
       setBudget(created);
-      // A project template splits the total into stages people can change later.
-      if (!editingBudgetId && created && template?.stages.length && template.purpose === purpose) {
-        await Promise.all(
-          template.stages.map(([name, share]) =>
-            createMiniBudgetInSpace(String(created.id), { name, amount: Math.round((parsedTotal * share) / 100), category: 'Needs' }, spacesEnabled ? activeSpaceId : undefined).catch(() => undefined)
-          )
-        );
-      }
       setTemplate(null);
       // A new shared budget is only useful once people are in it.
       if (!editingBudgetId && purpose === 'household' && created && !created.isShared) {
@@ -1379,6 +1377,20 @@ export function BudgetScreen() {
   const eventsActive = budgetsSorted.filter((b) => b !== current && b.purpose === 'event' && (getBudgetRange(b)?.end.getTime() ?? 0) >= Date.now() - 86400000);
   const history = budgetsSorted.filter((b) => b !== current && !sharedRunning.includes(b) && !eventsActive.includes(b));
   const currentTx = current ? budgetTxByBudgetId[String(current.id)] ?? { income: 0, expenses: 0, spentByCategory: {} } : null;
+  const currentId = current ? String(current.id) : null;
+  const [limits, setLimits] = useState<ApiCategoryLimit[]>([]);
+  useEffect(() => {
+    if (!currentId) return setLimits([]);
+    let alive = true;
+    getBudgetPace(currentId)
+      .then((p) => alive && setLimits(p.limits ?? []))
+      .catch(() => alive && setLimits([]));
+    return () => {
+      alive = false;
+    };
+  }, [currentId, budgetTxByBudgetId]);
+  // Only the ones worth knowing about: four fifths gone, or past it. The rest are fine and stay out of the way.
+  const limitsToWatch = useMemo(() => limits.filter((l) => l.limit > 0 && l.spent / l.limit >= 0.8).sort((a, b) => b.spent / b.limit - a.spent / a.limit), [limits]);
   const currentRange = current ? getBudgetRange(current) : null;
   const currentPace = (() => {
     if (!current || !currentRange || !currentTx) return null;
@@ -1550,6 +1562,39 @@ export function BudgetScreen() {
             ) : (
               <Skeleton rows={3} height={96} style={{ marginTop: 16 }} />
             )}
+
+            {limitsToWatch.length ? (
+              <>
+                <SectionHeader title="Limits" info="Categories you put a monthly limit on. Everything you spend in one counts towards it, and only the ones you're close to or over show here." />
+                {limitsToWatch.map((l) => {
+                  const over = l.left < 0;
+                  const share = Math.min(1, l.limit > 0 ? l.spent / l.limit : 0);
+                  return (
+                    <Pressable
+                      key={l.id}
+                      onPress={() => (nav as any).navigate('Categories')}
+                      accessibilityRole="button"
+                      style={({ pressed }) => [styles.limitRow, { borderColor: theme.colors.border, opacity: pressed ? 0.7 : 1 }]}
+                    >
+                      <View style={styles.rowBetween}>
+                        <Text numberOfLines={1} style={[type.bodyStrong, { color: theme.colors.text, flex: 1 }]}>
+                          {l.name}
+                        </Text>
+                        <Text style={[type.smallStrong, { color: over ? theme.colors.error : theme.colors.text }]}>
+                          {hide ? '••••' : over ? `${formatAmount(-l.left, glyph)} over` : `${formatAmount(l.left, glyph)} left`}
+                        </Text>
+                      </View>
+                      <View style={{ marginTop: 8 }}>
+                        <ProgressBar value={share} color={over ? theme.colors.error : theme.colors.brass} />
+                      </View>
+                      <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 4 }]}>
+                        {hide ? 'Tap to change the limit' : `${formatAmount(l.spent, glyph)} of ${formatAmount(l.limit, glyph)}`}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </>
+            ) : null}
 
             {rolloverFor ? (
               <Card style={{ marginTop: 12, borderColor: theme.colors.brass }}>
@@ -1756,6 +1801,7 @@ export function BudgetScreen() {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  limitRow: { paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth },
   newPill: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingLeft: 10, paddingRight: 14, borderRadius: 18 },
   hr: { height: StyleSheet.hairlineWidth, marginVertical: 14 },
   historyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, marginBottom: 8 },

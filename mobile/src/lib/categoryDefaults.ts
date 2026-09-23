@@ -86,7 +86,9 @@ export function defaultCategories(spaceId: SpaceId): ApiCategory[] {
       icon,
       isDefault: true,
       hidden: false,
-      sortOrder: order++
+      sortOrder: order++,
+      // Limits are set by the person, so a default has none until they do.
+      monthlyLimit: null
     }))
   );
 }

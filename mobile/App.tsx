@@ -50,7 +50,6 @@ import NotificationsScreen from './src/screens/NotificationsScreen';
 import AnalyticsCategoryDetailScreen from './src/screens/AnalyticsCategoryDetailScreen';
 import AnalyticsWeeklyDetailScreen from './src/screens/AnalyticsWeeklyDetailScreen';
 import AnalyticsBucketDetailScreen from './src/screens/AnalyticsBucketDetailScreen';
-import AnalyticsMiniBudgetsDetailScreen from './src/screens/AnalyticsMiniBudgetsDetailScreen';
 import { navigationRef } from './src/navigation/navigationRef';
 import { TourProvider } from './src/contexts/TourContext';
 import { GuideProvider } from './src/contexts/GuideContext';
@@ -148,7 +147,6 @@ function AuthedStack() {
       <Stack.Screen name="ProfileEdit" component={require('./src/screens/ProfileEditScreen').default} />
       <Stack.Screen name="ChangePassword" component={require('./src/screens/ChangePasswordScreen').default} />
       <Stack.Screen name="TaxSettings" component={TaxSettingsScreen} />
-      <Stack.Screen name="MiniBudgets" component={require('./src/screens/MiniBudgetsScreen').default} />
       <Stack.Screen name="Assistant" component={require('./src/screens/AssistantScreen').default} />
       <Stack.Screen name="BankConnections" component={require('./src/screens/BankConnectionsScreen').default} />
       <Stack.Screen name="BankConnectTerms" component={require('./src/screens/BankConnectTermsScreen').default} />
@@ -165,7 +163,6 @@ function AuthedStack() {
       <Stack.Screen name="AnalyticsCategoryDetail" component={AnalyticsCategoryDetailScreen} />
       <Stack.Screen name="AnalyticsWeeklyDetail" component={AnalyticsWeeklyDetailScreen} />
       <Stack.Screen name="AnalyticsBucketDetail" component={AnalyticsBucketDetailScreen} />
-      <Stack.Screen name="AnalyticsMiniBudgetsDetail" component={AnalyticsMiniBudgetsDetailScreen} />
       <Stack.Screen name="WeeklyCheckInDetail" component={require('./src/screens/WeeklyCheckInDetailScreen').default} />
       <Stack.Screen name="BudgetStreakDetail" component={require('./src/screens/BudgetStreakDetailScreen').default} />
       <Stack.Screen name="Recurring" component={RecurringScreen} />

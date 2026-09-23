@@ -24,12 +24,12 @@ BudgetFriendly is not a bank. It never holds, sends or debits money. Bank links 
 | Area | What people can do |
 | --- | --- |
 | **Home** | Safe to spend today, how the budget is pacing, payday countdown, insights, a weekly check-in, and a first-week checklist for new people |
-| **Budget** | The period's budget split into Needs, Wants and Savings; mini budgets for events like a wedding or a trip; a budget streak; roll unspent money into the next period |
+| **Budget** | The period's budget split into Needs, Wants and Savings; a monthly limit on any category, shown here once you are close to or over it; event budgets that start split into their own stages; a budget streak; roll unspent money into the next period |
 | **Transactions** | Add income or spending by typing, by voice, by pasting a bank alert SMS, by importing a bank statement, or automatically from a linked bank. Imported items wait in **Pending** until confirmed |
 | **Categories** | Built-in and custom categories (tithe, generator fuel). The app learns which category a payee belongs to |
 | **Recurring and bills** | Salary, rent, subscriptions and bills that repeat; bill reminders before they are due |
 | **Goals** | Save towards something. Auto-save moves a set share of each income into a goal. A "steady pay" buffer smooths irregular income |
-| **Analytics** | Spending by bucket, category and week, mini budget progress, and a money wellness score |
+| **Analytics** | Spending by bucket, category and week, and a money wellness score |
 | **Your money** | What you have (cash, savings, investments, in any currency), what you owe and are owed, property and rent due, and rising prices |
 | **Tax** | Personal income tax estimate under the Nigeria Tax Act 2025, including rent relief, pension and other reliefs |
 | **Flux** | An AI money coach that answers from the person's own budget. Direct questions get 3 to 5 sentences, with an offer of more detail |

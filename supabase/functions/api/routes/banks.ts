@@ -284,7 +284,6 @@ const ReconcileSchema = z.object({
   description: z.string().max(120).optional(),
   budgetId: z.union([z.string().min(1).max(120), z.null()]).optional(),
   budgetCategory: z.union([z.string().min(1).max(60), z.null()]).optional(),
-  miniBudgetId: z.union([z.string().min(1).max(120), z.null()]).optional()
 });
 
 /** POST /v1/imported-transactions/:id/reconcile | /ignore | /transfer | /refund | /undo */
@@ -339,20 +338,16 @@ async function reconcileImported(userId: string, tx: any, input: z.infer<typeof 
   const clean = (v: string | null | undefined) => (v == null ? null : String(v).trim() || null);
   let budgetId = clean(input.budgetId);
   let budgetCategory = clean(input.budgetCategory);
-  let miniBudgetId = clean(input.miniBudgetId);
   if (budgetId && !isUuid(budgetId)) budgetId = null;
 
   // No budget chosen: attach it to the budget that covers the transaction date.
   if (!budgetId) budgetId = await budgetCovering(userId, txSpace, new Date(tx.occurredAt).toISOString().slice(0, 10));
-  if (!budgetId) {
-    budgetCategory = null;
-    miniBudgetId = null;
-  }
+  if (!budgetId) budgetCategory = null;
 
   const [created] = await sql`
-    insert into public.transactions (user_id, space_id, type, amount, category, description, budget_id, budget_category, mini_budget_id, occurred_at)
+    insert into public.transactions (user_id, space_id, type, amount, category, description, budget_id, budget_category, occurred_at)
     values (${userId}, ${txSpace}, ${type}, ${amount}, ${category}, ${input.description ?? (tx.description || tx.merchant || 'Imported transaction')},
-            ${budgetId}, ${budgetCategory}, ${miniBudgetId}, ${tx.occurredAt})
+            ${budgetId}, ${budgetCategory}, ${tx.occurredAt})
     returning id, user_id, space_id, type, amount, budget_id, budget_category
   `;
   if (type === 'income' && budgetId) {
