@@ -66,6 +66,27 @@ How the system is built, how data is protected, and how to change and ship it sa
 | Joining with a code: `GET /v1/join?code=` answers `{ found: false }` without saying why, and `POST` gives one `INVALID_CODE` message for used, expired and made-up codes alike, so codes cannot be fished for. Expiry is part of the lookup. Acting inside somebody else's business still joins on your own account (`SELF_PATHS`) | `routes/join.ts`, `lib/team.ts` |
 | Staff: matched on `admin_users.user_id` (never email), MFA (TOTP, `aal2`) required on every `/admin` route, role checked per area | `lib/admin.ts` `requireAdmin` |
 
+### Limits, quotas and ceilings
+
+`lib/limits.ts`, four layers with different jobs:
+
+| Layer | Where it lives | What it stops |
+| --- | --- | --- |
+| Burst, on every request | Memory, per instance, free | Floods and runaway loops. 240 a minute and 5,000 an hour signed in; 60 and 600 signed out, counted per token or address |
+| Per-person quota | Postgres, so it holds across instances | One person using up a paid service: Flux 6 a minute, 40 an hour, 120 a day; voice the same shape; bank refreshes 40 a day |
+| Whole-app daily ceiling | Postgres, one counter per service | A surprise invoice. Flux, voice, bank refreshes and email each stop for the day and say so |
+| CAPTCHA | Cloudflare Turnstile, optional | Bulk abuse of the waitlist and forgot-password. Stands aside until `TURNSTILE_SECRET` is set |
+
+Anything the public can reach without signing in uses a **quota**, not a burst: the in-memory guard is per
+instance, so a burst can slip through by landing on another one. The end to end suite catches this.
+
+Every number is an environment variable (`RATE_PER_MINUTE`, `RATE_PER_HOUR`, `CAP_ASSISTANT_DAY`,
+`CAP_VOICE_DAY`, `CAP_EMAIL_DAY`, `CAP_BANK_SYNC_DAY`), so a ceiling can be raised without a release. The
+console's Overview shows today's usage against each ceiling.
+
+The older per-route limits (codes, invites, referral claims, password changes, email codes, the waitlist)
+are deliberately tight and unchanged: a code is the only thing between a stranger and somebody's money.
+
 ### Data
 
 - **Row level security** is on for every table, with no policies and **no grants to `anon` or `authenticated`**, so the Data API cannot read or write anything. The `api` function connects as the database owner. Default privileges stop new tables picking up grants.

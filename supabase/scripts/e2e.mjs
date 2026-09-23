@@ -625,7 +625,8 @@ try {
     r = await call(a.token, 'GET', '/transactions?spaceId=business&type=income');
     check('owner sees who recorded it', r.data?.items?.some((t) => t.id === benSaleId && t.recordedBy === 'Ben'), r.data?.items?.map((t) => t.recordedBy));
     check('Sales corrects their own entry', (await call(b.token, 'PATCH', `/transactions/${benSaleId}`, { amount: 7500 }, asBen)).status === 200);
-    check('Sales cannot change the owner’s entry', (await call(b.token, 'PATCH', `/transactions/${ownerSaleId}`, { amount: 1 }, asBen)).status === 403);
+    r = await call(b.token, 'PATCH', `/transactions/${ownerSaleId}`, { amount: 1 }, asBen);
+    check('Sales cannot change the owner’s entry', r.status === 403, { status: r.status, body: r.data });
     check('nobody on the team can delete', (await call(b.token, 'DELETE', `/transactions/${benSaleId}`, undefined, asBen)).status === 403);
     check('Sales cannot see profit', (await call(b.token, 'GET', '/business/summary', undefined, asBen)).status === 403);
     check('Sales cannot see payroll', (await call(b.token, 'GET', '/payroll', undefined, asBen)).status === 403);
