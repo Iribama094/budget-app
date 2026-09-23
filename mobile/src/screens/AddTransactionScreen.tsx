@@ -553,7 +553,7 @@ export function AddTransactionScreen() {
       : requiresBudget && !selectedBudgetId
         ? type === 'expense'
           ? 'Create a budget first to track this expense'
-          : 'Choose a budget, or turn off “Count toward a budget”'
+          : 'Choose a budget, or turn off “Add to this budget”'
         : null;
 
   // "I spent 5k on fuel yesterday" fills in the amount, type, note, date and the category. You still check it
@@ -854,7 +854,12 @@ export function AddTransactionScreen() {
           {type === 'income' ? (
             <View style={styles.row}>
               <Wallet color={theme.colors.textMuted} size={18} />
-              <Text style={[typo.body, { color: theme.colors.text, flex: 1 }]}>{t('Count toward a budget')}</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[typo.body, { color: theme.colors.text }]}>{t('Add to this budget')}</Text>
+                <Text style={[typo.caption, { color: theme.colors.textMuted }]}>
+                  {applyToBudget ? t('Raises what you can spend this period') : t('Kept out of the plan. It still shows in money in.')}
+                </Text>
+              </View>
               <Switch
                 value={applyToBudget}
                 onValueChange={(v) => {

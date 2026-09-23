@@ -772,7 +772,7 @@ export function DashboardScreen() {
               </View>
               <Text style={[type.caption, { color: theme.colors.textMuted }]}>Money in</Text>
             </View>
-            <Amount value={data?.income ?? 0} currency={glyph} hidden={hide} />
+            <Amount value={data?.income ?? 0} currency={glyph} hidden={hide} short />
           </View>
           <View style={[styles.vr, { backgroundColor: theme.colors.border }]} />
           <View style={{ flex: 1, gap: 6, paddingLeft: 16 }}>
@@ -782,7 +782,7 @@ export function DashboardScreen() {
               </View>
               <Text style={[type.caption, { color: theme.colors.textMuted }]}>Money out</Text>
             </View>
-            <Amount value={data?.expenses ?? 0} currency={glyph} hidden={hide} />
+            <Amount value={data?.expenses ?? 0} currency={glyph} hidden={hide} short />
           </View>
         </View>
       </Card>

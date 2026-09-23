@@ -22,7 +22,9 @@ const PIDGIN: Record<string, string> = {
   Income: 'E enter',
   'Expense saved': 'I don save wetin you spend',
   'Income saved': 'I don save the money wey enter',
-  'Count toward a budget': 'Put am for budget',
+  'Add to this budget': 'Add am to this budget',
+  'Raises what you can spend this period': 'E go raise wetin you fit spend this period',
+  'Kept out of the plan. It still shows in money in.': 'E no go enter the plan. E still dey show for money wey enter.',
   'Received in': 'E enter as',
   // Home and budgets
   'Safe to spend today': 'Wetin you fit spend today',

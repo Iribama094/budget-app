@@ -1053,6 +1053,11 @@ export default function PendingTransactionsScreen() {
                   {/* Actions */}
                   {draft.step === 6 ? (
                     <View style={{ marginTop: 12 }}>
+                      {item.direction === 'credit' && draft.budgetId ? (
+                        <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginBottom: 8 }}>
+                          Money in: this raises what you can spend in that budget this period.
+                        </Text>
+                      ) : null}
                       <PrimaryButton
                         title={acting ? 'Saving…' : 'Add to transactions'}
                         onPress={() => handleReconcile(item.id, item)}

@@ -740,8 +740,8 @@ export function BudgetScreen() {
 
   const effectiveTotal = useMemo(() => {
     if (!budget) return 0;
-    return Math.max(0, budget.totalBudget);
-  }, [budget]);
+    return Math.max(0, budget.totalBudget + incomeApplied);
+  }, [budget, incomeApplied]);
 
   const remaining = useMemo(() => {
     if (!budget) return 0;
@@ -1386,8 +1386,21 @@ export function BudgetScreen() {
     today.setHours(12, 0, 0, 0);
     const elapsed = Math.min(currentRange.days, Math.max(1, Math.floor((today.getTime() - currentRange.start.getTime()) / 86400000) + 1));
     const spent = currentTx.expenses;
-    const total = current.totalBudget ?? 0;
-    return { elapsed, days: currentRange.days, daysLeft: Math.max(0, currentRange.days - elapsed), spent, total, left: total - spent, spentRatio: total > 0 ? spent / total : 0, timeRatio: elapsed / currentRange.days };
+    const added = currentTx.income;
+    const planned = current.totalBudget ?? 0;
+    const total = planned + added;
+    return {
+      elapsed,
+      days: currentRange.days,
+      daysLeft: Math.max(0, currentRange.days - elapsed),
+      spent,
+      total,
+      planned,
+      added,
+      left: total - spent,
+      spentRatio: total > 0 ? spent / total : 0,
+      timeRatio: elapsed / currentRange.days
+    };
   })();
 
   return (
@@ -1455,6 +1468,13 @@ export function BudgetScreen() {
                       <Text style={[type.small, { color: theme.colors.textMuted }]}>left of {hide ? '••••' : formatAmount(currentPace.total, glyph)}</Text>
                     ) : null}
                   </View>
+                  {currentPace.added > 0 ? (
+                    <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>
+                      {hide
+                        ? 'Includes money you added this period'
+                        : `${formatAmount(currentPace.planned, glyph)} planned, plus ${formatAmount(currentPace.added, glyph)} you added`}
+                    </Text>
+                  ) : null}
                   <View style={{ marginTop: 12 }}>
                     <ProgressBar
                       value={currentPace.spentRatio}

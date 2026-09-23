@@ -224,6 +224,20 @@ function groupDigits(n: number): string {
   return frac ? `${grouped}.${frac}` : grouped;
 }
 
+/**
+ * A million and up as 2.4M, for places where the figure shares a row and the exact naira do not matter.
+ * Screens that are about one number keep every digit, and the spoken label always does.
+ */
+export function shortDigits(n: number): string {
+  const abs = Math.abs(n);
+  if (abs < 1_000_000) return groupDigits(n);
+  const millions = abs / 1_000_000;
+  if (abs >= 1_000_000_000) return `${trimZero((abs / 1_000_000_000).toFixed(1))}B`;
+  return `${trimZero(millions.toFixed(millions >= 100 ? 0 : 1))}M`;
+}
+
+const trimZero = (s: string) => s.replace(/\.0$/, '');
+
 /** Money with the currency glyph set smaller, tabular figures, and an optional sign. */
 export function Amount({
   value,
@@ -232,6 +246,7 @@ export function Amount({
   color,
   hidden,
   signed,
+  short,
   style
 }: {
   value: number;
@@ -239,6 +254,8 @@ export function Amount({
   size?: 'hero' | 'lg' | 'md' | 'sm';
   color?: string;
   hidden?: boolean;
+  /** Shorten a million to 2.4M. For tight spots; the full figure stays on the screen about that number. */
+  short?: boolean;
   /** Prefix + for positive and − for negative values. */
   signed?: boolean;
   style?: StyleProp<TextStyle>;
@@ -260,13 +277,13 @@ export function Amount({
     >
       {sign}
       <Text style={{ fontFamily: fonts.medium, fontSize: base.fontSize * glyphScale }}>{currency}</Text>
-      {hidden ? '••••' : groupDigits(value)}
+      {hidden ? '••••' : short ? shortDigits(value) : groupDigits(value)}
     </Text>
   );
 }
 
-export function formatAmount(value: number, currency = '₦'): string {
-  return `${value < 0 ? '−' : ''}${currency}${groupDigits(value)}`;
+export function formatAmount(value: number, currency = '₦', opts: { short?: boolean } = {}): string {
+  return `${value < 0 ? '−' : ''}${currency}${opts.short ? shortDigits(value) : groupDigits(value)}`;
 }
 
 /* ---------------------------------------------------------------- surfaces */

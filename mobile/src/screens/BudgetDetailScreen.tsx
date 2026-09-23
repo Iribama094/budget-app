@@ -7,7 +7,7 @@ import { type } from '../theme/typography';
 import { currencySymbol } from '../utils/format';
 import { CalendarPlus, ChevronLeft } from '../icons';
 
-import { calcTax, deleteBudget, deleteBudgetInSpace, getBudget, getBudgetInSpace, listTransactions, patchMe, startNextBudget, type ApiBudget, type ApiTransaction } from '../api/endpoints';
+import { calcTax, deleteBudget, deleteBudgetInSpace, getBudget, getBudgetInSpace, listTransactions, nextStartingPoints, patchMe, startNextBudget, type ApiBudget, type ApiTransaction, type NextStartingPoints } from '../api/endpoints';
 import { listBudgetMembers, type ApiBudgetMember } from '../api/features';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -20,6 +20,7 @@ import { tokens } from '../theme/tokens';
 import { GuideAnchor } from '../components/Common/GuideAnchor';
 import { goBackOrHome } from '../navigation/goBack';
 import { MoveMoneySheet } from '../components/Budget/MoveMoneySheet';
+import { Sheet } from '../components/Business/parts';
 
 function parseIsoDateLocal(value?: string | null) {
   if (!value) return null;
@@ -242,11 +243,35 @@ export default function BudgetDetailScreen() {
     }
   };
 
-  const startNext = async () => {
+  const [nextPoints, setNextPoints] = useState<NextStartingPoints | null>(null);
+
+  /**
+   * Somebody who never added money in sees the same number three times, so there is nothing to ask and the
+   * next period just starts. The question only appears when the answers actually differ.
+   */
+  const askAboutNext = async () => {
     if (!budget) return;
     setStartingNext(true);
     try {
-      const r = await startNextBudget(budget.id);
+      const points = await nextStartingPoints(budget.id);
+      const differs = points.last !== points.planned || (points.bank != null && points.bank !== points.planned);
+      if (differs) {
+        setNextPoints(points);
+        setStartingNext(false);
+        return;
+      }
+    } catch {
+      // Could not work out the options: fall through and start it the way it always did.
+    }
+    await startNext();
+  };
+
+  const startNext = async (startWith?: 'planned' | 'last' | 'bank') => {
+    if (!budget) return;
+    setNextPoints(null);
+    setStartingNext(true);
+    try {
+      const r = await startNextBudget(budget.id, startWith);
       const glyph = currencySymbol(currency);
       toast.show(
         r.existed
@@ -419,7 +444,7 @@ export default function BudgetDetailScreen() {
                     {isSharedBudget ? 'Start the next one with the same plan. Everyone sharing it comes along.' : 'Start the next one with the same plan and fresh numbers.'}
                   </Text>
                   <GuideAnchor id="budgetdetail.next">
-                    <PrimaryButton title="Start next period" onPress={startNext} loading={startingNext} style={{ marginTop: 10 }} />
+                    <PrimaryButton title="Start next period" onPress={askAboutNext} loading={startingNext} style={{ marginTop: 10 }} />
                   </GuideAnchor>
                 </>
               ) : null}
@@ -657,6 +682,35 @@ export default function BudgetDetailScreen() {
         </View>
       ) : null}
       {budget ? (
+        <>
+        <Sheet
+          visible={!!nextPoints}
+          onClose={() => setNextPoints(null)}
+          title="What should the next period start with?"
+          subtitle="Money you added to this budget changed what you had to spend. Choose what the new one begins with."
+        >
+          {[
+            { key: 'last' as const, amount: nextPoints?.last ?? 0, title: 'What you had last period', line: 'Your plan plus the money you added to it.' },
+            { key: 'bank' as const, amount: nextPoints?.bank ?? 0, title: 'What your bank says now', line: 'The balance across the accounts you connected.' },
+            { key: 'planned' as const, amount: nextPoints?.planned ?? 0, title: 'The amount you set up', line: 'Back to the plan you made, ignoring what came in.' }
+          ]
+            .filter((o) => o.key !== 'bank' || nextPoints?.bank != null)
+            .map((o) => (
+              <Pressable
+                key={o.key}
+                onPress={() => void startNext(o.key)}
+                accessibilityRole="button"
+                style={({ pressed }) => [{ paddingVertical: 14, borderTopWidth: 1, borderColor: theme.colors.border, opacity: pressed ? 0.7 : 1 }]}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Text style={[type.bodyStrong, { color: theme.colors.text, flex: 1 }]}>{o.title}</Text>
+                  <Text style={[type.amountSm, { color: theme.colors.text }]}>{formatMoney(o.amount, currency)}</Text>
+                </View>
+                <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 2 }]}>{o.line}</Text>
+              </Pressable>
+            ))}
+        </Sheet>
+
         <MoveMoneySheet
           visible={!!moveFor}
           onClose={() => setMoveFor(null)}
@@ -667,6 +721,7 @@ export default function BudgetDetailScreen() {
           isBusiness={isBusiness}
           onMoved={() => void load()}
         />
+        </>
       ) : null}
     </Screen>
   );

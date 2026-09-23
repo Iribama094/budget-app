@@ -197,8 +197,29 @@ function periodLabel(start: string, end: string): string {
  * POST /v1/budgets/:id/next: start the next period with the same plan, and for a shared budget the same people.
  * Owner only. If the next one already exists it is returned instead of creating another.
  */
+/**
+ * What the next period could start with.
+ *
+ * `planned` is the amount they set up, `last` is what they actually had once money in was counted, and `bank`
+ * is what their connected accounts hold right now. Somebody who never adds income to a budget sees one number
+ * three times, so the app only asks when they differ.
+ */
+async function startingPoints(b: BudgetRow, userId: string) {
+  const planned = Math.round(Number(b.totalBudget));
+  const last = planned + (await incomeAddedTo(b));
+  const [bank] = await sql<{ total: number | null }[]>`
+    select sum(a.balance) as total from public.bank_accounts a
+    join public.bank_links l on l.id = a.bank_link_id
+    where a.user_id = ${userId} and a.space_id = ${b.spaceId} and a.balance is not null
+      and l.status <> 'reauth_required'
+  `;
+  return { planned, last, bank: bank?.total == null ? null : Math.round(Number(bank.total)) };
+}
+
+const NextSchema = z.object({ startWith: z.enum(['planned', 'last', 'bank']).optional(), total: z.number().finite().nonnegative().max(1e12).optional() }).strict();
+
 export async function nextPeriod(ctx: Ctx) {
-  if (ctx.method !== 'POST') methodNotAllowed(['POST']);
+  if (ctx.method !== 'POST' && ctx.method !== 'GET') methodNotAllowed(['GET', 'POST']);
   const { userId } = await requireAuth(ctx.req);
   const b = await findVisibleBudget(userId, ctx.parts[1]);
   if (!b) notFound('Budget not found');
@@ -207,6 +228,12 @@ export async function nextPeriod(ctx: Ctx) {
   if (purpose === 'event') badRequest('One-off budgets don’t repeat. Create a new one instead.');
 
   const dates = nextPeriodDates(b);
+
+  // GET: the numbers the app offers before it starts anything.
+  if (ctx.method === 'GET') return json(200, { ...(await startingPoints(b, userId)), start: dates.start, end: dates.end });
+
+  const choice = await body(ctx.req, NextSchema, 'Choose what the next period starts with').catch(() => ({}) as { startWith?: 'planned' | 'last' | 'bank'; total?: number });
+
   const [existing] = await sql`
     select id from public.budgets
     where user_id = ${userId} and space_id = ${b.spaceId} and purpose = ${purpose} and start_date > ${b.startDate}::date
@@ -243,6 +270,16 @@ export async function nextPeriod(ctx: Ctx) {
       categories = { ...categories, Needs: { budgeted: keptUp.to }, Wants: { budgeted: room - raise } };
     }
   }
+  // What they chose to start with. The parts of the plan keep their shares of it, so a bigger start does not
+  // quietly all land in one bucket.
+  const points = await startingPoints(b, userId);
+  const chosen = choice.total ?? (choice.startWith === 'last' ? points.last : choice.startWith === 'bank' ? points.bank ?? points.planned : null);
+  if (chosen != null && chosen > 0 && total > 0 && Math.round(chosen) !== Math.round(total)) {
+    const factor = chosen / total;
+    categories = Object.fromEntries(Object.entries(categories).map(([k, c]) => [k, { budgeted: Math.round(c.budgeted * factor) }]));
+    total = Math.round(chosen);
+  }
+
   const name = /^My Budget \(.*\)$/.test(b.name) ? `My Budget (${periodLabel(dates.start, dates.end)})` : b.name;
   const [row] = await sql`
     insert into public.budgets (user_id, space_id, name, total_budget, period, start_date, end_date, categories, purpose)
@@ -292,6 +329,17 @@ export async function miniBudgets(ctx: Ctx) {
 
 /* ------------------------------------------------------------ rollover */
 
+/** Income somebody chose to count towards this budget: it raises what there is to spend in this period. */
+async function incomeAddedTo(b: BudgetRow): Promise<number> {
+  const { start, end } = budgetBounds(b);
+  const [row] = await sql<{ total: number }[]>`
+    select coalesce(sum(amount), 0) as total from public.transactions
+    where user_id in ${sql(budgetMemberIds(b))} and budget_id = ${b.id} and type = 'income'
+      and occurred_at >= ${start} and occurred_at <= ${end}
+  `;
+  return Math.round(Number(row?.total ?? 0));
+}
+
 async function unspentByBucket(b: BudgetRow) {
   const { start, end } = budgetBounds(b);
   const rows = await sql<{ bucket: string | null; total: number }[]>`
@@ -310,7 +358,7 @@ async function unspentByBucket(b: BudgetRow) {
   });
   // Unassigned spending (no bucket) still eats into what's left overall.
   const bucketUnspent = buckets.reduce((s, x) => s + x.unspent, 0);
-  const overall = Math.max(0, Number(b.totalBudget) - totalSpent);
+  const overall = Math.max(0, Number(b.totalBudget) + (await incomeAddedTo(b)) - totalSpent);
   const unspent = Math.round(categories.length ? Math.min(bucketUnspent, overall) : overall);
   return { buckets, totalSpent, unspent };
 }
@@ -334,7 +382,8 @@ export async function paceFor(b: NonNullable<Awaited<ReturnType<typeof findVisib
   const today = todayIso();
   const end = effectiveEndIso(b);
   const { buckets, totalSpent } = await unspentByBucket(b);
-  const left = Number(b.totalBudget) - totalSpent;
+  const incomeAdded = await incomeAddedTo(b);
+  const left = Number(b.totalBudget) + incomeAdded - totalSpent;
   const savingsLeft = Math.round(buckets.find((x) => x.bucket === 'Savings')?.unspent ?? 0);
   // Bills are one person's own commitments, so they're held back from their own budget but not a household's.
   const bills =
@@ -355,6 +404,10 @@ export async function paceFor(b: NonNullable<Awaited<ReturnType<typeof findVisib
   return {
     left: Math.round(left),
     spent: Math.round(totalSpent),
+    /** Money in that somebody counted towards this budget, already inside `left`. */
+    incomeAdded,
+    /** The plan on its own, before that money came in. */
+    planned: Math.round(Number(b.totalBudget)),
     savingsLeft,
     billsTotal,
     bills: bills.map((x) => ({ name: x.name, amount: Number(x.amount), dueDate: x.dueDate })),

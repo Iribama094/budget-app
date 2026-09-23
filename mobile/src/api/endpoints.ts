@@ -387,6 +387,10 @@ export type ApiBudget = {
 export type ApiBudgetPace = {
   left: number;
   spent: number;
+  /** Money in that was added to this budget. Already counted inside `left`. */
+  incomeAdded: number;
+  /** The plan on its own, before that money came in. */
+  planned: number;
   /** Savings share not yet set aside. Held back from what's safe to spend. */
   savingsLeft: number;
   /** Bills due before the budget ends. Held back too. */
@@ -443,8 +447,18 @@ export async function createBudget(input: {
 
 /** Starts the next period of a budget with the same plan (and people, if shared). Returns the existing one if it's already there. */
 /** keptUp: needs cost more than planned last time, so the new period gives them what they really cost and wants give way. */
-export async function startNextBudget(id: string): Promise<{ budget: ApiBudget; existed: boolean; keptUp?: { from: number; to: number } | null }> {
-  return apiFetch(`/v1/budgets/${encodeURIComponent(id)}/next`, { method: 'POST' });
+export async function startNextBudget(
+  id: string,
+  startWith?: 'planned' | 'last' | 'bank'
+): Promise<{ budget: ApiBudget; existed: boolean; keptUp?: { from: number; to: number } | null }> {
+  return apiFetch(`/v1/budgets/${encodeURIComponent(id)}/next`, { method: 'POST', body: JSON.stringify(startWith ? { startWith } : {}) });
+}
+
+/** What the next period could start with: the plan as set up, what they ended up with, or the bank right now. */
+export type NextStartingPoints = { planned: number; last: number; bank: number | null; start: string; end: string };
+
+export async function nextStartingPoints(id: string): Promise<NextStartingPoints> {
+  return apiFetch(`/v1/budgets/${encodeURIComponent(id)}/next`, { method: 'GET' }) as Promise<NextStartingPoints>;
 }
 
 export type ApiBankAccount = {
