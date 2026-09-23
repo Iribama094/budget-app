@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useGuides } from '../../contexts/GuideContext';
@@ -101,8 +101,11 @@ export function NudgeTooltip({
     };
   }, [rect, windowWidth, insets.top]);
 
+  // Nothing at all when it is not showing: an overlay that stays mounted would swallow every tap on the screen.
+  if (!shown) return null;
+
   return (
-    <Modal visible={shown} transparent animationType="fade" onRequestClose={onDismiss}>
+    <View style={[StyleSheet.absoluteFill, { zIndex: 9000, elevation: 9000 }]}>
       <Pressable onPress={onDismiss} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
 
       {/* Allow tapping the anchored target even while the modal is visible */}
@@ -194,6 +197,6 @@ export function NudgeTooltip({
           </Pressable>
         </View>
       </View>
-    </Modal>
+    </View>
   );
 }

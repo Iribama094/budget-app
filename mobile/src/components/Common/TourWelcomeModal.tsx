@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
 import { tokens } from '../../theme/tokens';
@@ -16,8 +16,11 @@ export function TourWelcomeModal({
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
 
+  // Nothing at all when it is not showing: an overlay that stays mounted would swallow every tap on the screen.
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <View style={[StyleSheet.absoluteFill, { zIndex: 9000, elevation: 9000 }]}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', padding: 16, paddingTop: 16 + insets.top, justifyContent: 'center' }}>
         <View
           style={{
@@ -86,6 +89,6 @@ export function TourWelcomeModal({
           </View>
         </View>
       </View>
-    </Modal>
+    </View>
   );
 }

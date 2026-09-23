@@ -1,3 +1,6 @@
+import { anySheetOpen } from '../components/Common/AppModal';
+import { afterSheetCloses } from '../lib/afterSheetCloses';
+
 type Nav = { canGoBack?: () => boolean; goBack: () => void; navigate: (name: string, params?: any) => void };
 
 /**
@@ -6,6 +9,16 @@ type Nav = { canGoBack?: () => boolean; goBack: () => void; navigate: (name: str
  * GO_BACK action was not handled. In that case we land on the main tabs instead.
  */
 export function goBackOrHome(nav: Nav): void {
+  // Leaving while a sheet is still sliding away takes two layers down at once, which can leave the app frozen
+  // until it is reloaded. Waiting for the sheet costs a moment and only happens when one is actually open.
+  if (anySheetOpen()) {
+    afterSheetCloses(() => leave(nav));
+    return;
+  }
+  leave(nav);
+}
+
+function leave(nav: Nav): void {
   if (typeof nav.canGoBack !== 'function' || nav.canGoBack()) {
     nav.goBack();
     return;

@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -18,6 +18,9 @@ import { type } from '../theme/typography';
 const storageKey = (userId: string) => `bf_screen_guides_v1_${userId}`;
 // Let the screen settle (and quick taps through it pass) before a guide appears.
 const SHOW_DELAY_MS = 700;
+// Screens that slide up over everything (App.tsx, presentation: 'modal'). A tip cannot be drawn over one
+// from in here, and laying a second full screen layer on one is what caused the freezing.
+const SLIDE_UP_ROUTES = new Set(['AddTransaction', 'AssistantModal']);
 
 type GuideContextValue = {
   /** True while a guide card is on screen, so smaller tips can wait their turn. */
@@ -69,7 +72,7 @@ export function GuideProvider({ children }: { children: React.ReactNode }) {
     if (timer.current) clearTimeout(timer.current);
     if (!userId || !seen || active || isTourActive || !navigationRef.isReady()) return;
     const route = navigationRef.getCurrentRoute()?.name;
-    if (!route) return;
+    if (!route || SLIDE_UP_ROUTES.has(route)) return;
     const guide = guideFor(route, spacesEnabled ? activeSpaceId : 'personal');
     if (!guide || seen.has(guide.key)) return;
     timer.current = setTimeout(() => {
@@ -173,7 +176,7 @@ function GuideCard({ step, index, count, onNext, onClose }: { step: GuideStep; i
   }, [index, rise]);
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+    <View style={[StyleSheet.absoluteFill, styles.overlay]}>
       <View style={styles.backdrop}>
         {/* Tapping outside the card closes it. Declared first so it sits underneath the card. */}
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close tip" importantForAccessibility="no" />
@@ -208,11 +211,14 @@ function GuideCard({ step, index, count, onNext, onClose }: { step: GuideStep; i
           </View>
         </Animated.View>
       </View>
-    </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Above the screen it explains, but inside the same view tree. A second native layer over a screen, or over
+  // another layer, is what froze the app until it was reloaded.
+  overlay: { zIndex: 9000, elevation: 9000 },
   backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.35)', paddingHorizontal: 16 },
   card: { borderRadius: 24, borderWidth: StyleSheet.hairlineWidth, padding: 20, elevation: 8 },
   emoji: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },

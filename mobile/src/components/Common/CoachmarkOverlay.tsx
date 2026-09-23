@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, Text, View, useWindowDimensions, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
 import { tokens } from '../../theme/tokens';
@@ -168,13 +168,12 @@ export function CoachmarkOverlay({
     return { x };
   }, [placement, spotlight, windowWidth]);
 
+  // An overlay inside the app rather than a second full screen layer over it: two native layers opening or
+  // closing over each other is what left the app frozen until it was reloaded.
+  if (!visible) return null;
+
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent
-      onRequestClose={onRequestClose}
-    >
+    <View style={[StyleSheet.absoluteFill, { zIndex: 9000, elevation: 9000 }]}>
       <View style={{ flex: 1 }}>
         {/* Backdrop */}
         <Pressable
@@ -303,6 +302,6 @@ export function CoachmarkOverlay({
           </View>
         </View>
       </View>
-    </Modal>
+    </View>
   );
 }
