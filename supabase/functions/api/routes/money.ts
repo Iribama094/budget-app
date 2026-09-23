@@ -319,7 +319,12 @@ export async function moneyRoute(ctx: Ctx) {
       ? await sql`select month, have + own + owed_to_you - owe as net from public.net_worth_snapshots where user_id = ${userId} order by month desc limit 12`
       : [];
 
-  const oweList = debts.filter((d) => d.direction === 'owe').map((d) => ({ id: d.id, balance: Number(d.balance), monthlyRate: d.monthlyRate == null ? null : Number(d.monthlyRate) }));
+  // Settled debts stay in the list to look back on, but nobody should be told to pay one off again. The debts
+  // route already leaves them out; this one did not, so a debt closed while still carrying a balance, one that
+  // was written off or forgiven, could turn up as the next thing to clear.
+  const oweList = debts
+    .filter((d) => d.direction === 'owe' && !d.closedAt)
+    .map((d) => ({ id: d.id, balance: Number(d.balance), monthlyRate: d.monthlyRate == null ? null : Number(d.monthlyRate) }));
   return json(200, {
     home: fx.home,
     rates: fx.rates,
