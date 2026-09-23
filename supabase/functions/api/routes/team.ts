@@ -1,4 +1,5 @@
 import { iso, isUniqueViolation, isUuid, sql } from '../lib/db.ts';
+import { firstNameOnly } from '../lib/shared.ts';
 import { requireAuth } from '../lib/auth.ts';
 import { badRequest, body, HttpError, json, methodNotAllowed, noContent, notFound, z } from '../lib/http.ts';
 import { mustProveEmail } from '../lib/verify.ts';
@@ -30,7 +31,7 @@ export async function businessNameOf(ownerId: string): Promise<string> {
     where p.id = ${ownerId}
   `;
   if (row?.businessName) return row.businessName;
-  const first = String(row?.name ?? row?.email ?? 'Their').trim().split(/\s+/)[0].split('@')[0];
+  const first = firstNameOnly(row?.name as string | null) || 'Their';
   return `${first}’s business`;
 }
 

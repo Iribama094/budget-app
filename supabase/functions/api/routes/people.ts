@@ -1,4 +1,5 @@
 import { iso, isUuid, sql } from '../lib/db.ts';
+import { firstNameOnly } from '../lib/shared.ts';
 import { requireAuth } from '../lib/auth.ts';
 import { badRequest, body, HttpError, json, methodNotAllowed, noContent, notFound, z } from '../lib/http.ts';
 import { ISO_DATE, todayIso } from '../lib/dates.ts';
@@ -46,7 +47,7 @@ export async function acceptHelperCode(userId: string, email: string | null, cod
   }
   await sql`update public.delegates set delegate_id = ${userId}, accepted_at = now() where id = ${invite.id}`;
   const [owner] = await sql`select name, email from public.profiles where id = ${invite.ownerId}`;
-  return { ownerId: invite.ownerId as string, ownerName: (owner?.name ?? owner?.email ?? 'them') as string, role: invite.role as 'view' | 'record' };
+  return { ownerId: invite.ownerId as string, ownerName: firstNameOnly(owner?.name as string | null) || 'them', role: invite.role as 'view' | 'record' };
 }
 
 export async function delegatesRoute(ctx: Ctx) {

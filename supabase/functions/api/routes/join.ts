@@ -1,4 +1,5 @@
 import { sql } from '../lib/db.ts';
+import { firstNameOnly } from '../lib/shared.ts';
 import { requireAuth } from '../lib/auth.ts';
 import { badRequest, body, json, methodNotAllowed, z } from '../lib/http.ts';
 import { enforceRateLimit } from '../lib/rateLimit.ts';
@@ -40,7 +41,9 @@ async function look(code: string): Promise<{ kind: CodeKind; name: string; detai
   const helper = await findHelperInvite(code);
   if (helper) {
     const [owner] = await sql`select name, email from public.profiles where id = ${helper.ownerId}`;
-    const who = owner?.name || owner?.email || 'Someone';
+    // A code is all somebody needs to reach this, so it must not hand out the owner's email address.
+    // Their first name if they gave one, nothing identifying otherwise.
+    const who = firstNameOnly(owner?.name) || 'Someone';
     return {
       kind: 'helper',
       name: `${who}’s money`,

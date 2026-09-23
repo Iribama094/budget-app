@@ -98,3 +98,13 @@ export async function sendPeriodEndingReminders(today = todayIso()): Promise<num
   }
   return sent;
 }
+
+/**
+ * The first name somebody gave, or nothing.
+ *
+ * For anything a stranger can reach, such as looking up an invite code: never fall back to an email address,
+ * not even the part before the @, because that is usually somebody's full name.
+ */
+export function firstNameOnly(name: string | null | undefined): string {
+  return (name ?? '').trim().split(/\s+/)[0] ?? '';
+}
