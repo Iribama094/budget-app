@@ -747,6 +747,14 @@ try {
   }
   check('a burst of public sign-ups is stopped', publicLimited?.status === 429, publicLimited?.status ?? 'never limited');
 
+  // A code is all a stranger needs to reach the lookup, so it must never carry an email address.
+  r = await call(a.token, 'POST', '/delegates', { email: `helper.${stamp}@example.com`, role: 'view' });
+  const helperCode = r.data?.code;
+  if (helperCode) {
+    r = await call(b.token, 'GET', `/join?code=${encodeURIComponent(helperCode)}`);
+    check('an invite code does not hand out the owner email', r.status === 200 && !JSON.stringify(r.data ?? {}).includes(A.email), r.data);
+  }
+
   section('Security: what the server sends back');
   r = await call(a.token, 'GET', '/auth/me');
   check('answers about money are never cached', r.headers.get('cache-control') === 'no-store', r.headers.get('cache-control'));
