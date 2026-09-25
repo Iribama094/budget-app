@@ -18,9 +18,17 @@
   document.documentElement.classList.add('motion');
 
   // Order the hero's parts and each revealed group, so they arrive one after another rather than together.
-  const order = (nodes) => nodes.forEach((el, i) => el.style.setProperty('--i', String(i)));
-  order([...document.querySelectorAll('.hero [data-enter]')]);
-  document.querySelectorAll('[data-reveal-group]').forEach((group) => order([...group.querySelectorAll('[data-reveal]')]));
+  const order = (nodes, from = 0) => nodes.forEach((el, i) => el.style.setProperty('--i', String(i + from)));
+  const entering = [...document.querySelectorAll('.hero [data-enter]')];
+  order(entering);
+
+  // Anything revealed inside the hero is already on screen when the page loads, so its reveal fires at once
+  // and would race the heading in. Those keep counting from where the entrance left off instead, and arrive
+  // after it. Groups further down the page start from zero, because reaching them is what sets them off.
+  document.querySelectorAll('[data-reveal-group]').forEach((group) => {
+    const inHero = !!group.closest('.hero');
+    order([...group.querySelectorAll('[data-reveal]')], inHero ? entering.length + 1 : 0);
+  });
 
   // Reveals: once seen, stay seen. Nothing re-animates on the way back up the page.
   const seen = new IntersectionObserver(
@@ -66,9 +74,7 @@
   }
 
   // A ticker needs its items twice over to run without a seam. The copy is hidden from screen readers.
-  // `.banks.ticker` is the old name from when this was a row of bank chips; `data-ticker` says what it does
-  // rather than what it once held. Both work, so the markup can change without the script changing with it.
-  document.querySelectorAll('[data-ticker], .banks.ticker').forEach((strip) => {
+  document.querySelectorAll('[data-ticker]').forEach((strip) => {
     if (strip.querySelector('.lane')) return;
     const lane = document.createElement('div');
     lane.className = 'lane';

@@ -290,7 +290,9 @@ fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: colu
 /* ------------------------------------------------------------------ motion
    Patterns from motion.dev's templates, written as CSS so the site still ships
    no JavaScript library: a staggered entrance, reveals as you scroll, a ticker
-   of banks, and press states that answer a finger. motion.js adds the classes.
+   of what it handles, and press states that answer a finger. motion.js adds
+   the classes, and the hero's own reveals continue its entrance rather than
+   racing it, since they are on screen from the start.
 
    Every rule here is inside one of these two gates, so a phone set to reduce
    motion gets the finished page with nothing moving:
