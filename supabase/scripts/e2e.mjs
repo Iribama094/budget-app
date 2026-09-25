@@ -168,10 +168,7 @@ try {
   r = await call(a.token, 'PATCH', `/budgets/${budgetId}`, { name: 'My Budget (September)' });
   check('patch budget', r.status === 200 && r.data.budget.name === 'My Budget (September)', r);
   check('bad budget id is 404', (await call(a.token, 'GET', '/budgets/not-a-uuid')).status === 404);
-  r = await call(a.token, 'POST', `/budgets/${budgetId}/mini-budgets`, { name: 'Weekend trip', amount: 40000, category: 'Free Spending' });
-  check('create mini budget', r.status === 201 && r.data.miniBudget.amount === 40000, r);
-  r = await call(a.token, 'GET', `/budgets/${budgetId}/mini-budgets`);
-  check('list mini budgets', r.status === 200 && r.data.items.length === 1, r);
+  check('the old mini budget route is gone', (await call(a.token, 'GET', `/budgets/${budgetId}/mini-budgets`)).status === 404);
 
   section('Goals and transactions');
   r = await call(a.token, 'POST', '/goals', { name: 'Emergency fund', targetAmount: 1000000, targetDate: '2027-06-30', emoji: '🛟', autoSavePercent: 10 });
@@ -204,6 +201,20 @@ try {
   check('deleting income reverses budget growth', r.data.budget.totalBudget === 300000 && r.data.budget.categories.Savings.budgeted === 50000, r.data?.budget);
   r = await call(a.token, 'GET', '/goals');
   check('auto-save waits for "I moved it" before the goal grows', r.status === 200 && r.data.items[0].currentAmount === 0, r);
+  section('Category limits');
+  r = await call(a.token, 'GET', '/categories?spaceId=personal');
+  let groceries = (r.data.items ?? []).find((c) => c.name === 'Groceries');
+  if (!groceries) groceries = (await call(a.token, 'POST', '/categories', { name: 'Groceries', type: 'expense', bucket: 'Needs' })).data?.category;
+  check('a category starts with no limit', !!groceries && groceries.monthlyLimit === null, groceries);
+  r = await call(a.token, 'PATCH', `/categories/${groceries.id}`, { monthlyLimit: 80000 });
+  check('set a monthly limit on a category', r.status === 200 && r.data.category.monthlyLimit === 80000, r);
+  r = await call(a.token, 'GET', `/budgets/${budgetId}/pace`);
+  const groceryLimit = (r.data.limits ?? []).find((l) => l.name === 'Groceries');
+  check('the budget counts spending against the limit on its own', groceryLimit?.limit === 80000 && groceryLimit?.spent === 70000 && groceryLimit?.left === 10000, r.data?.limits);
+  check('a limit over 1bn is refused', (await call(a.token, 'PATCH', `/categories/${groceries.id}`, { monthlyLimit: 2e9 })).status === 400);
+  r = await call(a.token, 'PATCH', `/categories/${groceries.id}`, { monthlyLimit: null });
+  check('clearing the limit takes it off the budget', r.data?.category?.monthlyLimit === null && ((await call(a.token, 'GET', `/budgets/${budgetId}/pace`)).data.limits ?? []).length === 0, r);
+
   r = await call(a.token, 'POST', '/transactions', { type: 'income', amount: 50000, category: 'Salary', occurredAt: now(), budgetId, budgetCategory: 'Savings' });
   check('new income suggests a pending auto-save', r.status === 201 && r.data.autoSaved?.[0]?.amount === 5000, r);
   r = await call(a.token, 'GET', '/goal-contributions?status=pending');

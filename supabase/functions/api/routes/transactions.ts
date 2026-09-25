@@ -265,7 +265,7 @@ export async function transactionById(ctx: Ctx) {
       description = ${patch.description ?? existing.description},
       occurred_at = ${patch.occurredAt ? new Date(patch.occurredAt) : existing.occurredAt},
       budget_id = ${nextBudgetId},
-      budget_category = ${nextBucket},
+      budget_category = ${nextBucket}
     where id = ${id} and user_id = ${userId}
     returning *
   `;
