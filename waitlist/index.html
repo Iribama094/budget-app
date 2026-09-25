@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>BudgetFriendly: make your salary last until payday</title>
-    <meta name="description" content="BudgetFriendly gives your money a plan from payday to payday and tells you what's safe to spend every day. Join the waitlist." />
-    <meta property="og:title" content="BudgetFriendly: make your salary last until payday" />
-    <meta property="og:description" content="A plan from payday to payday, what's safe to spend today, and your business money kept separate. Join the waitlist." />
+    <title>BudgetFriendly: know what is safe to spend, every single day</title>
+    <meta name="description" content="BudgetFriendly gives your salary a plan from one payday to the next and tells you what is safe to spend today. Join the waitlist." />
+    <meta property="og:title" content="BudgetFriendly: know what is safe to spend, every single day" />
+    <meta property="og:description" content="A plan from payday to payday, one clear figure every morning, and your business money kept separate. Join the waitlist." />
     <!-- Absolute links point at the live address. When budgetfriendly.ng is connected, swap these back. -->
     <link rel="canonical" href="https://budgetfriendly-waitlist.vercel.app/" />
     <link rel="icon" href="favicon-32.png" sizes="32x32" />
@@ -17,7 +17,7 @@
     <meta property="og:image" content="https://budgetfriendly-waitlist.vercel.app/preview.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="BudgetFriendly: make your salary last until payday" />
+    <meta property="og:image:alt" content="BudgetFriendly: know what is safe to spend, every single day" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="https://budgetfriendly-waitlist.vercel.app/preview.png" />
     <meta name="theme-color" content="#0d2b26" />
@@ -31,205 +31,253 @@
       <div class="wrap">
         <a class="brand" href="index.html"><img src="logo.png" alt="" />BudgetFriendly</a>
         <nav class="nav" aria-label="Sections">
-          <a href="#how">How it works</a>
-          <a href="#business">For business</a>
-          <a href="#safe">Is it safe?</a>
-          <a href="#faq">Questions</a>
+          <a href="#daily">The daily number</a>
+          <a href="#record">Recording</a>
+          <a href="#business">Business</a>
+          <a href="#safe">Security</a>
         </nav>
         <a class="btn small gold" href="join.html">Join the waitlist</a>
       </div>
     </header>
 
     <main>
-      <!-- Hero -->
+      <!-- Hero. The ink carries the brand, and the product card lifts into it. -->
       <section class="hero">
-        <div class="wrap">
-          <div>
-            <span class="pill" data-enter><span class="dot"></span>Launching soon in Nigeria · iPhone and Android</span>
-            <h1 data-enter>Make your salary last <em>until payday.</em></h1>
-            <p class="lede" data-enter>BudgetFriendly gives your money a plan from payday to payday and tells you, every morning, how much is safe to spend. Run a business too? Keep its money separate, in the same app.</p>
+        <div class="hero-ink">
+          <div class="wrap">
+            <span class="pill" data-enter><span class="dot"></span>Launching soon in Nigeria</span>
+            <h1 data-enter>Know what is safe to spend, <em>every single day</em></h1>
+            <p class="lede" data-enter>Your salary gets a plan from one payday to the next. No spreadsheet, no starting again each month, no guessing on the 26th.</p>
             <form class="capture" action="join.html" method="get" data-enter>
-              <label class="sr" for="email-top">Your email</label>
+              <label class="sr" for="email-top">Your email address</label>
               <input class="input" id="email-top" name="email" type="email" autocomplete="email" placeholder="Your email address" required />
-              <button class="btn gold" type="submit">Join the waitlist</button>
+              <button class="btn gold" type="submit">Join</button>
             </form>
-            <p class="capture-note" data-enter>Free to join. We’ll only message you about the launch.</p>
-            <div class="proof" data-enter>
-              <span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8FD6C3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>We never move your money</span>
-              <span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8FD6C3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 18v-7"/><path d="M11.12 2.198a2 2 0 0 1 1.76.006l7.866 3.847c.476.233.31.949-.22.949H3.474c-.53 0-.695-.716-.22-.949z"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/></svg>Works with Nigerian banks</span>
-              <span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8FD6C3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/></svg>Personal and business</span>
-            </div>
+            <p class="capture-note" data-enter>Free to join · iPhone and Android · Early joiners get in first</p>
           </div>
+        </div>
 
-          <!-- The real Home screen (mobile/src/screens/DashboardScreen.tsx), drawn to scale -->
-          <div class="device" aria-hidden="true">
-            <div class="screen">
-              <div class="island"></div>
-              <div class="sbar">9:41</div>
-              <div class="a-row">
-                <div class="a-avatar">AO</div>
-                <div style="flex: 1; min-width: 0">
-                  <div class="a-greet">Good morning, Ada</div>
-                  <div class="a-switch"><span class="on"><svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>Personal</span><span><svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#5A6E69" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/></svg>Business</span></div>
+        <div class="wrap showcase">
+          <div class="panel" data-reveal-group>
+            <div class="device" aria-hidden="true">
+              <div class="screen">
+                <div class="island"></div>
+                <div class="sbar">9:41</div>
+                <div class="a-row">
+                  <div class="a-avatar">AO</div>
+                  <div style="flex: 1; min-width: 0">
+                    <div class="a-greet">Good morning, Ada</div>
+                    <div class="a-switch"><span class="on"><svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>Personal</span><span><svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#5A6E69" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/></svg>Business</span></div>
+                  </div>
+                  <div class="a-ibtn"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0F2723" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg></div>
+                  <div class="a-ibtn"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0F2723" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg></div>
                 </div>
-                <div class="a-ibtn"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0F2723" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg></div>
-                <div class="a-ibtn"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0F2723" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg></div>
+                <div class="a-hero">
+                  <svg class="rings" width="100%" height="100%"><circle cx="104%" cy="-12%" r="22" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="35" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="48" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="61" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="74" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="87" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="100" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="113" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="126" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="139" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="152" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="165" stroke="rgba(226,182,92,0.13)" fill="none"/></svg>
+                  <div class="a-row" style="justify-content: space-between"><span class="a-eyebrow">Safe to spend today</span><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#EAF4F1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg></div>
+                  <div class="a-amt"><small>₦</small><span data-count>4,000</span></div>
+                  <div class="a-sub">₦92,000 left of ₦120,000 · 23 days to go</div>
+                  <div class="a-bar"><b></b><i></i></div>
+                  <div class="a-row" style="justify-content: space-between; margin-top: 10px"><span class="a-sub">23% spent · 27% of period gone</span><span class="a-chip"><svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#8FD6C3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>On pace</span></div>
+                </div>
+                <div class="a-quick">
+                  <div><b><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></b>Expense</div>
+                  <div><b><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 7 7 17"/><path d="M17 17H7V7"/></svg></b>Income</div>
+                  <div><b><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 18v-7"/><path d="M11.12 2.198a2 2 0 0 1 1.76.006l7.866 3.847c.476.233.31.949-.22.949H3.474c-.53 0-.695-.716-.22-.949z"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/></svg></b>Bank import</div>
+                  <div><b><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg></b>Ask AI</div>
+                </div>
+                <div class="a-title">Recent activity <span>See all</span></div>
+                <div class="a-list">
+                  <div class="a-li"><span class="a-tile" style="background: #f5e9d2"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C8963A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg></span><p>Bolt to work<small>Transport · Today</small></p><strong>−₦3,500</strong></div>
+                  <div class="a-li"><span class="a-tile" style="background: #dcede7"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg></span><p>Shoprite Lekki<small>Food &amp; groceries · Yesterday</small></p><strong>−₦12,400</strong></div>
+                  <div class="a-li"><span class="a-tile" style="background: #ddf1e6"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#187A4E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/></svg></span><p>Salary<small>Salary · 25 Sep</small></p><strong style="color: #187a4e">+₦300,000</strong></div>
+                </div>
               </div>
-              <div class="a-hero">
-                <svg class="rings" width="100%" height="100%"><circle cx="104%" cy="-12%" r="22" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="35" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="48" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="61" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="74" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="87" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="100" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="113" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="126" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="139" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="152" stroke="rgba(226,182,92,0.13)" fill="none"/><circle cx="104%" cy="-12%" r="165" stroke="rgba(226,182,92,0.13)" fill="none"/></svg>
-                <div class="a-row" style="justify-content: space-between"><span class="a-eyebrow">Safe to spend today</span><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#EAF4F1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg></div>
-                <div class="a-amt"><small>₦</small><span data-count>4,000</span></div>
-                <div class="a-sub">₦92,000 left of ₦120,000 · 23 days to go</div>
-                <div class="a-bar"><b></b><i></i></div>
-                <div class="a-row" style="justify-content: space-between; margin-top: 10px"><span class="a-sub">23% spent · 27% of period gone</span><span class="a-chip"><svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#8FD6C3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>On pace</span></div>
+            </div>
+            <div class="stats">
+              <div class="statrow">
+                <div class="stat" data-reveal>
+                  <p class="k">Needs</p>
+                  <p class="v">&#8358;150,000</p>
+                  <div class="meter"><span style="width: 62%; background: var(--primary)"></span></div>
+                </div>
+                <div class="stat" data-reveal>
+                  <p class="k" style="color: #2c8f76">Wants</p>
+                  <p class="v">&#8358;90,000</p>
+                  <div class="meter"><span style="width: 38%; background: #57b49c"></span></div>
+                </div>
+                <div class="stat gold" data-reveal>
+                  <p class="k" style="color: var(--gold-deep)">Savings</p>
+                  <p class="v">&#8358;60,000</p>
+                  <div class="meter"><span style="width: 84%; background: #b7832b"></span></div>
+                </div>
               </div>
-              <div class="a-quick">
-                <div><b><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></b>Expense</div>
-                <div><b><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 7 7 17"/><path d="M17 17H7V7"/></svg></b>Income</div>
-                <div><b><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 18v-7"/><path d="M11.12 2.198a2 2 0 0 1 1.76.006l7.866 3.847c.476.233.31.949-.22.949H3.474c-.53 0-.695-.716-.22-.949z"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/></svg></b>Bank import</div>
-                <div><b><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg></b>Ask AI</div>
-              </div>
-              <div class="a-title">Recent activity <span>See all</span></div>
-              <div class="a-list">
-                <div class="a-li"><span class="a-tile" style="background: #f5e9d2"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C8963A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg></span><p>Bolt to work<small>Transport · Today</small></p><strong>−₦3,500</strong></div>
-                <div class="a-li"><span class="a-tile" style="background: #dcede7"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg></span><p>Shoprite Lekki<small>Food &amp; groceries · Yesterday</small></p><strong>−₦12,400</strong></div>
-                <div class="a-li"><span class="a-tile" style="background: #ddf1e6"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#187A4E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/></svg></span><p>Salary<small>Salary · 25 Sep</small></p><strong style="color: #187a4e">+₦300,000</strong></div>
+              <div class="week" data-reveal>
+                <div class="week-top">
+                  <p class="k">This week</p>
+                  <span>Mon to Sun</span>
+                </div>
+                <div class="cols" aria-hidden="true">
+                  <i style="height: 38%"></i>
+                  <i style="height: 62%"></i>
+                  <i style="height: 44%"></i>
+                  <i class="on" style="height: 88%"></i>
+                  <i style="height: 51%"></i>
+                  <i style="height: 33%"></i>
+                  <i style="height: 26%"></i>
+                </div>
+                <p class="week-note">Thursday was your heaviest day, mostly transport.</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- The problem, in the audience's words -->
-      <section class="section">
-        <div class="wrap">
-          <div class="head" data-reveal>
-            <p class="eyebrow">Sound familiar?</p>
-            <h2>Salary land on the 25th. Finished by the 9th.</h2>
-          </div>
-          <div class="pains" data-reveal-group>
-            <div class="pain" data-reveal><p class="q">“Where did my money go?”</p><p>You check your balance mid-month and can’t account for half of it.</p></div>
-            <div class="pain" data-reveal><p class="q">Everything hits at once.</p><p>Rent, school fees, family support, tithe, data. The salary is spoken for before it lands.</p></div>
-            <div class="pain" data-reveal><p class="q">Saving never happens.</p><p>Whatever is left at month end is what you save. Usually, nothing is left.</p></div>
-          </div>
-          <p class="answer" data-reveal>You’re not bad with money. <em>Your money just needs a plan.</em></p>
+      <!-- What the app takes in, running past. Duplicated into a second lane by motion.js. -->
+      <section class="strip">
+        <div data-ticker aria-label="What BudgetFriendly handles">
+          <span>Bank alerts</span><span aria-hidden="true">&#183;</span>
+          <span>Statement uploads</span><span aria-hidden="true">&#183;</span>
+          <span>Cash at the market</span><span aria-hidden="true">&#183;</span>
+          <span>Irregular income</span><span aria-hidden="true">&#183;</span>
+          <span>Transfers to family</span><span aria-hidden="true">&#183;</span>
+          <span>Tax estimates</span><span aria-hidden="true">&#183;</span>
         </div>
       </section>
 
-      <!-- How it works (personal) -->
-      <section class="section alt" id="how">
-        <div class="wrap">
-          <div class="head" data-reveal>
-            <p class="eyebrow">How it works</p>
-            <h2>A plan in two minutes. A clear number every morning.</h2>
-            <p class="lede">Rough numbers are fine. There’s no judgement here, and you can change anything later.</p>
+      <!-- The daily number -->
+      <section class="section" id="daily">
+        <div class="wrap split">
+          <div class="say" data-reveal>
+            <p class="eyebrow">The daily number</p>
+            <h2>One figure, worked out after the bills</h2>
+            <p class="lede">Rent, school fees, NEPA and subscriptions are set aside the day your salary lands. What is left is divided by the days until the next payday. That is the number, and it moves as you spend.</p>
+            <a class="btn" href="join.html">Join the waitlist</a>
           </div>
-          <div class="steps" data-reveal-group>
-            <div class="step" data-reveal>
-              <span class="ic"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/></svg></span>
-              <div><h3>Your plan, built around payday</h3><p>Tell us what you earn and what you must pay. We split the rest into needs, wants and savings, in plain numbers.</p></div>
+          <div class="features" data-reveal-group>
+            <div class="feature" data-reveal>
+              <span class="ic"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14594E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4"/><path d="M16 3v4"/><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 11h18"/></svg></span>
+              <h3>Payday to payday</h3>
+              <p>Your month starts when you are paid, not on the 1st.</p>
             </div>
-            <div class="step" data-reveal>
-              <span class="ic"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg></span>
-              <div><h3>Know what’s safe to spend today</h3><p>Savings and bills due soon are held back first, so the number you see each morning is honest.</p></div>
+            <div class="feature" data-reveal>
+              <span class="ic"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14594E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+              <h3>Bills held back</h3>
+              <p>Set aside first, so rent is never a surprise.</p>
             </div>
-            <div class="step" data-reveal>
-              <span class="ic"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 18v-7"/><path d="M11.12 2.198a2 2 0 0 1 1.76.006l7.866 3.847c.476.233.31.949-.22.949H3.474c-.53 0-.695-.716-.22-.949z"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/></svg></span>
-              <div><h3>Your spending logs itself</h3><p>Connect your bank and transactions arrive on their own, each with a category. Or type it, say it, or paste the bank alert.</p></div>
+            <div class="feature gold" data-reveal>
+              <span class="ic"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C6214" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-7"/><path d="M14 8h6v6"/></svg></span>
+              <h3>A buffer for quiet months</h3>
+              <p>A good month tops it up, a slow one draws on it.</p>
             </div>
-            <div class="step" data-reveal>
-              <span class="ic"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg></span>
-              <div><h3>Ask Flux, your money coach</h3><p>Ask “Will my money last until payday?” in plain words, and get an answer from your own numbers.</p></div>
+            <div class="feature" data-reveal>
+              <span class="ic"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14594E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
+              <h3>Warnings before the edge</h3>
+              <p>A nudge when a category runs hot, not after.</p>
             </div>
           </div>
-          <div class="aside" data-reveal>
-            <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#8C6214" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>
-            <p><strong>Goals that keep pace, and a Money Wrapped at year end.</strong> Save towards rent or an emergency fund, then see how your money waka in one story. Who you be with money?</p>
+        </div>
+      </section>
+
+      <!-- Recording -->
+      <section class="section" id="record">
+        <div class="wrap split flip">
+          <div class="features plain" data-reveal-group>
+            <div class="feature" data-reveal>
+              <h3>Paste the bank alert</h3>
+              <p>The SMS becomes a record, category and all.</p>
+            </div>
+            <div class="feature" data-reveal>
+              <h3>Or say it out loud</h3>
+              <p>&#8220;Two thousand for fuel&#8221;, logged at the pump.</p>
+            </div>
+            <div class="feature" data-reveal>
+              <h3>Upload a statement</h3>
+              <p>Bank, Paystack or Moniepoint exports, matched up.</p>
+            </div>
+            <div class="feature" data-reveal>
+              <h3>Or link the bank</h3>
+              <p>Read only, and most of it arrives by itself.</p>
+            </div>
+          </div>
+          <div class="say" data-reveal>
+            <p class="eyebrow">Recording</p>
+            <h2>Four ways in, because nobody types everything</h2>
+            <p class="lede">Cash at the market, a transfer to your cousin, a card at the till. The app takes whichever is easiest in the moment, and learns which payee belongs to which category.</p>
           </div>
         </div>
       </section>
 
       <!-- Business -->
-      <section class="section biz" id="business">
+      <section class="section" id="business">
         <div class="wrap">
-          <div class="head" data-reveal>
-            <p class="eyebrow">Run a business?</p>
-            <h2>Same app. Separate money.</h2>
-            <p class="lede">Switch to your Business space in one tap. Profit, cash and tax sit apart from your personal budget, and the two never mix.</p>
-          </div>
-          <div class="biz-grid" data-reveal-group>
-            <div class="biz-card" data-reveal><span class="ic"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#E2B65C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span><h3>Profit at a glance</h3><p>Profit, margin, what customers owe you, what you owe, and how many months your cash will last.</p></div>
-            <div class="biz-card" data-reveal><span class="ic"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#E2B65C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/></svg></span><h3>Invoices on WhatsApp</h3><p>Send a PDF invoice in seconds, with VAT and withholding tax worked out. Record the payment in a tap.</p></div>
-            <div class="biz-card" data-reveal><span class="ic"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#E2B65C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg></span><h3>Upload your sales</h3><p>Drop in a Paystack, Moniepoint or bank CSV. Uploading twice is safe: we skip what’s already there.</p></div>
-            <div class="biz-card" data-reveal><span class="ic"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#E2B65C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 18v-7"/><path d="M11.12 2.198a2 2 0 0 1 1.76.006l7.866 3.847c.476.233.31.949-.22.949H3.474c-.53 0-.695-.716-.22-.949z"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/></svg></span><h3>Tax, worked out</h3><p>See what to set aside each month for VAT, PAYE and company tax, and every deadline before it’s due.</p></div>
-            <div class="biz-card" data-reveal><span class="ic"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#E2B65C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></svg></span><h3>Payroll and payslips</h3><p>Add your staff, see take-home pay and PAYE, and send payslips on WhatsApp.</p></div>
-            <div class="biz-card" data-reveal><span class="ic"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#E2B65C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg></span><h3>Pay yourself, safely</h3><p>See how much you can take out without hurting the business. It lands in your personal plan too.</p></div>
-          </div>
-          <p class="who"><strong>Built for</strong> traders, caterers, shop owners, freelancers and anyone with a side hustle.</p>
-        </div>
-      </section>
-
-      <!-- Trust -->
-      <section class="section alt" id="safe">
-        <div class="wrap trust">
-          <div>
-            <p class="eyebrow">Is it safe?</p>
-            <h2>Your money never moves through us.</h2>
-            <p class="lede" style="margin-top: 16px">BudgetFriendly records and explains your money. It never holds it, sends it or spends it.</p>
-            <div class="banks ticker" aria-label="Banks that work with BudgetFriendly">
-              <span class="bank"><b style="background: #e96b22">GT</b>GTBank</span>
-              <span class="bank"><b style="background: #f58220">AC</b>Access</span>
-              <span class="bank"><b style="background: #e4032e">ZE</b>Zenith</span>
-              <span class="bank"><b style="background: #d31c2b">UB</b>UBA</span>
-              <span class="bank"><b style="background: #08206b">FB</b>First Bank</span>
-              <span class="bank"><b style="background: #40196d">KU</b>Kuda</span>
-              <span class="bank"><b style="background: #1dc071">OP</b>Opay</span>
-              <span class="bank"><b style="background: #0357ee">MO</b>Moniepoint</span>
-              <span class="bank more">and 20 more</span>
+          <div class="bizpanel" data-reveal>
+            <div class="say">
+              <p class="eyebrow">For business</p>
+              <h2>A wall between shop money and your money</h2>
+              <p class="lede">Invoices, payroll, statement uploads and tax on one side. Your salary and savings on the other. Pay yourself, and both sides record it.</p>
+              <a class="btn gold" href="join.html?kind=business">Join for business</a>
+            </div>
+            <div class="bizchips">
+              <div class="chip-card"><p class="k">Invoices</p><p>VAT and part payments</p></div>
+              <div class="chip-card"><p class="k">Payroll</p><p>PAYE per person</p></div>
+              <div class="chip-card"><p class="k">Statements</p><p>Paystack, Moniepoint</p></div>
+              <div class="chip-card"><p class="k">Tax</p><p>An estimate, not a filing</p></div>
             </div>
           </div>
-          <div class="facts" data-reveal-group>
-            <div class="fact" data-reveal><span class="mark"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></span><div><h3>Read-only access</h3><p>We use Mono, a licensed open-banking provider, to read your account history. Nothing more.</p></div></div>
-            <div class="fact" data-reveal><span class="mark"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><div><h3>We never see your password</h3><p>You sign in on your bank’s own page, not ours.</p></div></div>
-            <div class="fact" data-reveal><span class="mark"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></span><div><h3>No transfers, no debits, ever</h3><p>We can’t move money, and you can disconnect your bank at any time.</p></div></div>
-            <div class="fact" data-reveal><span class="mark"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C6B5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg></span><div><h3>Your data stays yours</h3><p>Flux answers from a summary of your own numbers. Your data isn’t used to train anyone’s AI model.</p></div></div>
+        </div>
+      </section>
+
+      <!-- Security -->
+      <section class="section" id="safe">
+        <div class="wrap split narrow">
+          <div class="say" data-reveal>
+            <h2>Not a bank, and never moves your money</h2>
+            <p class="lede">It records and explains. Nothing in it can send, receive or debit a naira.</p>
+          </div>
+          <div class="checks" data-reveal-group>
+            <div class="check" data-reveal>
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14594E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>
+              <div><h3>Bank links are read only</h3><p>We never see your bank password or PIN, and you can unlink any time.</p></div>
+            </div>
+            <div class="check" data-reveal>
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14594E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>
+              <div><h3>Staff cannot see your spending</h3><p>Support sees your settings, never your transactions, and every action is logged.</p></div>
+            </div>
+            <div class="check" data-reveal>
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14594E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>
+              <div><h3>Locked to your phone</h3><p>Face ID or fingerprint, and an email when a new device signs in.</p></div>
+            </div>
+            <div class="check" data-reveal>
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14594E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>
+              <div><h3>We never ask for a code</h3><p>Not by call, SMS or DM. Anybody who does is not us.</p></div>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- FAQ -->
-      <section class="section" id="faq">
+      <!-- Closing -->
+      <section class="section last">
         <div class="wrap">
-          <div class="head" data-reveal><p class="eyebrow">Questions</p><h2>Before you join</h2></div>
-          <div class="faq">
-            <details><summary>When does BudgetFriendly launch?</summary><p>We’re putting the finishing touches on it now. Everyone on the waitlist hears first, and early joiners get in first.</p></details>
-            <details><summary>Does it cost anything to join?</summary><p>No. Joining the waitlist is free, and we’ll share pricing before launch.</p></details>
-            <details><summary>Does it work with my bank?</summary><p>It connects through Mono to GTBank, Access, Zenith, UBA, First Bank, Kuda, Opay, Moniepoint and about 20 more. You can also log spending by hand, by voice, or by pasting a bank alert.</p></details>
-            <details><summary>Can BudgetFriendly move my money?</summary><p>No. Bank access is read-only. We can’t make transfers or debits, and you can disconnect at any time.</p></details>
-            <details><summary>My income isn’t steady. Will it still work?</summary><p>Yes. Your plan uses a safe estimate of what you earn, and you update it whenever you get paid.</p></details>
-            <details><summary>I run a business. Is this for me?</summary><p>Yes. Your Business space keeps profit, invoices, uploads, payroll and tax apart from your personal budget, in the same app.</p></details>
+          <div class="band" data-reveal>
+            <div class="band-say">
+              <h2>Be first when it opens</h2>
+              <p>Every friend who joins with your link moves you ten places up the queue.</p>
+            </div>
+            <form class="capture" action="join.html" method="get">
+              <label class="sr" for="email-bottom">Your email address</label>
+              <input class="input" id="email-bottom" name="email" type="email" autocomplete="email" placeholder="Your email address" required />
+              <button class="btn dark" type="submit">Join</button>
+            </form>
           </div>
-        </div>
-      </section>
-
-      <!-- Final call -->
-      <section class="section final">
-        <div class="wrap">
-          <h2>Make this the month your money lasts.</h2>
-          <p class="lede">Join the waitlist and be first in when we launch.</p>
-          <form class="capture" action="join.html" method="get">
-            <label class="sr" for="email-bottom">Your email</label>
-            <input class="input" id="email-bottom" name="email" type="email" autocomplete="email" placeholder="Your email address" required />
-            <button class="btn gold" type="submit">Join the waitlist</button>
-          </form>
         </div>
       </section>
     </main>
 
     <footer class="foot">
       <div class="wrap">
-        <span>© BudgetFriendly. Built for Nigeria.</span>
-        <span><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="mailto:support@budgetfriendly.ng">support@budgetfriendly.ng</a></span>
+        <span>&#169; BudgetFriendly. Built for Nigeria.</span>
+        <span><a href="privacy.html">Privacy</a> &#183; <a href="terms.html">Terms</a> &#183; <a href="mailto:support@budgetfriendly.ng">support@budgetfriendly.ng</a></span>
         <span>We record and explain your money. We never move it.</span>
       </div>
     </footer>
