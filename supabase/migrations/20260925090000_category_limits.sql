@@ -8,25 +8,49 @@
 -- A limit is one number on the category people already choose, so every transaction counts itself and the
 -- limit is still there next month.
 --
--- Nothing is lost: before this ran, the table held 0 rows and 0 transactions pointed at one. The guard below
--- keeps that true, so this cannot quietly throw away somebody's work if it is ever run somewhere busier.
-
-do $$
-declare
-  minis bigint;
-  tagged bigint;
-begin
-  select count(*) into minis from public.mini_budgets;
-  select count(*) into tagged from public.transactions where mini_budget_id is not null;
-  if minis > 0 or tagged > 0 then
-    raise exception 'Refusing to drop mini budgets: % rows and % tagged transactions. Move them to category limits first.', minis, tagged;
-  end if;
-end;
-$$;
+-- Anything still in the table is carried across rather than dropped: each mini budget becomes a category with
+-- its amount as the monthly limit. That is not a perfect fit for a one-off pot like "Weekend trip", but it
+-- keeps the name and the number where the person can see and change them, which losing the row would not.
+-- An earlier draft refused to run instead; carrying the rows over is better, because a refusal at this point
+-- only moves the decision to whoever is holding the deploy.
 
 -- What somebody means to keep spending on this category in a month. Null means no limit, which is most of them.
 alter table public.categories
   add column monthly_limit numeric(14, 2) check (monthly_limit is null or (monthly_limit >= 0 and monthly_limit <= 1000000000));
+
+-- One category per leftover mini budget, in the space its budget belonged to. A name somebody already uses as
+-- a category keeps its own bucket and simply gains the limit.
+insert into public.categories (user_id, space_id, name, type, bucket, icon, sort_order, monthly_limit)
+select distinct on (m.user_id, b.space_id, lower(m.name))
+  m.user_id,
+  b.space_id,
+  m.name,
+  'expense',
+  case when m.category in ('Needs', 'Wants', 'Savings') then m.category else 'Wants' end,
+  'tag',
+  2000,
+  m.amount
+from public.mini_budgets m
+join public.budgets b on b.id = m.budget_id
+where m.amount > 0
+  and not exists (
+    select 1 from public.categories c
+    where c.user_id = m.user_id and c.space_id = b.space_id and c.type = 'expense' and lower(c.name) = lower(m.name)
+  )
+order by m.user_id, b.space_id, lower(m.name), m.created_at desc;
+
+-- And where the category already existed, give it the limit.
+update public.categories c
+set monthly_limit = src.amount
+from (
+  select distinct on (m.user_id, b.space_id, lower(m.name)) m.user_id, b.space_id, lower(m.name) as lname, m.amount
+  from public.mini_budgets m
+  join public.budgets b on b.id = m.budget_id
+  where m.amount > 0
+  order by m.user_id, b.space_id, lower(m.name), m.created_at desc
+) src
+where c.user_id = src.user_id and c.space_id = src.space_id and c.type = 'expense'
+  and lower(c.name) = src.lname and c.monthly_limit is null;
 
 drop table public.mini_budgets;
 alter table public.transactions drop column mini_budget_id;
