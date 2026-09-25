@@ -13,9 +13,14 @@ So every change here needs two steps:
 ```bash
 node scripts/check-site-deployed.mjs   # from the repo root: is the live site behind?
 cd waitlist
-npx vercel link --yes --project budgetfriendly-waitlist   # first time in a fresh checkout only
+npx vercel link --yes --project budgetfriendly-waitlist --scope iribamas-projects   # fresh checkout only
 npx vercel deploy --prod --yes
 ```
+
+**Link before you deploy, every time the folder is new to you.** `.vercel/` is not in the repo, so a fresh
+checkout or a worktree has no link, and `vercel deploy` in a folder called `waitlist` then creates a second
+project of that name and publishes the site at another address instead of updating this one. The `--scope` is
+needed too: without it the CLI stops and asks which team, which it cannot do unattended.
 
 If you forget the second step, your change sits in the repo and nobody sees it. The check above is there so
 that never has to be remembered: it compares every page on the live site with this folder and says which are
