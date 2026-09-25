@@ -38,7 +38,7 @@ before. Then delete this warning.
 | `join.html`, `joined.html` | The sign-up form and the thank-you page, which posts to `POST /v1/waitlist` |
 | `privacy.html`, `terms.html` | Drafted from what the app actually does. A lawyer should read them before launch |
 | `404.html` | Shown for any address that does not exist |
-| `styles.css` | Every style. The type scale is deliberately small: body 15.5px, hero up to 46px, headings up to 31px, which is where Mono, Flutterwave and Moniepoint sit. Larger reads as zoomed in |
+| `styles.css` | Every style. The type scale is deliberately small: body 15.5px, hero up to 40px, headings up to 26px, the sizes on the chosen design and where Mono, Flutterwave and Moniepoint sit. Larger reads as zoomed in |
 | `config.js` | The API address, and the CAPTCHA site key when one is set |
 | `vercel.json` | Security headers and caching |
 | `instagram/` | Launch images and captions, not served by the site |
