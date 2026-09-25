@@ -75,7 +75,7 @@ export function PendingSavingsCard({ goalId, onAnswered }: { goalId?: string; on
                 {item.source === 'autosave' ? 'Your auto-save from income. ' : ''}Once it’s in your savings account, tap “I moved it” and it counts toward the goal and your Savings budget.
               </Text>
               <View style={[styles.row, { marginTop: 12, gap: 8 }]}>
-                <Pressable
+                <Pressable hitSlop={8}
                   disabled={!!busy}
                   onPress={() => void answer(item, 'confirm')}
                   accessibilityRole="button"
@@ -83,7 +83,7 @@ export function PendingSavingsCard({ goalId, onAnswered }: { goalId?: string; on
                 >
                   {busy === item.id ? <ActivityIndicator color={theme.colors.onPrimary} size="small" /> : <Text style={[type.smallStrong, { color: theme.colors.onPrimary }]}>I moved it</Text>}
                 </Pressable>
-                <Pressable
+                <Pressable hitSlop={8}
                   disabled={!!busy}
                   onPress={() => void answer(item, 'skip')}
                   accessibilityRole="button"

@@ -1003,7 +1003,7 @@ export function BudgetScreen() {
               <Text style={[type.h2, { color: theme.colors.text, marginTop: 6 }]}>When does this budget run?</Text>
               <View style={styles.wrap}>
                 {plan?.period?.basis === 'payday' ? (
-                  <Pressable
+                  <Pressable hitSlop={8}
                     onPress={() => setPayRange({ start: plan.period.start, end: plan.period.end, label: plan.period.label })}
                     style={[styles.chip, { backgroundColor: payRange ? theme.colors.primarySoft : theme.colors.surface, borderColor: payRange ? theme.colors.primary : theme.colors.border }]}
                   >
@@ -1015,7 +1015,7 @@ export function BudgetScreen() {
                   { label: 'Next month', offset: 1, months: 1 },
                   { label: 'Next 3 months', offset: 0, months: 3 }
                 ].map((q) => (
-                  <Pressable key={q.label} onPress={() => applyQuickRange(q.offset, q.months)} style={[styles.chip, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                  <Pressable hitSlop={8} key={q.label} onPress={() => applyQuickRange(q.offset, q.months)} style={[styles.chip, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
                     <Text style={[type.smallStrong, { color: theme.colors.text }]}>{q.label}</Text>
                   </Pressable>
                 ))}
@@ -1076,7 +1076,7 @@ export function BudgetScreen() {
                 {perMonthTotal != null ? `About ${formatAmount(Math.round(perMonthTotal), glyph)} a month across ${durationMonths} months.` : 'Everything you plan to spend or set aside this month.'}
               </Text>
               {user?.monthlyIncome ? (
-                <Pressable
+                <Pressable hitSlop={8}
                   onPress={() => handleTotalBudgetChange(String(Math.round((user.monthlyIncome ?? 0) * durationMonths)))}
                   style={[styles.chip, { alignSelf: 'flex-start', marginTop: 12, backgroundColor: theme.colors.primarySoft, borderColor: theme.colors.primarySoft }]}
                 >
@@ -1190,7 +1190,7 @@ export function BudgetScreen() {
                       </Pressable>
                       {expanded ? (
                         <View style={[styles.row, { marginTop: 10, gap: 8 }]}>
-                          <Pressable
+                          <Pressable hitSlop={8}
                             onPress={() => {
                               b.setPct(Math.max(0, b.pct - 5));
                               markCustom();
@@ -1214,7 +1214,7 @@ export function BudgetScreen() {
                             maximumTrackTintColor={theme.colors.border}
                             thumbTintColor={color}
                           />
-                          <Pressable
+                          <Pressable hitSlop={8}
                             onPress={() => {
                               b.setPct(Math.min(100, b.pct + 5));
                               markCustom();
@@ -1426,7 +1426,7 @@ export function BudgetScreen() {
                   <IconButton accessibilityLabel={showAmounts ? 'Hide amounts' : 'Show amounts'} onPress={toggleShowAmounts}>
                     {showAmounts ? <EyeOff color={theme.colors.text} size={18} /> : <Eye color={theme.colors.text} size={18} />}
                   </IconButton>
-                  <Pressable
+                  <Pressable hitSlop={8}
                     ref={createBudgetAnchorRef as any}
                     onPress={() => openNewBudget()}
                     accessibilityRole="button"

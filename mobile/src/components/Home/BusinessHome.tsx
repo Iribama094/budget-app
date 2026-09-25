@@ -140,7 +140,7 @@ export function BusinessHome() {
       refreshing={false}
     >
       <View style={styles.header}>
-        <Pressable onPress={() => nav.navigate('Profile')} accessibilityRole="button" accessibilityLabel="Profile" style={[styles.avatar, { backgroundColor: LOOK.soft }]}>
+        <Pressable hitSlop={8} onPress={() => nav.navigate('Profile')} accessibilityRole="button" accessibilityLabel="Profile" style={[styles.avatar, { backgroundColor: LOOK.soft }]}>
           <Briefcase color={theme.colors.brass} size={18} />
         </Pressable>
         <View style={{ flex: 1, minWidth: 0 }}>

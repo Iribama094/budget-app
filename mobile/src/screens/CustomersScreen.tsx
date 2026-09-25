@@ -116,7 +116,7 @@ export default function CustomersScreen() {
         title="Customers"
         onBack={() => goBackOrHome(nav)}
         right={
-          <Pressable onPress={() => open(null)} accessibilityRole="button" accessibilityLabel="Add a customer" style={({ pressed }) => [styles.add, { backgroundColor: theme.colors.primary, opacity: pressed ? 0.85 : 1 }]}>
+          <Pressable hitSlop={8} onPress={() => open(null)} accessibilityRole="button" accessibilityLabel="Add a customer" style={({ pressed }) => [styles.add, { backgroundColor: theme.colors.primary, opacity: pressed ? 0.85 : 1 }]}>
             <Plus color={theme.colors.onPrimary} size={16} strokeWidth={2.6} />
             <Text style={[type.smallStrong, { color: theme.colors.onPrimary }]}>New</Text>
           </Pressable>

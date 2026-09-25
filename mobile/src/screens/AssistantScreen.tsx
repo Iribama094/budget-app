@@ -230,7 +230,7 @@ export default function AssistantScreen() {
               returnKeyType="send"
             />
             <GuideAnchor id="assistant.mic">
-            <Pressable
+            <Pressable hitSlop={8}
               onPress={() => (voice.state === 'recording' ? void voice.stop() : void voice.start())}
               disabled={sending || voice.state === 'working'}
               accessibilityRole="button"
@@ -246,7 +246,7 @@ export default function AssistantScreen() {
               )}
             </Pressable>
             </GuideAnchor>
-            <Pressable
+            <Pressable hitSlop={8}
               onPress={() => void send(query)}
               disabled={!query.trim() || sending}
               accessibilityRole="button"

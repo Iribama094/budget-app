@@ -416,7 +416,7 @@ export default function GoalDetailScreen() {
                 {AUTO_SAVE_OPTIONS.map((p) => {
                   const selected = goal.autoSavePercent === p;
                   return (
-                    <Pressable
+                    <Pressable hitSlop={8}
                       key={p}
                       onPress={() => void saveAutoSave(p)}
                       disabled={isSaving}

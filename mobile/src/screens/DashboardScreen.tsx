@@ -579,7 +579,7 @@ export function DashboardScreen() {
   return (
     <Screen onRefresh={handleRefresh} refreshing={isLoading}>
       <View style={styles.header}>
-        <Pressable
+        <Pressable hitSlop={8}
           onPress={() => nav.navigate('Profile')}
           accessibilityRole="button"
           accessibilityLabel="Account"

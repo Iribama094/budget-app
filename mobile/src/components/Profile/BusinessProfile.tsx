@@ -83,7 +83,7 @@ export function BusinessProfile({ onLogout }: { onLogout: () => void }) {
               {contact || 'Add a phone and email for your invoices'}
             </Text>
           </View>
-          <Pressable
+          <Pressable hitSlop={8}
             onPress={() => nav.navigate('BusinessDetails')}
             accessibilityRole="button"
             accessibilityLabel="Edit business details"

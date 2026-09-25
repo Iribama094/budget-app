@@ -140,7 +140,7 @@ export default function BillsScreen() {
         subtitle="What you owe the people you buy from"
         onBack={() => goBackOrHome(nav)}
         right={
-          <Pressable onPress={() => setDraft(blank())} accessibilityRole="button" accessibilityLabel="Add a bill" style={({ pressed }) => [styles.newPill, { backgroundColor: theme.colors.primary, opacity: pressed ? 0.85 : 1 }]}>
+          <Pressable hitSlop={8} onPress={() => setDraft(blank())} accessibilityRole="button" accessibilityLabel="Add a bill" style={({ pressed }) => [styles.newPill, { backgroundColor: theme.colors.primary, opacity: pressed ? 0.85 : 1 }]}>
             <Plus color={theme.colors.onPrimary} size={16} strokeWidth={2.6} />
             <Text style={[type.smallStrong, { color: theme.colors.onPrimary }]}>Add</Text>
           </Pressable>

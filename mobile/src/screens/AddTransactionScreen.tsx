@@ -646,7 +646,7 @@ export function AddTransactionScreen() {
         ) : null}
 
         {repeat ? (
-          <Pressable
+          <Pressable hitSlop={8}
             onPress={() => {
               haptic.tap();
               setAmount(formatNumberInput(String(repeat.amount)));
@@ -671,7 +671,7 @@ export function AddTransactionScreen() {
             const active = category === c.name;
             const Icon = iconForKey(c.icon);
             return (
-              <Pressable
+              <Pressable hitSlop={8}
                 key={c.id}
                 onPress={() => {
                   setCategory(c.name);
@@ -690,7 +690,7 @@ export function AddTransactionScreen() {
               </Pressable>
             );
           })}
-          <Pressable
+          <Pressable hitSlop={8}
             onPress={() => setShowNewCategory(true)}
             accessibilityRole="button"
             accessibilityLabel="Add a category"
@@ -915,7 +915,7 @@ export function AddTransactionScreen() {
                   const selected = iso === date;
                   const future = iso > todayIso;
                   return (
-                    <Pressable
+                    <Pressable hitSlop={8}
                       key={c}
                       disabled={future}
                       onPress={() => {
@@ -972,7 +972,7 @@ export function AddTransactionScreen() {
                   {allowedBudgetTypes.map((opt) => {
                     const active = budgetTxnType === opt.key;
                     return (
-                      <Pressable
+                      <Pressable hitSlop={8}
                         key={opt.key}
                         onPress={() => setBudgetTxnType(opt.key)}
                         style={[styles.chip, { backgroundColor: active ? theme.colors.primarySoft : theme.colors.surface, borderColor: active ? theme.colors.primary : theme.colors.border }]}

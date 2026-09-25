@@ -236,7 +236,7 @@ export default function CreateGoalScreen() {
             {WHEN_OPTIONS.map((o) => {
               const active = whenMonths === o.months;
               return (
-                <Pressable
+                <Pressable hitSlop={8}
                   key={o.months}
                   onPress={() => pickWhen(o.months)}
                   accessibilityRole="button"
@@ -250,7 +250,7 @@ export default function CreateGoalScreen() {
                 </Pressable>
               );
             })}
-            <Pressable
+            <Pressable hitSlop={8}
               onPress={() => setShowDatePicker(true)}
               accessibilityRole="button"
               accessibilityLabel="Pick a date"
@@ -397,7 +397,7 @@ function DatePickerModal({ visible, value, onClose, onPick }: { visible: boolean
                 const selected = iso === value;
                 const past = iso <= todayIso;
                 return (
-                  <Pressable
+                  <Pressable hitSlop={8}
                     key={c}
                     disabled={past}
                     onPress={() => onPick(iso)}

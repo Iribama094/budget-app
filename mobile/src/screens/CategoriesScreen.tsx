@@ -220,7 +220,7 @@ export default function CategoriesScreen() {
                       const Icon = CATEGORY_ICONS[key];
                       const active = draft.icon === key;
                       return (
-                        <Pressable
+                        <Pressable hitSlop={8}
                           key={key}
                           onPress={() => setDraft({ ...draft, icon: key, iconTouched: true })}
                           accessibilityRole="button"
