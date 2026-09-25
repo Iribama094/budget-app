@@ -16,7 +16,9 @@ const SITE = process.env.WAITLIST_SITE_URL || 'https://budgetfriendly-waitlist.v
 const here = dirname(fileURLToPath(import.meta.url));
 const folder = join(here, '..', 'waitlist');
 
-const FILES = ['index.html', 'join.html', 'joined.html', 'privacy.html', 'terms.html', '404.html', 'styles.css', 'config.js', 'robots.txt', 'sitemap.xml'];
+// Every file the site serves. A new one added to waitlist/ belongs here too, or it can fail to deploy
+// without this noticing: the pages would match while the thing they depend on is missing.
+const FILES = ['index.html', 'join.html', 'joined.html', 'privacy.html', 'terms.html', '404.html', 'styles.css', 'motion.js', 'config.js', 'robots.txt', 'sitemap.xml'];
 
 // Line endings differ between a Windows checkout and what the host serves, and mean nothing here.
 const fingerprint = (text) => createHash('sha256').update(text.replace(/\r\n/g, '\n').trim()).digest('hex').slice(0, 12);
