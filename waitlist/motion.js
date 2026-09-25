@@ -65,14 +65,16 @@
     ).observe(device);
   }
 
-  // The ticker needs the chips twice to run without a seam. The copy is hidden from screen readers.
-  const banks = document.querySelector('.banks.ticker');
-  if (banks && !banks.querySelector('.lane')) {
+  // A ticker needs its items twice over to run without a seam. The copy is hidden from screen readers.
+  // `.banks.ticker` is the old name from when this was a row of bank chips; `data-ticker` says what it does
+  // rather than what it once held. Both work, so the markup can change without the script changing with it.
+  document.querySelectorAll('[data-ticker], .banks.ticker').forEach((strip) => {
+    if (strip.querySelector('.lane')) return;
     const lane = document.createElement('div');
     lane.className = 'lane';
-    lane.append(...banks.children);
+    lane.append(...strip.children);
     const copy = lane.cloneNode(true);
     copy.setAttribute('aria-hidden', 'true');
-    banks.append(lane, copy);
-  }
+    strip.append(lane, copy);
+  });
 })();
