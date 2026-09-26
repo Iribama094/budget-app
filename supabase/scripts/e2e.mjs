@@ -224,6 +224,7 @@ try {
   check('the day has its own amount, from the plan not from what is left', typeof today1?.base === 'number' && today1.base > 0 && typeof today1.allowanceToday === 'number', today1);
   check('what is spent today counts against today', today1?.leftToday === today1?.allowanceToday - today1?.spentToday, today1);
   check('going over the days before shows as a carry, not a smaller average', today1?.carry <= 0 ? today1.allowanceToday <= today1.base : today1.allowanceToday >= today1.base, today1);
+  check('a run of quiet days cannot hand the whole pot to one day', Math.abs(today1?.carry ?? 0) <= today1?.base, today1);
   check('the week is reported too', typeof r.data?.week?.planned === 'number' && r.data.week.days >= 1, r.data?.week);
   check('a one-off budget alongside is held back, not ignored', typeof r.data?.eventsHeld === 'number', r.data?.eventsHeld);
   r = await call(a.token, 'PATCH', '/users/me', { spendStyle: 'flowing' });

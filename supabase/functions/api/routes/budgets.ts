@@ -432,7 +432,10 @@ export async function paceFor(b: NonNullable<Awaited<ReturnType<typeof findVisib
 
   let before = 0;
   for (let i = 0; i < elapsed - 1; i++) before += spentOn(addDaysIso(trackFrom, i));
-  const carry = Math.round(base * (elapsed - 1) - before);
+  // What the days before today left over, or went over. Held to one day either way: three quiet weeks should
+  // not hand somebody the whole pot for a Tuesday, and one bad weekend should not leave a fortnight at zero.
+  // The week line carries the longer story, and re-spreading is there when the plan itself needs to change.
+  const carry = Math.max(-base, Math.min(base, Math.round(base * (elapsed - 1) - before)));
   const allowanceToday = Math.max(0, base + carry);
   const spentToday = Math.round(spentOn(today));
 
