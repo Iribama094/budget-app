@@ -11,7 +11,16 @@ root and served the old web app instead of this one.
 So every change here needs two steps:
 
 ```bash
-node scripts/check-site-deployed.mjs   # from the repo root: is the live site behind?
+node scripts/deploy-site.mjs   # from the repo root: checks, deploys, then proves it landed
+```
+
+That script refuses the three things that have already gone wrong: deploying uncommitted work, deploying a
+commit that is not on `origin/main` (a piped `git push` hides a rejection, so the deploy ran anyway once), and
+deploying from a folder with no `.vercel` link, which creates a second project and publishes the site at
+another address. It tells you the command to fix each one. By hand, if you need to:
+
+```bash
+node scripts/check-site-deployed.mjs   # is the live site behind?
 cd waitlist
 npx vercel link --yes --project budgetfriendly-waitlist --scope iribamas-projects   # fresh checkout only
 npx vercel deploy --prod --yes
