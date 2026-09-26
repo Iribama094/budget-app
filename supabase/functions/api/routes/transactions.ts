@@ -7,6 +7,7 @@ import { badRequest, body, HttpError, json, methodNotAllowed, noContent, notFoun
 import { parseQueryDate } from '../lib/dates.ts';
 import { budgetMemberIds, bumpBucket, bumpBudget, findVisibleBudget } from '../lib/budgets.ts';
 import { afterTransactionCreated } from '../lib/effects.ts';
+import { settleSchedulePaidByHand } from '../lib/recurring.ts';
 import { learnCategory } from '../lib/categories.ts';
 import { refundTransaction } from '../lib/importMatch.ts';
 import type { Ctx } from '../index.ts';
@@ -131,9 +132,15 @@ export async function transactionsIndex(ctx: Ctx) {
     }
 
     const effects = await afterTransactionCreated(tx as any);
+    // Paying a bill yourself moves its schedule on, so it is not held back again and not recorded twice.
+    const settled = await settleSchedulePaidByHand(tx as any).catch(() => null);
     // Remember this payee → category choice so the next one is suggested.
     await learnCategory(userId, input.type, input.description, input.category, input.budgetCategory).catch(() => undefined);
-    return json(201, { transaction: toApiTransaction(tx), autoSaved: effects.autoSaved });
+    return json(201, {
+      transaction: toApiTransaction(tx),
+      autoSaved: effects.autoSaved,
+      settledBill: settled ? { name: settled.description, nextDueDate: settled.nextDueDate } : null
+    });
   }
 
   const q = ctx.query;

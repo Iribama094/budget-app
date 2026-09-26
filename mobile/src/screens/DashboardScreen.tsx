@@ -9,6 +9,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import {
   getAnalyticsSummary,
   getBudgetPace,
+  respreadBudget,
   listTransactions,
   listBudgets,
   listBankLinks,
@@ -523,6 +524,20 @@ export function DashboardScreen() {
 
   // Budget pace: share of the budget spent against share of its time that has passed. A starter budget (joined
   // mid-period) only holds what was left on the day they joined, so its time is measured from that day.
+  const [respreading, setRespreading] = useState(false);
+  const respread = async () => {
+    if (!currentBudget || respreading) return;
+    setRespreading(true);
+    try {
+      const res = await respreadBudget(String(currentBudget.id));
+      setServerPace({ ...res.pace, budgetId: String(currentBudget.id) });
+    } catch {
+      // Nothing changes on screen if it failed, so the figures stay honest and they can try again.
+    } finally {
+      setRespreading(false);
+    }
+  };
+
   const pace = useMemo(() => {
     if (!currentBudget) return null;
     const start = parseIsoDateLocal(currentBudget.trackingStart ?? currentBudget.startDate);
@@ -543,8 +558,11 @@ export function DashboardScreen() {
     // told, and failing that the rough figure this phone can work out on its own.
     const server = forThis(serverPace) ?? (paceFailed ? forThis(lastKnown) : null);
     const safePerDay = server ? server.safePerDay : left > 0 ? left / daysLeft : 0;
-    const heldBack = server ? server.savingsLeft + server.billsTotal : 0;
-    return { left, daysLeft, spentRatio, timeRatio, safePerDay, heldBack, status, real: !!forThis(serverPace) };
+    const heldBack = server ? server.savingsLeft + server.billsTotal + (server.eventsHeld ?? 0) : 0;
+    // Coaching holds the day: the number is set each morning and counts down as the day is spent.
+    const coach = server?.style === 'coach' && server.daily ? server.daily : null;
+    const week = server?.week ?? null;
+    return { left, daysLeft, spentRatio, timeRatio, safePerDay, heldBack, status, coach, week, real: !!forThis(serverPace) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentBudget, budgetUsed, budgetEffectiveEndIso, serverPace, lastKnown, paceFailed]);
 
@@ -636,14 +654,24 @@ export function DashboardScreen() {
         >
           <HeroCard>
             <View style={styles.rowBetween}>
-              <Text style={[type.eyebrow, { color: inkText, opacity: 0.72 }]}>{pace.status === 'over' ? (planShort ? 'Bills have used up this budget' : 'Over budget by') : 'Safe to spend today'}</Text>
+              <Text style={[type.eyebrow, { color: inkText, opacity: 0.72 }]}>
+                {pace.status === 'over'
+                  ? planShort
+                    ? 'Bills have used up this budget'
+                    : 'Over budget by'
+                  : pace.coach
+                    ? pace.coach.leftToday > 0
+                      ? 'Left to spend today'
+                      : 'Today’s spending money is finished'
+                    : 'Safe to spend today'}
+              </Text>
               <Pressable onPress={toggleShowAmounts} hitSlop={12} accessibilityLabel={showAmounts ? 'Hide amounts' : 'Show amounts'}>
                 {showAmounts ? <EyeOff color={inkText} size={18} opacity={0.75} /> : <Eye color={inkText} size={18} opacity={0.75} />}
               </Pressable>
             </View>
             {pace.real || paceFailed ? (
               <Amount
-                value={pace.status === 'over' ? Math.abs(pace.left) : Math.round(pace.safePerDay)}
+                value={pace.status === 'over' ? Math.abs(pace.left) : pace.coach ? Math.max(0, pace.coach.leftToday) : Math.round(pace.safePerDay)}
                 currency={glyph}
                 size="hero"
                 color={inkText}
@@ -660,6 +688,32 @@ export function DashboardScreen() {
                   ? `Spent ${formatAmount(budgetUsed, glyph)} of ${formatAmount(currentBudget.totalBudget, glyph)}`
                   : `${formatAmount(pace.left, glyph)} left of ${formatAmount(currentBudget.totalBudget, glyph)} · ${pace.daysLeft} day${pace.daysLeft === 1 ? '' : 's'} to go`}
             </Text>
+            {!hide && pace.status !== 'over' && pace.coach ? (
+              <Text style={[type.caption, { color: inkText, opacity: 0.68, marginTop: 4 }]}>
+                {pace.coach.leftToday <= 0
+                  ? `Anything more today comes out of tomorrow. ${formatAmount(pace.coach.base, glyph)} a day is the plan.`
+                  : pace.coach.carry < -50
+                    ? `${formatAmount(pace.coach.allowanceToday, glyph)} today, ${formatAmount(Math.abs(pace.coach.carry), glyph)} less because of the days before.`
+                    : pace.coach.carry > 50
+                      ? `${formatAmount(pace.coach.allowanceToday, glyph)} today, including ${formatAmount(pace.coach.carry, glyph)} you did not spend.`
+                      : `${formatAmount(pace.coach.allowanceToday, glyph)} for today, ${formatAmount(pace.coach.spentToday, glyph)} spent.`}
+                {pace.week && pace.week.left < -50 ? ` This week is ${formatAmount(Math.abs(pace.week.left), glyph)} over.` : ''}
+                {pace.week && pace.week.left > 50 ? ` This week has ${formatAmount(pace.week.left, glyph)} spare.` : ''}
+              </Text>
+            ) : null}
+            {pace.coach && pace.coach.carry < -50 && pace.coach.leftToday <= 0 ? (
+              <Pressable
+                onPress={() => void respread()}
+                disabled={respreading}
+                hitSlop={8}
+                accessibilityRole="button"
+                style={({ pressed }) => ({ marginTop: 10, opacity: pressed || respreading ? 0.6 : 1 })}
+              >
+                <Text style={[type.smallStrong, { color: theme.colors.brass }]}>
+                  {respreading ? 'Working it out…' : 'Re-spread what is left over the days left'}
+                </Text>
+              </Pressable>
+            ) : null}
             {!hide && pace.status !== 'over' && pace.heldBack > 0 ? (
               <Text style={[type.caption, { color: inkText, opacity: 0.62, marginTop: 2 }]}>
                 {formatAmount(pace.heldBack, glyph)} kept aside for savings and bills due soon

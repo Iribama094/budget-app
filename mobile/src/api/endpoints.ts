@@ -33,6 +33,8 @@ export type ApiUser = {
   /** Answers from the first-run plan. */
   onboarding?: { completedAt: string | null; skippedAt: string | null; painPoints: string[] };
   budgetPeriod?: 'payday' | 'monthly';
+  /** coach: the day has a set amount and going over comes off tomorrow. flowing: re-divided each morning. */
+  spendStyle?: 'coach' | 'flowing';
   /** solo: own budget · shared: one budget with others · both: own plus shared */
   budgetMode?: 'solo' | 'shared' | 'both';
   /** Which budget Home shows when there's an own budget and a shared one. */
@@ -49,7 +51,7 @@ export async function getMe(): Promise<ApiUser> {
 }
 
 export async function patchMe(
-  patch: Partial<Pick<ApiUser, 'name' | 'currency' | 'locale' | 'monthlyIncome' | 'budgetPeriod' | 'budgetMode' | 'homeBudget' | 'language' | 'avatarUrl'>> & { taxProfile?: any; painPoints?: string[] }
+  patch: Partial<Pick<ApiUser, 'name' | 'currency' | 'locale' | 'monthlyIncome' | 'budgetPeriod' | 'spendStyle' | 'budgetMode' | 'homeBudget' | 'language' | 'avatarUrl'>> & { taxProfile?: any; painPoints?: string[] }
 ): Promise<ApiUser> {
   const data = await apiFetch('/v1/users/me', { method: 'PATCH', body: JSON.stringify(patch) });
   return (data as any).user as ApiUser;
@@ -350,6 +352,18 @@ export type ApiBudgetPace = {
   safePerDay: number;
   /** Categories with a monthly limit, and what has gone on each in this period. */
   limits: ApiCategoryLimit[];
+  /** How this person has asked to be shown their spending money. */
+  style: 'coach' | 'flowing';
+  /** One-off budgets running alongside this one, already inside what is held back. */
+  eventsHeld: number;
+  events: Array<{ name: string; left: number }>;
+  /**
+   * Today, held to. `base` is the same every day of the period, `carry` is what the days before today left over
+   * (negative when they went over), and `allowanceToday` is the two together.
+   */
+  daily: { base: number; carry: number; allowanceToday: number; spentToday: number; leftToday: number; day: string; spreadFrom: string | null };
+  /** The last seven days, or the period so far if it is shorter. The frame that suits a weekly shop. */
+  week: { planned: number; spent: number; left: number; days: number };
   trackingStart: string | null;
 };
 
@@ -362,6 +376,11 @@ export type ApiCategoryLimit = {
   spent: number;
   left: number;
 };
+
+/** Spreads what is left of a budget across the days that are left, from today. The plan itself is untouched. */
+export async function respreadBudget(id: string): Promise<{ pace: ApiBudgetPace }> {
+  return apiFetch(`/v1/budgets/${encodeURIComponent(id)}/respread`, { method: 'POST' }) as Promise<{ pace: ApiBudgetPace }>;
+}
 
 export async function getBudgetPace(id: string): Promise<ApiBudgetPace> {
   return apiFetch(`/v1/budgets/${encodeURIComponent(id)}/pace`, { method: 'GET' }) as Promise<ApiBudgetPace>;

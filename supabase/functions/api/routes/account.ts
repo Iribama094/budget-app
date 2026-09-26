@@ -24,6 +24,8 @@ export function toApiUser(p: any, _opts: { withTax?: boolean } = {}) {
       painPoints: p.painPoints ?? []
     },
     budgetPeriod: p.budgetPeriod ?? 'payday',
+    /** coach: the day has a set amount and going over comes off tomorrow. flowing: re-divided daily. */
+    spendStyle: p.spendStyle ?? 'coach',
     budgetMode: p.budgetMode ?? 'solo',
     homeBudget: p.homeBudget ?? 'own',
     language: p.language ?? 'en',
@@ -114,6 +116,7 @@ const PatchMeSchema = z
     monthlyIncome: z.number().finite().nonnegative().optional(),
     taxProfile: TaxProfileSchema,
     budgetPeriod: z.enum(['payday', 'monthly']).optional(),
+    spendStyle: z.enum(['coach', 'flowing']).optional(),
     painPoints: z.array(z.enum(['runs_out', 'no_idea', 'cant_save', 'debt', 'irregular'])).max(5).optional(),
     budgetMode: z.enum(['solo', 'shared', 'both']).optional(),
     homeBudget: z.enum(['own', 'shared']).optional(),
@@ -140,6 +143,7 @@ export async function usersMe(ctx: Ctx) {
       monthly_income = ${patch.monthlyIncome !== undefined ? patch.monthlyIncome : current.monthlyIncome},
       tax_profile = ${patch.taxProfile !== undefined ? sql.json(patch.taxProfile as any) : current.taxProfile ? sql.json(current.taxProfile) : null},
       budget_period = ${patch.budgetPeriod ?? current.budgetPeriod},
+      spend_style = ${patch.spendStyle ?? current.spendStyle ?? 'coach'},
       budget_mode = ${patch.budgetMode ?? current.budgetMode ?? 'solo'},
       home_budget = ${patch.homeBudget ?? current.homeBudget ?? 'own'},
       pain_points = ${patch.painPoints ?? current.painPoints},

@@ -232,3 +232,57 @@ export function toApiRecurring(r: RecurringRow) {
     updatedAt: new Date(r.updatedAt).toISOString()
   };
 }
+
+/**
+ * Somebody paid a bill themselves, so the schedule for it should move on.
+ *
+ * Nothing used to connect the two. Transfer rent on the 30th for a bill due on the 1st and the money was gone
+ * from the budget while the bill was still counted as coming, so what was safe to spend read the rent twice.
+ * Worse, on the 1st the schedule recorded it again and there were two rents in the history.
+ *
+ * A match needs the same space, the same category, an amount within 1% (or 500, whichever is larger) and a due
+ * date inside the window around today. On a match the transaction is tied to the schedule and the schedule
+ * moves to its next date, so it is neither held back nor recorded twice. No match changes nothing.
+ *
+ * Returns the schedule it settled, for the message the caller shows.
+ */
+export async function settleSchedulePaidByHand(tx: {
+  id: string;
+  userId: string;
+  spaceId: string;
+  type: string;
+  amount: number;
+  category: string;
+  occurredAt: string | Date;
+  recurringId?: string | null;
+}): Promise<{ id: string; description: string; category: string; nextDueDate: string } | null> {
+  if (tx.type !== 'expense' || tx.recurringId) return null;
+  const amount = Number(tx.amount);
+  if (!(amount > 0)) return null;
+  const paidOn = formatIsoDateUtc(new Date(new Date(tx.occurredAt).getTime() + 12 * 3600000));
+  const tolerance = Math.max(500, amount * 0.01);
+
+  // Bills due from a week before the payment to a fortnight after it: early payers and late payers both.
+  const [due] = await sql<RecurringRow[]>`
+    select * from public.recurring
+    where user_id = ${tx.userId} and space_id = ${tx.spaceId} and type = 'expense' and not paused
+      and lower(category) = lower(${tx.category})
+      and abs(amount - ${amount}) <= ${tolerance}
+      and next_due_date >= ${addDaysIso(paidOn, -7)}::date
+      and next_due_date <= ${addDaysIso(paidOn, 14)}::date
+    order by abs(next_due_date - ${paidOn}::date) asc
+    limit 1
+  `;
+  if (!due) return null;
+
+  const next = nextOccurrence(due.nextDueDate, due.frequency, due.anchorDay);
+  const [claimed] = await sql<RecurringRow[]>`
+    update public.recurring set next_due_date = ${next}::date, last_created_for = ${due.nextDueDate}::date
+    where id = ${due.id} and next_due_date = ${due.nextDueDate}::date and not paused
+    returning *
+  `;
+  if (!claimed) return null;
+
+  await sql`update public.transactions set recurring_id = ${due.id} where id = ${tx.id} and user_id = ${tx.userId}`;
+  return { id: due.id, description: due.description || due.category, category: due.category, nextDueDate: next };
+}

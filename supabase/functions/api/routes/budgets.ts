@@ -1,7 +1,7 @@
 import { iso, isUniqueViolation, isUuid, sql } from '../lib/db.ts';
 import { requireAuth } from '../lib/auth.ts';
 import { badRequest, body, HttpError, json, methodNotAllowed, noContent, notFound, spaceParam, z } from '../lib/http.ts';
-import { addDaysIso, budgetBounds, effectiveEndIso, formatIsoDateUtc, ISO_DATE, parseIsoDateUtcNoon, todayIso } from '../lib/dates.ts';
+import { addDaysIso, budgetBounds, effectiveEndIso, formatIsoDateUtc, ISO_DATE, parseIsoDateUtcNoon, todayIso, tzOffsetMinutes } from '../lib/dates.ts';
 import {
   budgetLabel,
   budgetMemberIds,
@@ -314,6 +314,26 @@ const diffIsoDays = (from: string, to: string) => Math.round((parseIsoDateUtcNoo
  * GET /v1/budgets/:id/pace: what's safe to spend each day for the rest of this budget. Money still meant for
  * Savings, and bills due before the budget ends, are held back so the daily figure is money that's truly free.
  */
+/**
+ * POST /v1/budgets/:id/respread: take what is left and spread it over the days that are left, from today.
+ *
+ * The plan is not touched. Only the day-by-day figures start again from today, so a week of going over stops
+ * following somebody around. Asked for, never automatic.
+ */
+export async function respread(ctx: Ctx) {
+  if (ctx.method !== 'POST') methodNotAllowed(['POST']);
+  const { userId } = await requireAuth(ctx.req);
+  const b = await findOwnBudget(userId, ctx.parts[1], spaceParam(ctx.query.get('spaceId')));
+  if (!b) notFound('Budget not found');
+  const today = todayIso();
+  if (today > effectiveEndIso(b)) badRequest('This budget has ended. Start the next period instead.');
+  const [row] = await sql`
+    update public.budgets set spread_from = ${today}::date where id = ${b.id} and user_id = ${userId}
+    returning *
+  `;
+  return json(200, { budget: toApiBudget(row as any, userId), pace: await paceFor({ ...b, spreadFrom: today } as any) });
+}
+
 export async function budgetPace(ctx: Ctx) {
   if (ctx.method !== 'GET') methodNotAllowed(['GET']);
   const { userId } = await requireAuth(ctx.req);
@@ -323,6 +343,44 @@ export async function budgetPace(ctx: Ctx) {
 }
 
 /** The pace figures for one budget. Shared by the pace endpoint and the weekly summary so both say the same. */
+/**
+ * Spending by the person's own day, for this budget, leaving out what is not day to day spending: money moved
+ * into savings, and bills, which are held back separately. Bills are recognised by the schedule they settle.
+ */
+async function dailySpend(b: BudgetRow): Promise<Map<string, number>> {
+  const { start, end } = budgetBounds(b);
+  const rows = await sql<{ day: string; total: number }[]>`
+    select to_char(t.occurred_at + make_interval(mins => ${tzOffsetMinutes()}), 'YYYY-MM-DD') as day, sum(t.amount) as total
+    from public.transactions t
+    where t.user_id in ${sql(budgetMemberIds(b))} and t.budget_id = ${b.id} and t.type = 'expense'
+      and t.occurred_at >= ${start} and t.occurred_at <= ${end}
+      and coalesce(t.budget_category, '') <> 'Savings'
+      and t.recurring_id is null
+    group by 1
+  `;
+  return new Map(rows.map((r) => [r.day, Number(r.total)]));
+}
+
+/**
+ * One-off budgets running alongside this one (a wedding, a trip) spend from the same pocket, so what is still
+ * planned for them is held back here. Without this, a month with a wedding in it looks richer than it is.
+ */
+async function eventsHeldBack(b: BudgetRow, today: string): Promise<{ total: number; items: { name: string; left: number }[] }> {
+  if ((b.purpose ?? 'personal') !== 'personal') return { total: 0, items: [] };
+  const rows = await sql<{ name: string; totalBudget: number; spent: number }[]>`
+    select e.name, e.total_budget,
+      coalesce((select sum(t.amount) from public.transactions t where t.budget_id = e.id and t.type = 'expense'), 0) as spent
+    from public.budgets e
+    where e.user_id = ${b.userId} and e.space_id = ${b.spaceId} and e.purpose = 'event' and e.id <> ${b.id}
+      and e.start_date <= ${today}::date
+      and coalesce(e.end_date, e.start_date + interval '1 year') >= ${today}::date
+  `;
+  const items = rows
+    .map((r) => ({ name: r.name, left: Math.max(0, Math.round(Number(r.totalBudget) - Number(r.spent))) }))
+    .filter((x) => x.left > 0);
+  return { total: items.reduce((sum, x) => sum + x.left, 0), items };
+}
+
 export async function paceFor(b: NonNullable<Awaited<ReturnType<typeof findVisibleBudget>>>) {
   const today = todayIso();
   const end = effectiveEndIso(b);
@@ -342,9 +400,47 @@ export async function paceFor(b: NonNullable<Awaited<ReturnType<typeof findVisib
         `
       : [];
   const billsTotal = Math.round(bills.reduce((s, x) => s + Number(x.amount), 0));
+  // Bills anywhere in the period, including ones already paid: the day's allowance is worked out from the plan,
+  // and the plan always had to cover them.
+  const [billsAll] = await sql<{ total: number }[]>`
+    select coalesce(sum(amount), 0) as total from public.recurring
+    where user_id = ${b.userId} and space_id = ${b.spaceId} and type = 'expense' and not paused
+      and coalesce(budget_category, '') <> 'Savings'
+      and next_due_date >= ${b.startDate}::date and next_due_date <= ${end}::date
+  `;
+  const billsWholePeriod = Math.round(Number(billsAll?.total ?? 0));
   const limits = await limitsFor(b);
+  const events = await eventsHeldBack(b, today);
+  const [who] = await sql<{ spendStyle: string | null }[]>`select spend_style from public.profiles where id = ${b.userId}`;
   const daysLeft = today > end ? 0 : diffIsoDays(today, end) + 1;
-  const safeToSpend = Math.max(0, Math.round(left - savingsLeft - billsTotal));
+  const safeToSpend = Math.max(0, Math.round(left - savingsLeft - billsTotal - events.total));
+
+  // The day's own number. It is set from the plan, not from what is left, so spending cannot quietly raise it:
+  // the whole period's spending money spread evenly, then yesterday's difference carried by name.
+  const spreadFrom = (b as { spreadFrom?: string | null }).spreadFrom ?? null;
+  const trackFrom = spreadFrom ?? b.trackingStart ?? b.startDate;
+  const totalDays = Math.max(1, diffIsoDays(trackFrom, end) + 1);
+  const elapsed = Math.min(totalDays, Math.max(1, diffIsoDays(trackFrom, today) + 1));
+  // From the start of a period the day's share comes from the plan. After a re-spread it comes from what is
+  // actually left, which is the point of asking for one.
+  const spendable = spreadFrom
+    ? Math.max(0, Math.round(left - savingsLeft - billsTotal - events.total))
+    : Math.max(0, Math.round(Number(b.totalBudget) - Math.round(buckets.find((x) => x.bucket === 'Savings')?.budgeted ?? 0) - billsWholePeriod - events.total));
+  const base = Math.floor(spendable / totalDays);
+  const byDay = await dailySpend(b);
+  const spentOn = (iso: string) => byDay.get(iso) ?? 0;
+
+  let before = 0;
+  for (let i = 0; i < elapsed - 1; i++) before += spentOn(addDaysIso(trackFrom, i));
+  const carry = Math.round(base * (elapsed - 1) - before);
+  const allowanceToday = Math.max(0, base + carry);
+  const spentToday = Math.round(spentOn(today));
+
+  // A week is the honest frame: one big market trip is not a bad day, it is a normal week.
+  const weekStart = elapsed > 7 ? addDaysIso(today, -6) : trackFrom;
+  const weekDays = diffIsoDays(weekStart, today) + 1;
+  let weekSpent = 0;
+  for (let i = 0; i < weekDays; i++) weekSpent += spentOn(addDaysIso(weekStart, i));
 
   return {
     left: Math.round(left),
@@ -352,9 +448,20 @@ export async function paceFor(b: NonNullable<Awaited<ReturnType<typeof findVisib
     savingsLeft,
     billsTotal,
     bills: bills.map((x) => ({ name: x.name, amount: Number(x.amount), dueDate: x.dueDate })),
+    /** 'coach' holds the day; 'flowing' re-divides what is left. Settings, "How to show my spending money". */
+    style: who?.spendStyle === 'flowing' ? 'flowing' : 'coach',
     daysLeft,
     safeToSpend,
     safePerDay: daysLeft > 0 ? Math.floor(safeToSpend / daysLeft) : 0,
+    /** One-off budgets running alongside this one, already inside the held-back total. */
+    eventsHeld: events.total,
+    events: events.items,
+    /**
+     * The day, held to. `base` is the same every day of the period; `carry` is what yesterday and the days
+     * before it left over (or went over, as a negative). `allowanceToday` is the two added up.
+     */
+    daily: { base, carry, allowanceToday, spentToday, leftToday: Math.round(allowanceToday - spentToday), day: today, spreadFrom },
+    week: { planned: base * weekDays, spent: Math.round(weekSpent), left: Math.round(base * weekDays - weekSpent), days: weekDays },
     limits,
     trackingStart: b.trackingStart ?? null
   };

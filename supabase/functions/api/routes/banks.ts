@@ -7,6 +7,7 @@ import { bumpBudget, budgetCovering } from '../lib/budgets.ts';
 import { notifyUser } from '../lib/notify.ts';
 import { voice } from '../lib/voice.ts';
 import { afterTransactionCreated } from '../lib/effects.ts';
+import { settleSchedulePaidByHand } from '../lib/recurring.ts';
 import { learnCategory, suggestCategories } from '../lib/categories.ts';
 import { applyRefund, applyTransfer, matchImports, refundedFrom, undoMatch, type MatchHint } from '../lib/importMatch.ts';
 import type { Ctx } from '../index.ts';
@@ -348,12 +349,14 @@ async function reconcileImported(userId: string, tx: any, input: z.infer<typeof 
     insert into public.transactions (user_id, space_id, type, amount, category, description, budget_id, budget_category, occurred_at)
     values (${userId}, ${txSpace}, ${type}, ${amount}, ${category}, ${input.description ?? (tx.description || tx.merchant || 'Imported transaction')},
             ${budgetId}, ${budgetCategory}, ${tx.occurredAt})
-    returning id, user_id, space_id, type, amount, budget_id, budget_category
+    returning id, user_id, space_id, type, amount, category, budget_id, budget_category, occurred_at, recurring_id
   `;
   if (type === 'income' && budgetId) {
     await bumpBudget(budgetId, amount, budgetCategory, sql`b.user_id = ${userId} and b.space_id = ${txSpace}`);
   }
   await afterTransactionCreated(created as any);
+  // A bill paid from the bank settles its schedule too, the same as one typed in.
+  await settleSchedulePaidByHand(created as any).catch(() => null);
   if (input.category) {
     await learnCategory(userId, type, tx.description || tx.merchant, input.category, budgetCategory).catch(() => undefined);
   }

@@ -144,6 +144,18 @@ export default function SettingsScreen() {
   const customCount = categories.filter((c) => !c.isDefault).length;
   const group = (label: string) => <Text style={[type.eyebrow, styles.groupLabel, { color: theme.colors.textMuted }]}>{label}</Text>;
   const homeBudget = user?.homeBudget ?? 'own';
+  const spendStyle = user?.spendStyle ?? 'coach';
+
+  const chooseSpendStyle = async (next: 'coach' | 'flowing') => {
+    if (next === spendStyle) return;
+    try {
+      await patchMe({ spendStyle: next });
+      await refreshUser();
+      toast.show(next === 'coach' ? 'Home will hold you to a daily amount' : 'Home will spread what is left across the days left', 'success', 4000);
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not change that', 'error');
+    }
+  };
 
   const chooseReminder = async (next: DailyReminder) => {
     setReminderSheet(false);
@@ -301,6 +313,26 @@ export default function SettingsScreen() {
             <ListRow icon={tile(ClipboardPaste)} title="Paste a bank alert" subtitle="Turn a debit or credit SMS into a transaction" onPress={() => nav.navigate('BankAlertImport')} chevron />
             <ListRow icon={tile(Calculator)} title="Tax" subtitle="Estimate your take-home pay and reliefs" onPress={() => nav.navigate('TaxSettings')} chevron />
             <ListRow icon={tile(Download)} title="Export data" subtitle="Download your transactions" onPress={() => nav.navigate('ExportData')} chevron />
+            <View style={{ paddingVertical: 11 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                {tile(Wallet)}
+                <Text style={[type.bodyStrong, { color: theme.colors.text }]}>Spending money on Home</Text>
+              </View>
+              <SegmentedControl
+                options={[
+                  { key: 'coach', label: 'Hold me to a day' },
+                  { key: 'flowing', label: 'Spread what is left' }
+                ]}
+                value={spendStyle}
+                onChange={(k) => void chooseSpendStyle(k as 'coach' | 'flowing')}
+                style={{ marginTop: 10 }}
+              />
+              <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 8 }]}>
+                {spendStyle === 'coach'
+                  ? 'Today has a set amount and counts down. Going over comes off tomorrow, and Home says so.'
+                  : 'What is left is divided across the days left, worked out fresh each morning.'}
+              </Text>
+            </View>
           </ListCard>
           </GuideAnchor>
 

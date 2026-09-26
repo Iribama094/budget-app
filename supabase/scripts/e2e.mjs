@@ -106,6 +106,7 @@ const [y, m] = today.split('-').map(Number);
 const monthStart = `${y}-${String(m).padStart(2, '0')}-01`;
 const prevStart = new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 10);
 const now = () => new Date().toISOString();
+const addDays = (iso, days) => new Date(new Date(`${iso}T12:00:00Z`).getTime() + days * 86400000).toISOString().slice(0, 10);
 
 try {
   section('Basics');
@@ -214,6 +215,45 @@ try {
   check('a limit over 1bn is refused', (await call(a.token, 'PATCH', `/categories/${groceries.id}`, { monthlyLimit: 2e9 })).status === 400);
   r = await call(a.token, 'PATCH', `/categories/${groceries.id}`, { monthlyLimit: null });
   check('clearing the limit takes it off the budget', r.data?.category?.monthlyLimit === null && ((await call(a.token, 'GET', `/budgets/${budgetId}/pace`)).data.limits ?? []).length === 0, r);
+
+  section('The day, held to');
+  r = await call(a.token, 'GET', `/budgets/${budgetId}/pace`);
+  const today1 = r.data?.daily;
+  check('coaching is the default', r.data?.style === 'coach', r.data?.style);
+  check('the day has its own amount, from the plan not from what is left', typeof today1?.base === 'number' && today1.base > 0 && typeof today1.allowanceToday === 'number', today1);
+  check('what is spent today counts against today', today1?.leftToday === today1?.allowanceToday - today1?.spentToday, today1);
+  check('going over the days before shows as a carry, not a smaller average', today1?.carry <= 0 ? today1.allowanceToday <= today1.base : today1.allowanceToday >= today1.base, today1);
+  check('the week is reported too', typeof r.data?.week?.planned === 'number' && r.data.week.days >= 1, r.data?.week);
+  check('a one-off budget alongside is held back, not ignored', typeof r.data?.eventsHeld === 'number', r.data?.eventsHeld);
+  r = await call(a.token, 'PATCH', '/users/me', { spendStyle: 'flowing' });
+  check('somebody can ask not to be held to a day', r.status === 200 && r.data.user.spendStyle === 'flowing', r);
+  check('and the budget answers in that style', (await call(a.token, 'GET', `/budgets/${budgetId}/pace`)).data?.style === 'flowing');
+  check('an unknown style is refused', (await call(a.token, 'PATCH', '/users/me', { spendStyle: 'strict' })).status === 400);
+  await call(a.token, 'PATCH', '/users/me', { spendStyle: 'coach' });
+  r = await call(a.token, 'POST', `/budgets/${budgetId}/respread`);
+  check('re-spreading starts the day count from today', r.status === 200 && r.data?.pace?.daily?.spreadFrom === today && r.data.pace.daily.carry === 0, r.data?.pace?.daily);
+
+  section('A bill paid by hand');
+  r = await call(a.token, 'POST', '/recurring', {
+    type: 'expense',
+    amount: 26000,
+    category: 'Rent',
+    description: 'Rent',
+    frequency: 'monthly',
+    startDate: addDays(today, 5),
+    budgetCategory: 'Essential',
+    autoCreate: true
+  });
+  const rentId = r.data?.recurring?.id;
+  check('a bill due in five days is waiting', r.status === 201 && r.data.recurring.nextDueDate === addDays(today, 5), r);
+  r = await call(a.token, 'GET', `/budgets/${budgetId}/pace`);
+  check('an upcoming bill is held back', (r.data.bills ?? []).some((x) => x.name === 'Rent'), r.data?.bills);
+  r = await call(a.token, 'POST', '/transactions', { type: 'expense', amount: 26000, category: 'Rent', description: 'Rent transfer', occurredAt: now(), budgetId, budgetCategory: 'Essential' });
+  check('paying it yourself settles the schedule', r.status === 201 && r.data.settledBill?.name === 'Rent', r.data?.settledBill);
+  r = await call(a.token, 'GET', `/recurring/${rentId}`);
+  check('the schedule moved to next month, so it cannot record twice', r.data?.recurring?.nextDueDate > addDays(today, 20), r.data?.recurring?.nextDueDate);
+  r = await call(a.token, 'GET', `/budgets/${budgetId}/pace`);
+  check('and it is no longer held back as well as spent', !(r.data.bills ?? []).some((x) => x.name === 'Rent'), r.data?.bills);
 
   r = await call(a.token, 'POST', '/transactions', { type: 'income', amount: 50000, category: 'Salary', occurredAt: now(), budgetId, budgetCategory: 'Savings' });
   check('new income suggests a pending auto-save', r.status === 201 && r.data.autoSaved?.[0]?.amount === 5000, r);
