@@ -106,7 +106,8 @@ const [y, m] = today.split('-').map(Number);
 const monthStart = `${y}-${String(m).padStart(2, '0')}-01`;
 const prevStart = new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 10);
 const now = () => new Date().toISOString();
-const addDays = (iso, days) => new Date(new Date(`${iso}T12:00:00Z`).getTime() + days * 86400000).toISOString().slice(0, 10);
+// `isoPlus`, not `addDays`: a block further down declares its own addDays, which would shadow this one.
+const isoPlus = (iso, days) => new Date(new Date(`${iso}T12:00:00Z`).getTime() + days * 86400000).toISOString().slice(0, 10);
 
 try {
   section('Basics');
@@ -234,26 +235,30 @@ try {
   check('re-spreading starts the day count from today', r.status === 200 && r.data?.pace?.daily?.spreadFrom === today && r.data.pace.daily.carry === 0, r.data?.pace?.daily);
 
   section('A bill paid by hand');
+  // Due inside this budget's own period, or the pace would rightly ignore it.
+  const paceNow = (await call(a.token, 'GET', `/budgets/${budgetId}/pace`)).data;
+  const rentDue = isoPlus(today, Math.max(0, Math.min(3, (paceNow?.daysLeft ?? 1) - 1)));
   r = await call(a.token, 'POST', '/recurring', {
     type: 'expense',
     amount: 26000,
     category: 'Rent',
     description: 'Rent',
     frequency: 'monthly',
-    startDate: addDays(today, 5),
+    startDate: rentDue,
     budgetCategory: 'Essential',
     autoCreate: true
   });
   const rentId = r.data?.recurring?.id;
-  check('a bill due in five days is waiting', r.status === 201 && r.data.recurring.nextDueDate === addDays(today, 5), r);
+  check('a bill inside this period is waiting', r.status === 201 && r.data.recurring.nextDueDate === rentDue, r);
   r = await call(a.token, 'GET', `/budgets/${budgetId}/pace`);
   check('an upcoming bill is held back', (r.data.bills ?? []).some((x) => x.name === 'Rent'), r.data?.bills);
   r = await call(a.token, 'POST', '/transactions', { type: 'expense', amount: 26000, category: 'Rent', description: 'Rent transfer', occurredAt: now(), budgetId, budgetCategory: 'Essential' });
   check('paying it yourself settles the schedule', r.status === 201 && r.data.settledBill?.name === 'Rent', r.data?.settledBill);
-  r = await call(a.token, 'GET', `/recurring/${rentId}`);
-  check('the schedule moved to next month, so it cannot record twice', r.data?.recurring?.nextDueDate > addDays(today, 20), r.data?.recurring?.nextDueDate);
+  const rentAfter = ((await call(a.token, 'GET', '/recurring')).data?.items ?? []).find((x) => x.id === rentId);
+  check('the schedule moved on, so it cannot record the same bill twice', rentAfter?.nextDueDate > isoPlus(rentDue, 20), rentAfter?.nextDueDate);
   r = await call(a.token, 'GET', `/budgets/${budgetId}/pace`);
   check('and it is no longer held back as well as spent', !(r.data.bills ?? []).some((x) => x.name === 'Rent'), r.data?.bills);
+  check('tidy up the bill so later counts are unaffected', (await call(a.token, 'DELETE', `/recurring/${rentId}`)).status === 204);
 
   r = await call(a.token, 'POST', '/transactions', { type: 'income', amount: 50000, category: 'Salary', occurredAt: now(), budgetId, budgetCategory: 'Savings' });
   check('new income suggests a pending auto-save', r.status === 201 && r.data.autoSaved?.[0]?.amount === 5000, r);
