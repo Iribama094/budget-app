@@ -20,6 +20,10 @@ const folder = join(here, '..', 'waitlist');
 // without this noticing: the pages would match while the thing they depend on is missing.
 const FILES = ['index.html', 'join.html', 'joined.html', 'privacy.html', 'terms.html', '404.html', 'styles.css', 'motion.js', 'config.js', 'robots.txt', 'sitemap.xml'];
 
+// Files that are not text. The pages name these in @font-face, so a deploy that misses them leaves the site
+// quietly falling back to a system font while every page above still matches. Compared byte for byte.
+const BINARY = ['fonts/figtree-latin.woff2', 'fonts/figtree-latin-ext.woff2', 'fonts/sora-latin.woff2', 'fonts/sora-latin-ext.woff2', 'logo.png'];
+
 // Line endings differ between a Windows checkout and what the host serves, and mean nothing here.
 const fingerprint = (text) => createHash('sha256').update(text.replace(/\r\n/g, '\n').trim()).digest('hex').slice(0, 12);
 
@@ -51,7 +55,33 @@ for (const name of FILES) {
   console.log(`  ${same ? 'same' : 'OLD '} ${name.padEnd(14)} repo ${fingerprint(local)}  live ${fingerprint(live)}`);
 }
 
-if (unreachable === FILES.length) {
+for (const name of BINARY) {
+  let local;
+  try {
+    local = await readFile(join(folder, name));
+  } catch {
+    console.log(`  ?    ${name.padEnd(30)} not in the repo`);
+    continue;
+  }
+
+  let live;
+  try {
+    const res = await fetch(`${SITE}/${name}`, { headers: { 'User-Agent': 'budgetfriendly-deploy-check' } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    live = Buffer.from(await res.arrayBuffer());
+  } catch (err) {
+    unreachable++;
+    console.log(`  ?    ${name.padEnd(30)} could not be fetched (${err.message})`);
+    continue;
+  }
+
+  const bytes = (buf) => createHash('sha256').update(buf).digest('hex').slice(0, 12);
+  const same = bytes(local) === bytes(live);
+  if (!same) differs++;
+  console.log(`  ${same ? 'same' : 'OLD '} ${name.padEnd(30)} repo ${bytes(local)}  live ${bytes(live)}`);
+}
+
+if (unreachable === FILES.length + BINARY.length) {
   console.log('\nCould not reach the site at all. Check the address, or your connection.');
   process.exit(1);
 }
