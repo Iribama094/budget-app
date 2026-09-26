@@ -26,13 +26,14 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body class="page">
+    <a class="skip" href="#main">Skip to content</a>
     <header class="top">
       <div class="wrap">
-        <a class="brand" href="index.html"><img src="logo.png" alt="" />BudgetFriendly</a>
+        <a class="brand" href="index.html"><img src="logo.png" width="38" height="38" alt="" />BudgetFriendly</a>
       </div>
     </header>
 
-    <main>
+    <main id="main">
       <div class="card">
         <div class="steps-indicator" aria-label="Step 2 of 2"><b></b><b></b><span>Done</span></div>
         <div class="done-mark"><svg aria-hidden="true" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#187A4E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></div>
@@ -50,7 +51,7 @@
           <p class="lede">Know someone whose salary disappears by the 9th? Send them your link.</p>
           <div class="link-box">
             <label class="sr" for="ref">Your invite link</label>
-            <input class="input" id="ref" type="text" readonly value="budgetfriendly-waitlist.vercel.app/?ref=FRIEND" />
+            <input class="input" id="ref" type="text" spellcheck="false" readonly value="budgetfriendly-waitlist.vercel.app/?ref=FRIEND" />
             <button class="btn small ghost" type="button" id="copy"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F2723" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>Copy</button>
           </div>
           <div class="share">

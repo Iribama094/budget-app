@@ -27,9 +27,10 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <a class="skip" href="#main">Skip to content</a>
     <header class="top">
       <div class="wrap">
-        <a class="brand" href="index.html"><img src="logo.png" alt="" />BudgetFriendly</a>
+        <a class="brand" href="index.html"><img src="logo.png" width="38" height="38" alt="" />BudgetFriendly</a>
         <nav class="nav" aria-label="Sections">
           <a href="#daily">The daily number</a>
           <a href="#record">Recording</a>
@@ -40,7 +41,7 @@
       </div>
     </header>
 
-    <main>
+    <main id="main">
       <!-- Hero. The ink carries the brand, and the product card lifts into it. -->
       <section class="hero">
         <div class="hero-ink">
@@ -50,7 +51,7 @@
             <p class="lede" data-enter>Your salary gets a plan from one payday to the next. No spreadsheet, no starting again each month, no guessing on the 26th.</p>
             <form class="capture" action="join.html" method="get" data-enter>
               <label class="sr" for="email-top">Your email address</label>
-              <input class="input" id="email-top" name="email" type="email" autocomplete="email" placeholder="Your email address" required />
+              <input class="input" id="email-top" name="email" type="email" autocomplete="email" spellcheck="false" placeholder="Your email address" required />
               <button class="btn gold" type="submit">Join</button>
             </form>
             <p class="capture-note" data-enter>Free to join · iPhone and Android · Early joiners get in first</p>
@@ -266,7 +267,7 @@
             </div>
             <form class="capture" action="join.html" method="get">
               <label class="sr" for="email-bottom">Your email address</label>
-              <input class="input" id="email-bottom" name="email" type="email" autocomplete="email" placeholder="Your email address" required />
+              <input class="input" id="email-bottom" name="email" type="email" autocomplete="email" spellcheck="false" placeholder="Your email address" required />
               <button class="btn dark" type="submit">Join</button>
             </form>
           </div>

@@ -25,13 +25,14 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body class="page">
+    <a class="skip" href="#main">Skip to content</a>
     <header class="top">
       <div class="wrap">
-        <a class="brand" href="index.html"><img src="logo.png" alt="" />BudgetFriendly</a>
+        <a class="brand" href="index.html"><img src="logo.png" width="38" height="38" alt="" />BudgetFriendly</a>
       </div>
     </header>
 
-    <main>
+    <main id="main">
       <div class="card">
         <div class="steps-indicator" aria-label="Step 1 of 2"><b></b><b class="off"></b><span>Step 1 of 2</span></div>
         <h1>Save your spot</h1>
@@ -48,7 +49,7 @@
           </div>
           <div class="field">
             <label for="email">Email</label>
-            <input class="input" id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
+            <input class="input" id="email" name="email" type="email" autocomplete="email" spellcheck="false" placeholder="you@example.com" required />
           </div>
           <div class="field">
             <label for="phone">WhatsApp number <span style="font-weight: 500; color: var(--muted)">(optional)</span></label>
