@@ -15,6 +15,8 @@ export type CreatedTx = {
   userId: string;
   spaceId: string;
   type: 'income' | 'expense';
+  /** The category's own name, which is how a limit is matched. */
+  category?: string | null;
   amount: number;
   budgetId: string | null;
   budgetCategory: string | null;
@@ -180,11 +182,69 @@ export async function applyAutoSave(userId: string, spaceId: string, incomeAmoun
  * Side effects shared by every way a transaction is created (manual, offline sync, recurring,
  * bank import). Failures are logged and never undo the transaction.
  */
+/**
+ * A category with a monthly limit that has just been reached, or nearly.
+ *
+ * The limit is a line somebody drew for themselves, so this tells them and changes nothing: no blocking, no
+ * moving money. Told once per period per category for each of the two moments, four fifths and past it.
+ */
+async function checkCategoryLimit(tx: CreatedTx): Promise<void> {
+  if (tx.type !== 'expense') return;
+  const name = String(tx.category ?? '').trim();
+  if (!name) return;
+  const space = tx.spaceId ?? 'personal';
+  const [cat] = await sql<{ id: string; name: string; monthlyLimit: number }[]>`
+    select id, name, monthly_limit from public.categories
+    where user_id = ${tx.userId} and space_id = ${space} and type = 'expense'
+      and lower(name) = lower(${name}) and monthly_limit is not null and monthly_limit > 0
+  `;
+  if (!cat) return;
+
+  // The period the person is actually in: their budget's, or this calendar month when they have none running.
+  let start: Date;
+  let end: Date;
+  let windowKey: string;
+  const b = tx.budgetId ? await findVisibleBudget(tx.userId, tx.budgetId) : null;
+  if (b) {
+    ({ start, end } = budgetBounds(b));
+    windowKey = String(b.id);
+  } else {
+    const today = todayIso();
+    start = new Date(`${today.slice(0, 8)}01T00:00:00.000Z`);
+    end = new Date(`${today}T23:59:59.999Z`);
+    windowKey = today.slice(0, 7);
+  }
+
+  const [row] = await sql<{ total: number }[]>`
+    select coalesce(sum(amount), 0) as total from public.transactions
+    where user_id = ${tx.userId} and space_id = ${space} and type = 'expense'
+      and lower(category) = lower(${cat.name}) and occurred_at >= ${start} and occurred_at <= ${end}
+  `;
+  const spent = Math.round(Number(row?.total ?? 0));
+  const limit = Math.round(Number(cat.monthlyLimit));
+  const share = spent / limit;
+  if (share < 0.8) return;
+
+  const currency = await currencyFor(tx.userId);
+  const money = (n: number) => formatMoney(n, currency);
+  const over = spent > limit;
+  await notifyUser(tx.userId, {
+    kind: 'pace',
+    ...(over ? voice.limitOver(cat.name, money(spent), money(limit)) : voice.limitNear(cat.name, money(limit - spent), money(limit))),
+    data: { screen: 'Categories' },
+    spaceId: space === 'business' ? 'business' : 'personal',
+    // One "nearly there" and one "past it" per category per period, however many transactions follow.
+    dedupeKey: `limit:${cat.id}:${windowKey}:${over ? 'over' : 'near'}`,
+    dedupeTtlSec: 45 * 86400
+  });
+}
+
 export async function afterTransactionCreated(tx: CreatedTx): Promise<{ autoSaved: AutoSaveResult[] }> {
   let autoSaved: AutoSaveResult[] = [];
   try {
     if (tx.type === 'expense' && tx.budgetId) await checkBudgetPace(tx.budgetId, tx.budgetCategory);
     if (tx.type === 'expense') await checkDailySpend(tx);
+    if (tx.type === 'expense') await checkCategoryLimit(tx);
     if (tx.type === 'income') autoSaved = await applyAutoSave(tx.userId, tx.spaceId ?? 'personal', Number(tx.amount), tx.id);
   } catch (err) {
     console.error('[transaction effects] failed', err);

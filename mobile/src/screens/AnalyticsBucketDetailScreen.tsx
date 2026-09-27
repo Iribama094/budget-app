@@ -3,7 +3,7 @@ import { View, Text, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Layers } from '../icons';
 
-import { bucketDisplayName } from '../theme/buckets';
+import { bucketDisplayName, spentWord } from '../theme/buckets';
 import { Amount, EmptyState, HeroCard, InlineError, ListCard, ProgressBar, Screen, ScreenHeader, SectionHeader } from '../components/Common/ui';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -111,7 +111,9 @@ export default function AnalyticsBucketDetailScreen() {
                 <View style={{ marginTop: 8 }}>
                   <ProgressBar value={share} />
                 </View>
-                <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 4 }]}>{Math.round(share * 100)}% of spending</Text>
+                <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 4 }]}>
+                  {Math.round(share * 100)}% of the total, {spentWord(bucket)}
+                </Text>
               </View>
             );
           })}

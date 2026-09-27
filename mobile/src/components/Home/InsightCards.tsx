@@ -8,6 +8,25 @@ import { dismissInsight, listInsights, type ApiInsight } from '../../api/persona
 import { type } from '../../theme/typography';
 
 /** "For you": suggestions the API learns from this person's own spending, plan and budget. */
+/**
+ * One card per key. A key is this insight's identity: dismissing works by it, so two with the same key would
+ * both vanish on one tap, and React would warn about two children with the same key. Keeping the first is
+ * right, because the list arrives most useful first.
+ */
+function uniqueByKey(list: ApiInsight[]): ApiInsight[] {
+  const seen = new Set<string>();
+  const out: ApiInsight[] = [];
+  for (const item of list) {
+    if (seen.has(item.key)) {
+      if (__DEV__) console.warn(`[insights] two insights share the key "${item.key}"; showing the first. Fix the key on the server.`);
+      continue;
+    }
+    seen.add(item.key);
+    out.push(item);
+  }
+  return out;
+}
+
 export function InsightCards({ spaceId }: { spaceId: 'personal' | 'business' }) {
   const nav = useNavigation<any>();
   const { theme } = useTheme();
@@ -17,7 +36,7 @@ export function InsightCards({ spaceId }: { spaceId: 'personal' | 'business' }) 
     useCallback(() => {
       let cancelled = false;
       listInsights(spaceId)
-        .then((list) => !cancelled && setItems(list))
+        .then((list) => !cancelled && setItems(uniqueByKey(list)))
         .catch(() => undefined);
       return () => {
         cancelled = true;

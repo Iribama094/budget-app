@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlan, type ApiPlan } from '../api/personal';
-import { bucketDescription, bucketDisplayName, normalizeBucket, type Bucket } from '../theme/buckets';
+import { bucketDescription, bucketDisplayName, normalizeBucket, overIsBad, overWord, spentWord, type Bucket } from '../theme/buckets';
 import { View, Text, Pressable, ActivityIndicator, ScrollView, Animated, useWindowDimensions, FlatList, TextInput, StyleSheet } from 'react-native';
 import { Modal } from '../components/Common/AppModal';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
@@ -1391,6 +1391,7 @@ export function BudgetScreen() {
   }, [currentId, budgetTxByBudgetId]);
   // Only the ones worth knowing about: four fifths gone, or past it. The rest are fine and stay out of the way.
   const limitsToWatch = useMemo(() => limits.filter((l) => l.limit > 0 && l.spent / l.limit >= 0.8).sort((a, b) => b.spent / b.limit - a.spent / a.limit), [limits]);
+  const limitsOver = useMemo(() => limitsToWatch.filter((l) => l.left < 0), [limitsToWatch]);
   const currentRange = current ? getBudgetRange(current) : null;
   const currentPace = (() => {
     if (!current || !currentRange || !currentTx) return null;
@@ -1510,7 +1511,8 @@ export function BudgetScreen() {
                         const budgeted = Number(c?.budgeted) || 0;
                         const ratio = budgeted > 0 ? spent / budgeted : 0;
                         const color = bucketColor(theme, key);
-                        const over = spent > budgeted && budgeted > 0;
+                        const passedPlan = spent > budgeted && budgeted > 0;
+                        const over = passedPlan && overIsBad(key);
                         const hot = !over && ratio > currentPace.timeRatio + 0.1 && spent > 0;
                         return (
                           <View key={key} style={{ paddingVertical: 9 }}>
@@ -1521,16 +1523,16 @@ export function BudgetScreen() {
                               </View>
                               <Text style={[type.small, { color: theme.colors.textMuted }]}>
                                 <Text style={{ fontFamily: fonts.semibold, color: theme.colors.text }}>{hide ? '••••' : formatAmount(spent, glyph)}</Text>
-                                {hide ? '' : ` / ${formatAmount(budgeted, glyph)}`}
+                                {hide ? '' : ` ${spentWord(key)} of ${formatAmount(budgeted, glyph)}`}
                               </Text>
                             </View>
                             <View style={{ marginTop: 7 }}>
                               <ProgressBar value={ratio} color={over ? theme.colors.error : color} />
                             </View>
-                            {over ? (
+                            {passedPlan ? (
                               <View style={[styles.rowBetween, { marginTop: 5 }]}>
-                                <Text style={[type.caption, { color: theme.colors.error, fontFamily: fonts.semibold }]}>
-                                  Over by {hide ? '••••' : formatAmount(spent - budgeted, glyph)}
+                                <Text style={[type.caption, { color: over ? theme.colors.error : theme.colors.success, fontFamily: fonts.semibold }]}>
+                                  {hide ? '••••' : formatAmount(spent - budgeted, glyph)} {overWord(key)}
                                 </Text>
                                 {current.role !== 'member' && Object.keys(current.categories || {}).length > 1 ? (
                                   <Pressable onPress={() => setMoveFor({ to: key })} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Cover ${bucketLabel(key)} from another bucket`}>
@@ -1565,7 +1567,10 @@ export function BudgetScreen() {
 
             {limitsToWatch.length ? (
               <>
-                <SectionHeader title="Limits" info="Categories you put a monthly limit on. Everything you spend in one counts towards it, and only the ones you're close to or over show here." />
+                <SectionHeader
+                  title={limitsOver.length ? `Limits · ${limitsOver.length} over` : 'Limits'}
+                  info="Categories you put a monthly limit on. Everything you spend in one counts towards it, and only the ones you're close to or over show here."
+                />
                 {limitsToWatch.map((l) => {
                   const over = l.left < 0;
                   const share = Math.min(1, l.limit > 0 ? l.spent / l.limit : 0);
@@ -1587,8 +1592,12 @@ export function BudgetScreen() {
                       <View style={{ marginTop: 8 }}>
                         <ProgressBar value={share} color={over ? theme.colors.error : theme.colors.brass} />
                       </View>
-                      <Text style={[type.caption, { color: theme.colors.textMuted, marginTop: 4 }]}>
-                        {hide ? 'Tap to change the limit' : `${formatAmount(l.spent, glyph)} of ${formatAmount(l.limit, glyph)}`}
+                      <Text style={[type.caption, { color: over ? theme.colors.error : theme.colors.textMuted, marginTop: 4 }]}>
+                        {hide
+                          ? 'Tap to change the limit'
+                          : over
+                            ? `Over the limit: ${formatAmount(l.spent, glyph)} spent of ${formatAmount(l.limit, glyph)}. Tap to change it.`
+                            : `${formatAmount(l.spent, glyph)} of ${formatAmount(l.limit, glyph)}`}
                       </Text>
                     </Pressable>
                   );

@@ -144,6 +144,17 @@ export const voice = {
     body: shared ? 'Start the next one in a tap and everyone stays in.' : 'Start the next one in a tap: same plan, fresh numbers.'
   }),
 
+  /** A category limit reached. A limit is a line somebody drew for themselves, so the words stay level. */
+  limitOver: (name: string, spent: string, limit: string): Note => ({
+    title: `${name} is over its limit`,
+    body: `${spent} of the ${limit} you set for this period. Nothing is blocked: ease off, or change the limit in Settings, Categories.`
+  }),
+
+  limitNear: (name: string, left: string, limit: string): Note => ({
+    title: `${left} left on ${name}`,
+    body: `You set a ${limit} limit for this period and most of it has gone. Worth knowing before the month ends.`
+  }),
+
   overWhileShort: (label: string): Note => ({
     title: `${label} is used up`,
     body: 'Your bills are bigger than your income this month, so this was expected. Pay must-pay bills first; Income & bills shows what to pause.'

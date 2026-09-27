@@ -215,6 +215,19 @@ try {
   check('the budget counts spending against the limit on its own', groceryLimit?.limit === 80000 && groceryLimit?.spent === 70000 && groceryLimit?.left === 10000, r.data?.limits);
   check('a limit over 1bn is refused', (await call(a.token, 'PATCH', `/categories/${groceries.id}`, { monthlyLimit: 2e9 })).status === 400);
   r = await call(a.token, 'PATCH', `/categories/${groceries.id}`, { monthlyLimit: null });
+  // Reaching a limit is worth being told about, once per category per period for each moment.
+  r = await call(a.token, 'PATCH', `/categories/${groceries.id}`, { monthlyLimit: 60000 });
+  check('a limit below what is already spent is allowed', r.status === 200 && r.data.category.monthlyLimit === 60000, r);
+  await call(a.token, 'POST', '/transactions', { type: 'expense', amount: 1000, category: 'Groceries', description: 'Top up', occurredAt: now(), budgetId, budgetCategory: 'Essential' });
+  r = await call(a.token, 'GET', '/notifications');
+  const limitNote = (r.data?.items ?? []).find((n) => /Groceries/.test(n.title) && /limit/i.test(`${n.title} ${n.body}`));
+  check('going over a category limit is announced', !!limitNote, (r.data?.items ?? []).map((n) => n.title).slice(0, 6));
+  check('and it says what to do about it', /change the limit/i.test(limitNote?.body ?? ''), limitNote?.body);
+  const before = (r.data?.items ?? []).filter((n) => /Groceries/.test(n.title)).length;
+  await call(a.token, 'POST', '/transactions', { type: 'expense', amount: 1000, category: 'Groceries', description: 'Again', occurredAt: now(), budgetId, budgetCategory: 'Essential' });
+  r = await call(a.token, 'GET', '/notifications');
+  check('but only once, however many more go on it', (r.data?.items ?? []).filter((n) => /Groceries/.test(n.title)).length === before, before);
+
   check('clearing the limit takes it off the budget', r.data?.category?.monthlyLimit === null && ((await call(a.token, 'GET', `/budgets/${budgetId}/pace`)).data.limits ?? []).length === 0, r);
 
   section('The day, held to');

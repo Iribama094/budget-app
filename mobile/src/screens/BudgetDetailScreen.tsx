@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { bucketDisplayName } from '../theme/buckets';
+import { bucketDisplayName, overIsBad, overWord, spentWord } from '../theme/buckets';
 import { View, Text, Pressable, ActivityIndicator, Animated, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Amount as UiAmount, Card, Chip, HeroCard, PrimaryButton, ProgressBar, SectionHeader, TextButton } from '../components/Common/ui';
@@ -541,14 +541,16 @@ export default function BudgetDetailScreen() {
                     </View>
 
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-                      <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>Spent</Text>
+                      <Text style={{ color: theme.colors.textMuted, fontFamily: 'Figtree_600SemiBold' }}>{spentWord(cat) === 'saved' ? 'Saved' : 'Spent'}</Text>
                       <Text style={{ color: theme.colors.text, fontFamily: 'Figtree_600SemiBold' }}>{formatMoney(spent, currency)}</Text>
                     </View>
 
                     {spent > c.budgeted && c.budgeted > 0 ? (
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                        <Text style={{ color: theme.colors.error, fontFamily: 'Figtree_700Bold' }}>Over by {formatMoney(spent - c.budgeted, currency)}</Text>
-                        {canMoveMoney ? (
+                        <Text style={{ color: overIsBad(cat) ? theme.colors.error : theme.colors.success, fontFamily: 'Figtree_700Bold' }}>
+                          {formatMoney(spent - c.budgeted, currency)} {overWord(cat)}
+                        </Text>
+                        {canMoveMoney && overIsBad(cat) ? (
                           <Pressable onPress={() => setMoveFor({ to: cat })} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Cover ${bucketLabel(cat)} from another bucket`}>
                             <Text style={{ color: theme.colors.primary, fontFamily: 'Figtree_700Bold' }}>Cover it</Text>
                           </Pressable>

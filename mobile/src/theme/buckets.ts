@@ -30,3 +30,23 @@ export function bucketDescription(key: string, isBusiness = false): string {
   if (!b) return '';
   return isBusiness ? BUCKET_INFO[b].businessDesc : BUCKET_INFO[b].desc;
 }
+
+/**
+ * Money in the Savings bucket was put away, not spent, so every breakdown says so.
+ *
+ * It is stored the same way as an expense, which is why anything generic calls it spending. These two give the
+ * right word for a bucket: "saved" and "more than planned" for Savings, "spent" and "over by" for the rest.
+ */
+export function spentWord(bucket: string): 'saved' | 'spent' {
+  return normalizeBucket(bucket) === 'Savings' ? 'saved' : 'spent';
+}
+
+/** Passing the plan is good news in Savings and bad news everywhere else, so the wording follows. */
+export function overWord(bucket: string): 'more than planned' | 'over' {
+  return normalizeBucket(bucket) === 'Savings' ? 'more than planned' : 'over';
+}
+
+/** Whether going past the plan in this bucket is a problem worth colouring red. */
+export function overIsBad(bucket: string): boolean {
+  return normalizeBucket(bucket) !== 'Savings';
+}
