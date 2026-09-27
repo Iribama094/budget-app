@@ -214,7 +214,6 @@ try {
   const groceryLimit = (r.data.limits ?? []).find((l) => l.name === 'Groceries');
   check('the budget counts spending against the limit on its own', groceryLimit?.limit === 80000 && groceryLimit?.spent === 70000 && groceryLimit?.left === 10000, r.data?.limits);
   check('a limit over 1bn is refused', (await call(a.token, 'PATCH', `/categories/${groceries.id}`, { monthlyLimit: 2e9 })).status === 400);
-  r = await call(a.token, 'PATCH', `/categories/${groceries.id}`, { monthlyLimit: null });
   // Reaching a limit is worth being told about, once per category per period for each moment.
   r = await call(a.token, 'PATCH', `/categories/${groceries.id}`, { monthlyLimit: 60000 });
   check('a limit below what is already spent is allowed', r.status === 200 && r.data.category.monthlyLimit === 60000, r);
@@ -228,6 +227,7 @@ try {
   r = await call(a.token, 'GET', '/notifications');
   check('but only once, however many more go on it', (r.data?.items ?? []).filter((n) => /Groceries/.test(n.title)).length === before, before);
 
+  r = await call(a.token, 'PATCH', `/categories/${groceries.id}`, { monthlyLimit: null });
   check('clearing the limit takes it off the budget', r.data?.category?.monthlyLimit === null && ((await call(a.token, 'GET', `/budgets/${budgetId}/pace`)).data.limits ?? []).length === 0, r);
 
   section('The day, held to');
