@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, TextInput } from 'react-native';
+import { View, Text, Pressable, TextInput, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft, Eye, EyeOff } from '../icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,6 +10,7 @@ import { goBackOrHome } from '../navigation/goBack';
 
 import { MIN_PASSWORD, PASSWORD_HINT, passwordProblem } from '../lib/passwordRules';
 import { savePendingInvite } from '../lib/pendingInvite';
+import { PRIVACY_URL, REFUND_URL, TERMS_URL } from '../config';
 
 export function RegisterScreen() {
   const auth = useAuth();
@@ -142,7 +143,19 @@ export function RegisterScreen() {
       <PrimaryButton title="Create account" onPress={submit} disabled={!canSubmit} loading={isSubmitting} style={{ marginTop: 8 }} />
 
       <Text style={[type.caption, { color: theme.colors.textMuted, textAlign: 'center', marginTop: 14 }]}>
-        By continuing, you agree to our Terms and Privacy Policy.
+        By continuing, you agree to our{' '}
+        <Text style={{ fontFamily: fonts.semibold, color: theme.colors.primary }} onPress={() => void Linking.openURL(TERMS_URL)}>
+          Terms
+        </Text>
+        ,{' '}
+        <Text style={{ fontFamily: fonts.semibold, color: theme.colors.primary }} onPress={() => void Linking.openURL(PRIVACY_URL)}>
+          Privacy Policy
+        </Text>
+        {' '}and{' '}
+        <Text style={{ fontFamily: fonts.semibold, color: theme.colors.primary }} onPress={() => void Linking.openURL(REFUND_URL)}>
+          Refund Policy
+        </Text>
+        .
       </Text>
 
       <Pressable onPress={() => navigation.navigate('Login')} style={({ pressed }) => [{ alignItems: 'center', paddingVertical: 16, opacity: pressed ? 0.7 : 1 }]}>
