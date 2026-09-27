@@ -45,7 +45,7 @@ const onMain = (name, binary = false) => {
 
 // Every file the site serves. A new one added to waitlist/ belongs here too, or it can fail to deploy
 // without this noticing: the pages would match while the thing they depend on is missing.
-const FILES = ['index.html', 'join.html', 'joined.html', 'privacy.html', 'terms.html', '404.html', 'styles.css', 'motion.js', 'config.js', 'robots.txt', 'sitemap.xml'];
+const FILES = ['index.html', 'join.html', 'joined.html', 'privacy.html', 'terms.html', 'refund.html', '404.html', 'styles.css', 'motion.js', 'config.js', 'robots.txt', 'sitemap.xml'];
 
 // Files that are not text. The pages name these in @font-face, so a deploy that misses them leaves the site
 // quietly falling back to a system font while every page above still matches. Compared byte for byte.
