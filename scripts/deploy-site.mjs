@@ -29,9 +29,28 @@ const die = (why, fix) => {
   process.exit(1);
 };
 
-// 1. Nothing uncommitted in waitlist/, or the site would carry work the repo has never seen.
+// 1. Nothing uncommitted in waitlist/, or the site would carry work the repo has never seen. Untracked files
+// matter as much as edits: this uploads the folder, so an unfinished page sitting in it is published too.
 const dirty = run('git', ['status', '--porcelain', '--', 'waitlist']);
-if (dirty) die(`waitlist/ has uncommitted changes:\n${dirty}`, 'Commit them, push, then run this again.');
+if (dirty) {
+  // The status token can be one or two characters and `run` trims, so the leading space of the first line is
+  // already gone. Split on the token rather than a fixed offset, or the first path loses a letter.
+  const entries = dirty.split('\n').map((line) => {
+    const [, mark, path] = line.match(/^\s*(\S+)\s+(.*)$/) ?? [];
+    return { untracked: mark === '??', path: path ?? line.trim() };
+  });
+  const untracked = entries.filter((e) => e.untracked).map((e) => e.path);
+  const changed = entries.filter((e) => !e.untracked).map((e) => e.path);
+  const parts = [];
+  if (changed.length) parts.push(`Changed, so the site would carry what the repo has never seen:\n  ${changed.join('\n  ')}`);
+  if (untracked.length) parts.push(`Not in the repo, and this uploads the folder, so they would go live as they stand:\n  ${untracked.join('\n  ')}`);
+  die(
+    `waitlist/ is not clean.\n\n${parts.join('\n\n')}`,
+    untracked.length
+      ? 'Commit and push what is ready. For work that is not, move it out of waitlist/ or deploy from a clean worktree:\n  git worktree add ../bf-deploy origin/main'
+      : 'Commit them, push, then run this again.'
+  );
+}
 
 // 2. The commit being deployed has to be on origin/main, so what is live can always be found again.
 run('git', ['fetch', 'origin', '--quiet']);
