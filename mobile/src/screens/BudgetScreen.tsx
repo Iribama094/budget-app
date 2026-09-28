@@ -1531,7 +1531,7 @@ export function BudgetScreen() {
                             </View>
                             {passedPlan ? (
                               <View style={[styles.rowBetween, { marginTop: 5 }]}>
-                                <Text style={[type.caption, { color: over ? theme.colors.error : theme.colors.success, fontFamily: fonts.semibold }]}>
+                                <Text style={[type.caption, { color: over ? theme.colors.error : theme.colors.successText, fontFamily: fonts.semibold }]}>
                                   {hide ? '••••' : formatAmount(spent - budgeted, glyph)} {overWord(key)}
                                 </Text>
                                 {current.role !== 'member' && Object.keys(current.categories || {}).length > 1 ? (

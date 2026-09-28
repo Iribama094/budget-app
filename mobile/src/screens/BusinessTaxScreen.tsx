@@ -123,7 +123,7 @@ export default function BusinessTaxScreen() {
         style={({ pressed }) => [styles.filed, { backgroundColor: filed ? theme.colors.successSoft : theme.colors.surfaceAlt, opacity: pressed ? 0.8 : 1 }]}
       >
         {filed ? <Check color={theme.colors.success} size={12} strokeWidth={3} /> : null}
-        <Text style={[type.caption, { color: filed ? theme.colors.success : theme.colors.textMuted, fontWeight: '700' }]}>{filed ? 'Filed' : 'Mark as filed'}</Text>
+        <Text style={[type.caption, { color: filed ? theme.colors.successText : theme.colors.textMuted, fontWeight: '700' }]}>{filed ? 'Filed' : 'Mark as filed'}</Text>
       </Pressable>
     );
   };
@@ -158,7 +158,7 @@ export default function BusinessTaxScreen() {
           </View>
           <View style={[styles.row, { marginTop: 8 }]}>
             <Text style={[type.small, { color: theme.colors.textMuted, flex: 1 }]}>Paid on costs</Text>
-            <Text style={[type.smallStrong, { color: theme.colors.success }]}>−{formatAmount(tax.vatPaidThisMonth, glyph)}</Text>
+            <Text style={[type.smallStrong, { color: theme.colors.successText }]}>−{formatAmount(tax.vatPaidThisMonth, glyph)}</Text>
           </View>
           <View style={[styles.row, { marginTop: 10, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border }]}>
             <Text style={[type.bodyStrong, { color: theme.colors.text, flex: 1 }]}>To remit</Text>
@@ -211,7 +211,7 @@ export default function BusinessTaxScreen() {
               {tax.whtCreditsThisYear > 0 ? (
                 <View style={[styles.row, { marginTop: 8 }]}>
                   <Text style={[type.small, { color: theme.colors.textMuted, flex: 1 }]}>Already withheld by customers</Text>
-                  <Text style={[type.smallStrong, { color: theme.colors.success }]}>−{formatAmount(tax.whtCreditsThisYear, glyph)}</Text>
+                  <Text style={[type.smallStrong, { color: theme.colors.successText }]}>−{formatAmount(tax.whtCreditsThisYear, glyph)}</Text>
                 </View>
               ) : null}
               <View style={[styles.row, { marginTop: 10, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border }]}>

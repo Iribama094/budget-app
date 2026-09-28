@@ -709,7 +709,7 @@ export function DashboardScreen() {
                 accessibilityRole="button"
                 style={({ pressed }) => ({ marginTop: 10, opacity: pressed || respreading ? 0.6 : 1 })}
               >
-                <Text style={[type.smallStrong, { color: theme.colors.brass }]}>
+                <Text style={[type.smallStrong, { color: theme.colors.brassText }]}>
                   {respreading ? 'Working it out…' : 'Re-spread what is left over the days left'}
                 </Text>
               </Pressable>

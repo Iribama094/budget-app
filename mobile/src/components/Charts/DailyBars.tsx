@@ -73,7 +73,7 @@ export function DailyBars({
           {ticks.map((t) => (
             <G key={t}>
               <Line x1={axisW} x2={width} y1={y(t)} y2={y(t)} stroke={theme.colors.border} strokeWidth={1} />
-              <SvgText x={axisW - 6} y={y(t) + 3} fontSize={9} fill={theme.colors.textMuted} textAnchor="end" fontFamily={fonts.medium}>
+              <SvgText x={axisW - 6} y={y(t) + 3} fontSize={11} fill={theme.colors.textMuted} textAnchor="end" fontFamily={fonts.medium}>
                 {hidden && t > 0 ? '' : compactNumber(t)}
               </SvgText>
             </G>

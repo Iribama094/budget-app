@@ -103,7 +103,7 @@ export default function InvoicesScreen() {
                 key={i.id}
                 icon={
                   <View style={[styles.avatar, { backgroundColor: theme.colors.brassSoft }]}>
-                    <Text style={{ fontFamily: fonts.display, fontSize: 15, color: theme.colors.brass }}>{i.customerName.slice(0, 1).toUpperCase()}</Text>
+                    <Text style={{ fontFamily: fonts.display, fontSize: 15, color: theme.colors.brassText }}>{i.customerName.slice(0, 1).toUpperCase()}</Text>
                   </View>
                 }
                 title={i.customerName}

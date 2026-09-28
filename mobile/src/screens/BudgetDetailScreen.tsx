@@ -547,7 +547,7 @@ export default function BudgetDetailScreen() {
 
                     {spent > c.budgeted && c.budgeted > 0 ? (
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                        <Text style={{ color: overIsBad(cat) ? theme.colors.error : theme.colors.success, fontFamily: 'Figtree_700Bold' }}>
+                        <Text style={{ color: overIsBad(cat) ? theme.colors.error : theme.colors.successText, fontFamily: 'Figtree_700Bold' }}>
                           {formatMoney(spent - c.budgeted, currency)} {overWord(cat)}
                         </Text>
                         {canMoveMoney && overIsBad(cat) ? (

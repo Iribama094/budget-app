@@ -567,7 +567,7 @@ export default function PendingTransactionsScreen() {
                         accessibilityRole="button"
                         style={({ pressed }) => [pillStyle(theme), { borderColor: theme.colors.brass, opacity: bulkBusy ? 0.6 : pressed ? 0.85 : 1 }]}
                       >
-                        <Text style={{ color: theme.colors.brass, fontFamily: 'Figtree_700Bold', fontSize: 12 }}>Ignore {duplicateIds.length} already logged</Text>
+                        <Text style={{ color: theme.colors.brassText, fontFamily: 'Figtree_700Bold', fontSize: 12 }}>Ignore {duplicateIds.length} already logged</Text>
                       </Pressable>
                     ) : null}
                   </View>
@@ -759,7 +759,7 @@ export default function PendingTransactionsScreen() {
                     ) : null}
                     {item.duplicateOf ? (
                       <View style={{ backgroundColor: theme.colors.brassSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
-                        <Text style={{ color: theme.colors.brass, fontSize: 11, fontFamily: 'Figtree_600SemiBold' }}>Looks already logged</Text>
+                        <Text style={{ color: theme.colors.brassText, fontSize: 11, fontFamily: 'Figtree_600SemiBold' }}>Looks already logged</Text>
                       </View>
                     ) : null}
                   </View>

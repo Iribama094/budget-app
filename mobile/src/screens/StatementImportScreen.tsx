@@ -156,7 +156,7 @@ export default function StatementImportScreen() {
                 key={`${r.reference ?? ''}-${i}`}
                 title={r.description || (r.direction === 'credit' ? 'Money in' : 'Money out')}
                 subtitle={formatShortDate(r.date)}
-                right={<Text style={[type.smallStrong, { color: r.direction === 'credit' ? theme.colors.success : theme.colors.text }]}>{`${r.direction === 'credit' ? '+' : '−'}${formatAmount(r.amount, glyph)}`}</Text>}
+                right={<Text style={[type.smallStrong, { color: r.direction === 'credit' ? theme.colors.successText : theme.colors.text }]}>{`${r.direction === 'credit' ? '+' : '−'}${formatAmount(r.amount, glyph)}`}</Text>}
               />
             ))}
           </ListCard>

@@ -24,9 +24,13 @@ export type Theme = {
     accent: string;
     brass: string;
     brassSoft: string;
+    /** Brass for small text. The fill itself is 3.3:1 on white, which reads as decoration, not writing. */
+    brassText: string;
     warn: string;
     success: string;
     successSoft: string;
+    /** Success for small text. The fill itself is 4.35:1 on white, just under the floor. */
+    successText: string;
     error: string;
     errorSoft: string;
     overlay: string;
@@ -58,9 +62,12 @@ export function getTheme(mode: Theme['mode']): Theme {
         accent: c.accent[400],
         brass: c.secondary[300],
         brassSoft: c.secondary[950],
+        // On a dark ground the fills already read: 8.9:1 and 7.8:1.
+        brassText: c.secondary[300],
         warn: '#E9C27A',
         success: c.success[400],
         successSoft: c.success[900],
+        successText: c.success[400],
         error: c.error[400],
         errorSoft: c.error[900],
         overlay: 'rgba(0,0,0,0.55)'
@@ -89,9 +96,11 @@ export function getTheme(mode: Theme['mode']): Theme {
       accent: c.accent[500],
       brass: c.secondary[500],
       brassSoft: c.secondary[100],
+      brassText: '#8C6214',
       warn: c.secondary[700],
       success: c.success[600],
       successSoft: c.success[100],
+      successText: '#187A4E',
       error: c.error[600],
       errorSoft: c.error[100],
       overlay: 'rgba(8,17,15,0.45)'

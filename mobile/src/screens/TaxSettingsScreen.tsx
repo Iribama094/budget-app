@@ -517,7 +517,7 @@ export default function TaxSettingsScreen() {
       {mode === 'whatIf' && extraBudgetMonthly != null ? (
         <Card style={{ marginTop: 10 }}>
           <Text style={[type.caption, { color: theme.colors.textMuted }]}>What-if impact</Text>
-          <Text style={[type.bodyStrong, { color: extraBudgetMonthly > 0 ? theme.colors.success : theme.colors.warn, marginTop: 4 }]}>
+          <Text style={[type.bodyStrong, { color: extraBudgetMonthly > 0 ? theme.colors.successText : theme.colors.warn, marginTop: 4 }]}>
             {extraBudgetMonthly > 0
               ? `You’d have about ${formatMoney(Math.round(extraBudgetMonthly), currency)} more to budget each month 🎉`
               : `You’d have about ${formatMoney(Math.abs(Math.round(extraBudgetMonthly)), currency)} less to budget each month.`}

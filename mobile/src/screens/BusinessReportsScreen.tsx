@@ -164,7 +164,7 @@ export default function BusinessReportsScreen() {
               <View key={mm.month} style={{ marginTop: 10 }}>
                 <View style={styles.rowBetween}>
                   <Text style={[type.smallStrong, { color: theme.colors.text }]}>{mm.label}</Text>
-                  <Text style={[type.smallStrong, { color: mm.net < 0 ? theme.colors.error : theme.colors.success }]}>{formatAmount(mm.net, glyph)}</Text>
+                  <Text style={[type.smallStrong, { color: mm.net < 0 ? theme.colors.error : theme.colors.successText }]}>{formatAmount(mm.net, glyph)}</Text>
                 </View>
                 <View style={[styles.flowBar, { backgroundColor: theme.colors.surfaceAlt }]}>
                   <View style={{ width: `${(mm.moneyIn / maxFlow) * 100}%`, height: 6, borderRadius: 3, backgroundColor: theme.colors.success }} />

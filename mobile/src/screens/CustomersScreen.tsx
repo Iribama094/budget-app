@@ -164,7 +164,7 @@ export default function CustomersScreen() {
           <Card style={{ marginBottom: 10 }}>
             <Pressable onPress={() => open(item)} accessibilityRole="button" style={({ pressed }) => [styles.row, { opacity: pressed ? 0.9 : 1 }]}>
               <View style={[styles.avatar, { backgroundColor: item.overdue ? theme.colors.brassSoft : theme.colors.primarySoft }]}>
-                <Text style={[type.smallStrong, { color: item.overdue ? theme.colors.brass : theme.colors.primary }]}>{initials(item.name)}</Text>
+                <Text style={[type.smallStrong, { color: item.overdue ? theme.colors.brassText : theme.colors.primary }]}>{initials(item.name)}</Text>
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text numberOfLines={1} style={[type.bodyStrong, { color: theme.colors.text }]}>
@@ -178,7 +178,7 @@ export default function CustomersScreen() {
               </View>
               {item.owed > 0 ? (
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={[type.smallStrong, { color: item.overdue ? theme.colors.brass : theme.colors.text }]}>{formatAmount(item.owed, glyph)}</Text>
+                  <Text style={[type.smallStrong, { color: item.overdue ? theme.colors.brassText : theme.colors.text }]}>{formatAmount(item.owed, glyph)}</Text>
                   {item.overdue ? <Chip tone="brass" label="Overdue" style={{ marginTop: 4 }} /> : null}
                 </View>
               ) : (
