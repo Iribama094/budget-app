@@ -29,6 +29,7 @@ import {
   Wand2,
   Gift,
   Globe,
+  Trash2,
   Zap
 } from '../icons';
 
@@ -395,6 +396,13 @@ export default function SettingsScreen() {
           title={biometric.available ? `${biometric.label} sign-in` : 'Biometric sign-in'}
           subtitle={biometric.available ? (biometric.enabled ? 'Unlock without typing your password' : 'Off') : 'Set up a face or fingerprint on this phone first'}
           right={<Switch value={biometric.enabled} disabled={!biometric.available || bioBusy} onValueChange={(v) => void toggleBiometric(v)} {...switchColors} />}
+        />
+        <ListRow
+          icon={tile(Trash2)}
+          title="Delete your account"
+          subtitle="Removes everything, for good"
+          onPress={() => nav.navigate('DeleteAccount')}
+          chevron
         />
       </ListCard>
 

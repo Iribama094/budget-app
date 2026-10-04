@@ -148,3 +148,35 @@ export async function listInsights(spaceId: SpaceId): Promise<ApiInsight[]> {
 export async function dismissInsight(key: string): Promise<void> {
   await apiFetch(`/v1/insights/${encodeURIComponent(key)}/dismiss`, { method: 'POST' });
 }
+
+/* ------------------------------------------------------------ your records, and closing the account */
+
+/** What closing the account would take with it. Shown before anyone types DELETE. */
+export type DeletionSummary = {
+  transactions: number;
+  budgets: number;
+  goals: number;
+  /** Budgets this person owns that somebody else can see. Those people lose them too. */
+  sharedBudgets: number;
+  teamMembers: number;
+  helpers: number;
+};
+
+export async function deletionPreview(): Promise<DeletionSummary> {
+  const data = await apiFetch('/v1/account/delete', { method: 'GET' });
+  return data.summary as DeletionSummary;
+}
+
+/** Deletes the account and everything in it. There is no undo and no copy left behind. */
+export async function deleteAccount(password: string): Promise<DeletionSummary> {
+  const data = await apiFetch('/v1/account/delete', {
+    method: 'POST',
+    body: JSON.stringify({ password, confirm: 'DELETE' })
+  });
+  return data.summary as DeletionSummary;
+}
+
+/** The whole record as JSON. Big, so it is written to a file rather than held as a string in the UI. */
+export async function exportEverything(): Promise<unknown> {
+  return apiFetch('/v1/account/export?format=json', { method: 'GET' });
+}

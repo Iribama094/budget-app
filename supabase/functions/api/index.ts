@@ -4,7 +4,8 @@ import { enforceGlobalRate } from './lib/limits.ts';
 import { todayIso } from './lib/dates.ts';
 import { runAllDueRecurring, sendBillReminders } from './lib/recurring.ts';
 import { monoConfigured, syncBankLink, type BankLinkRow } from './lib/bank.ts';
-import { authMe, changePassword, forgotPassword, notifications, pushTokens, sessions, usersMe, verifyEmail } from './routes/account.ts';
+import { authMe, changePassword, deleteAccount, forgotPassword, notifications, pushTokens, sessions, usersMe, verifyEmail } from './routes/account.ts';
+import { exportData } from './routes/dataExport.ts';
 import { acceptInvite, budgetById, budgetPace, budgetsIndex, nextPeriod, respread, rollover, sharing } from './routes/budgets.ts';
 import { sendPeriodEndingReminders, sendSharedDigests } from './lib/shared.ts';
 import { analyticsSummary, transactionById, transactionsIndex } from './routes/transactions.ts';
@@ -251,6 +252,10 @@ function route(parts: string[]): Handler | null {
   if (a === 'auth' && b === 'verify-email' && n <= 3) return verifyEmail;
   if (a === 'auth' && b === 'sessions') return sessions;
   if (a === 'users' && b === 'me' && n === 2) return usersMe;
+  // Taking your records with you, and closing the account for good. Both app stores require the
+  // second one, and the privacy notice promises both.
+  if (a === 'account' && b === 'export' && n === 2) return exportData;
+  if (a === 'account' && b === 'delete' && n === 2) return deleteAccount;
 
   if (a === 'recurring' && n === 1) return recurringIndex;
   if (a === 'recurring' && n === 2) return recurringById;

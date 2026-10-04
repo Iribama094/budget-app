@@ -235,6 +235,99 @@ export async function changePassword(ctx: Ctx) {
 }
 
 /**
+ * What goes with the account. The confirm screen says these numbers out loud, because "your data will be
+ * deleted" means nothing and "412 transactions, 3 goals and a budget two people share" means something.
+ */
+async function deletionSummary(userId: string) {
+  const [[tx], [budgets], [goals], [shared], [team], [helpers]] = await Promise.all([
+    sql<{ n: number }[]>`select count(*)::int as n from public.transactions where user_id = ${userId}`,
+    sql<{ n: number }[]>`select count(*)::int as n from public.budgets where user_id = ${userId}`,
+    sql<{ n: number }[]>`select count(*)::int as n from public.goals where user_id = ${userId}`,
+    // Budgets this person owns that somebody else can see. Deleting takes them away from that person too.
+    sql<{ n: number }[]>`
+      select count(distinct m.budget_id)::int as n from public.budget_members m
+      join public.budgets b on b.id = m.budget_id
+      where b.user_id = ${userId} and m.user_id <> ${userId}
+    `,
+    sql<{ n: number }[]>`select count(*)::int as n from public.business_members where owner_id = ${userId} and member_id is not null`,
+    sql<{ n: number }[]>`select count(*)::int as n from public.delegates where owner_id = ${userId} and delegate_id is not null`
+  ]);
+  return {
+    transactions: tx?.n ?? 0,
+    budgets: budgets?.n ?? 0,
+    goals: goals?.n ?? 0,
+    sharedBudgets: shared?.n ?? 0,
+    teamMembers: team?.n ?? 0,
+    helpers: helpers?.n ?? 0
+  };
+}
+
+const DeleteAccountSchema = z.object({
+  password: z.string().min(1),
+  // Typing the word is the second hand on the lever. A mis-tap cannot reach this.
+  confirm: z.literal('DELETE')
+});
+
+/**
+ * GET  /v1/account/delete   what deleting would take with it
+ * POST /v1/account/delete   does it, and it cannot be undone
+ *
+ * Removing the auth user cascades: profiles hangs off auth.users, and 34 tables hang off profiles, so one
+ * delete takes the money, the budgets, the goals, the devices and the invites with it. Required by both app
+ * stores for any app with sign-up, and by the right to erasure under the Nigeria Data Protection Act.
+ */
+export async function deleteAccount(ctx: Ctx) {
+  const auth = await requireAuth(ctx.req);
+  // A helper looks after someone else's money. Closing their account is never theirs to do.
+  if (auth.actorId !== auth.userId) {
+    throw new HttpError(403, 'FORBIDDEN', 'Only the account holder can delete this account.');
+  }
+  if (auth.teamRole) {
+    throw new HttpError(403, 'FORBIDDEN', 'A team member cannot delete the business owner’s account.');
+  }
+
+  if (ctx.method === 'GET') return json(200, { summary: await deletionSummary(auth.userId) });
+  if (ctx.method !== 'POST') methodNotAllowed(['GET', 'POST']);
+
+  const input = await body(ctx.req, DeleteAccountSchema, 'Type DELETE and your password to confirm');
+  // Someone holding an unlocked phone should not get many tries at the password here either.
+  await enforceRateLimit({ key: `delete-account:${auth.userId}`, limit: 5, windowSec: 15 * 60 });
+
+  const [row] = await sql`
+    select coalesce(encrypted_password = extensions.crypt(${input.password}, encrypted_password), false) as ok
+    from auth.users where id = ${auth.userId}
+  `;
+  if (!row?.ok) throw new HttpError(400, 'INVALID_PASSWORD', 'That password is incorrect');
+
+  const summary = await deletionSummary(auth.userId);
+  const [who] = await sql<{ email: string | null; name: string | null }[]>`
+    select email, name from public.profiles where id = ${auth.userId}
+  `;
+
+  // Sent before the delete, because afterwards there is no address to send to. Also tells the owner if
+  // somebody else did this with a stolen phone and a guessed password.
+  if (who?.email) {
+    await sendEmail({
+      to: who.email,
+      subject: 'Your BudgetFriendly account has been deleted',
+      text:
+        `${who.name ? `${who.name}, your` : 'Your'} BudgetFriendly account and everything in it have been deleted.\n\n` +
+        'That covers your budgets, what you recorded, your goals and your devices. It cannot be undone, and we cannot bring it back.\n\n' +
+        'If this was not you, reply to this email straight away.\n\n' +
+        'Thank you for trying BudgetFriendly.'
+    }).catch(() => undefined);
+  }
+
+  const { error } = await adminAuth().deleteUser(auth.userId);
+  if (error) {
+    console.error('[account] delete failed', error.message);
+    throw new HttpError(500, 'DELETE_FAILED', 'We could not delete the account. Try again, and tell us if it keeps failing.');
+  }
+
+  return json(200, { deleted: true, summary });
+}
+
+/**
  * GET    /v1/auth/sessions                 signed-in devices
  * POST   /v1/auth/sessions/revoke-others   sign out every other device
  * DELETE /v1/auth/sessions/:id             sign out one device
