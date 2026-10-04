@@ -36,7 +36,7 @@ How to help:
 async function buildContext(userId: string): Promise<string> {
   const today = todayIso();
   const [[profile], plan, insights] = await Promise.all([
-    sql`select name, currency, pain_points from public.profiles where id = ${userId}`,
+    sql`select currency, pain_points from public.profiles where id = ${userId}`,
     loadPlan(userId, today),
     computeInsights(userId, 'personal', today, { includeDismissed: true })
   ]);
@@ -68,7 +68,9 @@ async function buildContext(userId: string): Promise<string> {
   ]);
 
   const lines: string[] = [];
-  lines.push(`Name: ${profile?.name ?? 'not given'}. Currency: ${profile?.currency ?? '₦ (NGN)'}.`);
+  // The name is deliberately not here. Flux answers about money, not about who you are, and the less that
+  // leaves for a model to read the better. Everything below is figures.
+  lines.push(`Currency: ${profile?.currency ?? '₦ (NGN)'}.`);
   const pains = (profile?.painPoints ?? []).map((p: string) => PAIN_LABELS[p]).filter(Boolean);
   if (pains.length) lines.push(`What they want help with: ${pains.join('; ')}.`);
 

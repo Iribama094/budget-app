@@ -1,6 +1,7 @@
 import { sql } from './lib/db.ts';
 import { CORS_HEADERS, errorResponse, HttpError, json, SECURITY_HEADERS } from './lib/http.ts';
 import { enforceGlobalRate } from './lib/limits.ts';
+import { reportError } from './lib/report.ts';
 import { todayIso } from './lib/dates.ts';
 import { runAllDueRecurring, sendBillReminders } from './lib/recurring.ts';
 import { monoConfigured, syncBankLink, type BankLinkRow } from './lib/bank.ts';
@@ -172,6 +173,7 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
         if (delivered) sent++;
       } catch (err) {
         console.error('[cron] weekly summary failed', err);
+        reportError(err, { route: 'cron/daily', extra: { step: 'weekly summary' } });
       }
     }
     summary.weekly = { users: people.length, sent };
@@ -200,6 +202,7 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
         if (delivered) sent++;
       } catch (err) {
         console.error('[cron] insight failed', err);
+        reportError(err, { route: 'cron/daily', extra: { step: 'insight' } });
       }
     }
     summary.insights = { users: active.length, sent };
@@ -225,6 +228,7 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
         if (delivered) sent++;
       } catch (err) {
         console.error('[cron] wrapped failed', err);
+        reportError(err, { route: 'cron/daily', extra: { step: 'wrapped' } });
       }
     }
     summary.wrapped = { users: people.length, sent };
@@ -393,6 +397,8 @@ Deno.serve(async (req) => {
   } catch (err) {
     if (err instanceof HttpError) return errorResponse(err.status, err.code, err.message, err.details, err.headers);
     console.error('[api] unexpected error', req.method, url.pathname, err);
+    // Somebody is told about this one, rather than it waiting in a log for a person to go looking.
+    reportError(err, { route: parts.join('/'), method: req.method.toUpperCase() });
     return errorResponse(500, 'SERVER_ERROR', 'Unexpected error');
   }
 });
