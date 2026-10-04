@@ -879,6 +879,37 @@ try {
   r = await call(null, 'POST', '/cron/daily?insights=1', {}, { 'x-cron-secret': CRON });
   check('daily job runs with secret', r.status === 200 && r.data.today === today && typeof r.data.billReminders === 'number' && typeof r.data.insights?.sent === 'number' && typeof r.data.business?.invoices === 'number' && typeof r.data.referrals?.sent === 'number', r);
 
+  section('Your records, and closing the account');
+  r = await call(a.token, 'GET', '/account/export');
+  check(
+    'export returns the whole record',
+    r.status === 200 && Array.isArray(r.data?.transactions) && r.data.profile && typeof r.data.exportedAt === 'string',
+    r
+  );
+  check(
+    'export carries no bank credential',
+    r.status === 200 && !JSON.stringify(r.data?.bankConnections ?? []).match(/external_account_id|externalAccountId|token/i),
+    r
+  );
+  check('export refuses an unknown format', (await call(a.token, 'GET', '/account/export?format=pdf')).status === 400);
+  check('export needs a signed-in person', (await call(null, 'GET', '/account/export')).status === 401);
+
+  r = await call(a.token, 'GET', '/account/delete');
+  check('deletion preview counts what would go', r.status === 200 && typeof r.data?.summary?.transactions === 'number', r);
+
+  // A throwaway of its own, because the rest of the suite still needs A.
+  const doomed = { email: `bf.e2e.delete.${Date.now()}@example.com`, password: 'Passw0rd-Delete-1', name: 'Goes Away' };
+  const gone = await createUser(doomed);
+  r = await call(gone.token, 'POST', '/transactions', { type: 'expense', amount: 1500, category: 'Transport', description: 'Keke', occurredAt: now() });
+  check('the doomed account recorded something', r.status === 201, r);
+  check('deleting needs the word', (await call(gone.token, 'POST', '/account/delete', { password: doomed.password, confirm: 'yes' })).status === 400);
+  check('deleting needs the right password', (await call(gone.token, 'POST', '/account/delete', { password: 'Wrong-Passw0rd-9', confirm: 'DELETE' })).status === 400);
+  r = await call(gone.token, 'POST', '/account/delete', { password: doomed.password, confirm: 'DELETE' });
+  check('the account is deleted', r.status === 200 && r.data?.deleted === true && r.data?.summary?.transactions === 1, r);
+  check('its token no longer works', (await call(gone.token, 'GET', '/auth/me')).status === 401);
+  check('it cannot sign in again', (await signIn(doomed.email, doomed.password)).status >= 400);
+  users.splice(users.indexOf(gone.id), 1);
+
   section('Clean up');
   const fresh = (await signIn(A.email, 'ResetPassw0rd-3')).data?.access_token ?? a.token;
   r = await call(fresh, 'DELETE', `/budgets/${prevBudgetId}`);
