@@ -19,6 +19,9 @@ import path from 'node:path';
 
 const REF = 'uggmyokbpwfdbustnggo';
 const target = process.argv[2] ?? 'origin/main';
+// Which CLI to run. Pinnable because a release can ship without a binary for your machine: 2.119.0 had none
+// for Windows, and "latest" then fails before it has done anything. SUPABASE_CLI=supabase@2.118.0 gets past it.
+const CLI = process.env.SUPABASE_CLI || 'supabase@latest';
 
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
 // shell on Windows, where npx is a .cmd and execFile cannot spawn it directly.
@@ -51,7 +54,7 @@ const wanted = git('ls-tree', '--name-only', sha, 'supabase/migrations/')
   .split('\n')
   .map((f) => path.basename(f).split('_')[0])
   .filter((v) => /^\d{14}$/.test(v));
-const listed = run('npx', ['--yes', 'supabase@latest', 'migration', 'list', '--linked']);
+const listed = run('npx', ['--yes', CLI, 'migration', 'list', '--linked']);
 // The CLI prints JSON in some versions and a table in others, so read whichever came back.
 const applied = new Set();
 try {
@@ -75,7 +78,7 @@ try {
   console.log(`Checking out ${sha.slice(0, 7)} (${target})...`);
   git('worktree', 'add', '--detach', '--quiet', work, sha);
   console.log('Deploying...');
-  run('npx', ['--yes', 'supabase@latest', 'functions', 'deploy', 'api', '--use-api', '--project-ref', REF], { cwd: work, stdio: 'inherit' });
+  run('npx', ['--yes', CLI, 'functions', 'deploy', 'api', '--use-api', '--project-ref', REF], { cwd: work, stdio: 'inherit' });
 } finally {
   try {
     git('worktree', 'remove', '--force', work);
@@ -84,7 +87,7 @@ try {
   }
 }
 
-const info = run('npx', ['--yes', 'supabase@latest', 'functions', 'list', '-o', 'json']);
+const info = run('npx', ['--yes', CLI, 'functions', 'list', '-o', 'json']);
 const version = JSON.parse(info.slice(info.indexOf('['))).find((f) => f.slug === 'api')?.version;
 console.log(`\n  Live: version ${version}, from ${sha.slice(0, 7)} (${git('log', '-1', '--format=%s', sha)})`);
 console.log('  Now run: node supabase/scripts/e2e.mjs "$(pwd)"\n');
