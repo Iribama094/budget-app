@@ -1,10 +1,12 @@
 import { sql } from './lib/db.ts';
 import { CORS_HEADERS, errorResponse, HttpError, json, SECURITY_HEADERS } from './lib/http.ts';
 import { enforceGlobalRate } from './lib/limits.ts';
+import { reportError } from './lib/report.ts';
 import { todayIso } from './lib/dates.ts';
 import { runAllDueRecurring, sendBillReminders } from './lib/recurring.ts';
 import { monoConfigured, syncBankLink, type BankLinkRow } from './lib/bank.ts';
-import { authMe, changePassword, forgotPassword, notifications, pushTokens, sessions, usersMe, verifyEmail } from './routes/account.ts';
+import { authMe, changePassword, deleteAccount, forgotPassword, notifications, pushTokens, sessions, usersMe, verifyEmail } from './routes/account.ts';
+import { exportData } from './routes/dataExport.ts';
 import { acceptInvite, budgetById, budgetPace, budgetsIndex, nextPeriod, respread, rollover, sharing } from './routes/budgets.ts';
 import { sendPeriodEndingReminders, sendSharedDigests } from './lib/shared.ts';
 import { analyticsSummary, transactionById, transactionsIndex } from './routes/transactions.ts';
@@ -171,6 +173,7 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
         if (delivered) sent++;
       } catch (err) {
         console.error('[cron] weekly summary failed', err);
+        reportError(err, { route: 'cron/daily', extra: { step: 'weekly summary' } });
       }
     }
     summary.weekly = { users: people.length, sent };
@@ -199,6 +202,7 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
         if (delivered) sent++;
       } catch (err) {
         console.error('[cron] insight failed', err);
+        reportError(err, { route: 'cron/daily', extra: { step: 'insight' } });
       }
     }
     summary.insights = { users: active.length, sent };
@@ -224,6 +228,7 @@ async function cronDaily(ctx: Ctx): Promise<Response> {
         if (delivered) sent++;
       } catch (err) {
         console.error('[cron] wrapped failed', err);
+        reportError(err, { route: 'cron/daily', extra: { step: 'wrapped' } });
       }
     }
     summary.wrapped = { users: people.length, sent };
@@ -251,6 +256,10 @@ function route(parts: string[]): Handler | null {
   if (a === 'auth' && b === 'verify-email' && n <= 3) return verifyEmail;
   if (a === 'auth' && b === 'sessions') return sessions;
   if (a === 'users' && b === 'me' && n === 2) return usersMe;
+  // Taking your records with you, and closing the account for good. Both app stores require the
+  // second one, and the privacy notice promises both.
+  if (a === 'account' && b === 'export' && n === 2) return exportData;
+  if (a === 'account' && b === 'delete' && n === 2) return deleteAccount;
 
   if (a === 'recurring' && n === 1) return recurringIndex;
   if (a === 'recurring' && n === 2) return recurringById;
@@ -388,6 +397,8 @@ Deno.serve(async (req) => {
   } catch (err) {
     if (err instanceof HttpError) return errorResponse(err.status, err.code, err.message, err.details, err.headers);
     console.error('[api] unexpected error', req.method, url.pathname, err);
+    // Somebody is told about this one, rather than it waiting in a log for a person to go looking.
+    reportError(err, { route: parts.join('/'), method: req.method.toUpperCase() });
     return errorResponse(500, 'SERVER_ERROR', 'Unexpected error');
   }
 });

@@ -40,6 +40,20 @@ The end-to-end script exercises personal budgeting as well as invoices, bills, p
 
 The database password and cron secret live only in the git-ignored `.env.supabase.local`. If you change `CRON_SECRET`, update both the function secret (`npx supabase secrets set`) and the Vault secret `bf_cron_secret`.
 
+### Knowing when the API breaks
+
+Until `SENTRY_DSN` is set, a 500 goes to the function log and waits for somebody to look. That is also why we
+could not honestly promise to notice a breach inside the 72 hours the Nigeria Data Protection Act allows. Make
+a project at any Sentry-compatible host, then:
+
+```bash
+npx supabase secrets set SENTRY_DSN='https://<key>@<host>/<project>' SENTRY_ENVIRONMENT=production
+```
+
+Nothing leaves the project until that is set. Emails and long numbers are stripped from the message before it
+is sent, keys and tokens are never included, and a person is identified by id alone. Set up an alert in Sentry
+that reaches a phone, because an error report nobody reads is the same as no error report.
+
 The older Vercel + MongoDB backend (`api/`, `backend/`, `server/`) and the notes below are kept for reference; the app no longer uses them.
 
 ## Web projects on Vercel

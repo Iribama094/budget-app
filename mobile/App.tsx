@@ -45,6 +45,7 @@ import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { AuthLandingScreen } from './src/screens/AuthLandingScreen';
 import TaxSettingsScreen from './src/screens/TaxSettingsScreen';
 import ExportDataScreen from './src/screens/ExportDataScreen';
+import DeleteAccountScreen from './src/screens/DeleteAccountScreen';
 import HelpSupportScreen from './src/screens/HelpSupportScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import AnalyticsCategoryDetailScreen from './src/screens/AnalyticsCategoryDetailScreen';
@@ -158,6 +159,7 @@ function AuthedStack() {
       <Stack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
       <Stack.Screen name="AddTransaction" component={AddTransactionScreen} options={{ presentation: 'modal' }} />
       <Stack.Screen name="ExportData" component={ExportDataScreen} />
+      <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
       <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="AnalyticsCategoryDetail" component={AnalyticsCategoryDetailScreen} />
