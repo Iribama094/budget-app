@@ -117,18 +117,18 @@ export default function DeleteAccountScreen() {
             </P>
 
             {summary && summary.sharedBudgets > 0 ? (
-              <P style={{ marginTop: 10, color: theme.colors.text }}>
+              <P style={{ marginTop: 10, color: theme.colors.brassText }}>
                 {summary.sharedBudgets === 1 ? 'A budget you share goes too' : `${summary.sharedBudgets} budgets you share go too`}, so the people you
                 share with lose {summary.sharedBudgets === 1 ? 'it' : 'them'} as well.
               </P>
             ) : null}
             {summary && summary.teamMembers > 0 ? (
-              <P style={{ marginTop: 10, color: theme.colors.text }}>
+              <P style={{ marginTop: 10, color: theme.colors.brassText }}>
                 {summary.teamMembers} {summary.teamMembers === 1 ? 'person' : 'people'} on your business team will lose access to the business.
               </P>
             ) : null}
             {summary && summary.helpers > 0 ? (
-              <P style={{ marginTop: 10, color: theme.colors.text }}>
+              <P style={{ marginTop: 10, color: theme.colors.brassText }}>
                 {summary.helpers} {summary.helpers === 1 ? 'helper' : 'helpers'} will no longer see your money.
               </P>
             ) : null}
