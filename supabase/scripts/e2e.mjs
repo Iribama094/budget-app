@@ -11,7 +11,9 @@ const PUB = 'sb_publishable_lfNxkvbTpvx7iP5S4n0FUw_-F1foews';
 
 const env = fs.readFileSync(`${root}/.env.supabase.local`, 'utf8');
 const CRON = env.match(/^CRON_SECRET=(.*)$/m)[1].trim();
-const keysRaw = execSync(`npx supabase projects api-keys --project-ref ${REF} -o json --reveal`, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+// Pinnable for the same reason deploy.mjs pins it: 2.119.0 shipped without a Windows binary.
+const CLI = process.env.SUPABASE_CLI || 'supabase';
+const keysRaw = execSync(`npx --yes ${CLI} projects api-keys --project-ref ${REF} -o json --reveal`, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
 const SECRET = JSON.parse(keysRaw.slice(keysRaw.indexOf('['))).find((k) => k.type === 'secret').api_key;
 
 let pass = 0;
@@ -880,7 +882,9 @@ try {
   check('daily job runs with secret', r.status === 200 && r.data.today === today && typeof r.data.billReminders === 'number' && typeof r.data.insights?.sent === 'number' && typeof r.data.business?.invoices === 'number' && typeof r.data.referrals?.sent === 'number', r);
 
   section('Your records, and closing the account');
-  r = await call(a.token, 'GET', '/account/export');
+  // A's password was reset further up, so a.token is dead by now. Clean up does the same thing below.
+  const mine = (await signIn(A.email, 'ResetPassw0rd-3')).data?.access_token ?? a.token;
+  r = await call(mine, 'GET', '/account/export');
   check(
     'export returns the whole record',
     r.status === 200 && Array.isArray(r.data?.transactions) && r.data.profile && typeof r.data.exportedAt === 'string',
@@ -891,10 +895,10 @@ try {
     r.status === 200 && !JSON.stringify(r.data?.bankConnections ?? []).match(/external_account_id|externalAccountId|token/i),
     r
   );
-  check('export refuses an unknown format', (await call(a.token, 'GET', '/account/export?format=pdf')).status === 400);
+  check('export refuses an unknown format', (await call(mine, 'GET', '/account/export?format=pdf')).status === 400);
   check('export needs a signed-in person', (await call(null, 'GET', '/account/export')).status === 401);
 
-  r = await call(a.token, 'GET', '/account/delete');
+  r = await call(mine, 'GET', '/account/delete');
   check('deletion preview counts what would go', r.status === 200 && typeof r.data?.summary?.transactions === 'number', r);
 
   // A throwaway of its own, because the rest of the suite still needs A.
